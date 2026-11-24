@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { appFields, createAppModeSync, workflowMode } from "../js/shared/app_mode.mjs";
+import { appFields, createAppModeSync, formHostSelector, workflowMode } from "../js/shared/app_mode.mjs";
 import { hideWidget, isWidgetHidden } from "../js/shared/widget_visibility.mjs";
 
 function graph() {
@@ -68,4 +68,12 @@ test("builder mode and the graph leave card widgets hidden", () => {
     assert.equal(sync(mode, linearData), 0);
     assert.equal(isWidgetHidden(g.find("256", "image").widget), true);
   }
+});
+
+test("formHostSelector names the form row's host for one node's widget", () => {
+  const selector = formHostSelector(150, "clip_window");
+  assert.match(selector, /\[data-widget-key\$=":150:clip_window"\]/);
+  assert.match(selector, /\[data-widget-name="clip_window"\] div\[node-type\]$/);
+  // Quotes and backslashes cannot break out of the attribute value.
+  assert.doesNotMatch(formHostSelector('1"]x', 'a\\"b'), /"\]x|\\/);
 });

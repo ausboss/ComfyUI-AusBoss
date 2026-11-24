@@ -41,6 +41,9 @@ import {
   noteShowsTileFace,
   normalizeNote,
   onlyCopy,
+  OWN_PACK,
+  isOwnPackRow,
+  nameOwnPack,
   packsFromGraph,
   parseMarkdown,
   rowFromCells,
@@ -150,6 +153,36 @@ function nodeTypeRegistered(type) {
 
 function moduleOfType(type) {
   return globalThis.LiteGraph?.registered_node_types?.[type]?.nodeData?.python_module;
+}
+
+// The custom_nodes folder this pack runs from, read off the Workflow Note's
+// own registration.
+function ownPackFolder() {
+  return /^custom_nodes\.([^.]+)/.exec(String(moduleOfType("AUSBOSS_NODES_WorkflowNote") ?? ""))?.[1] ?? "";
+}
+
+// Open ComfyUI-Manager on its updates list, or its node list. Without the
+// Manager, say what to do and open the Registry page instead.
+const MANAGER_COMMANDS = [
+  "Comfy.Manager.ShowUpdateAvailablePacks",
+  "Comfy.Manager.CustomNodesManager.ShowCustomNodesMenu",
+  "Comfy.Manager.Menu.ToggleVisibility",
+];
+async function openManagerForUpdate(tip) {
+  const command = app.extensionManager?.command;
+  const known = new Set((command?.commands ?? []).map((entry) => entry?.id));
+  for (const id of MANAGER_COMMANDS) {
+    if (!known.has(id)) continue;
+    try {
+      await command.execute(id);
+      showToast({ severity: "info", summary: "AusBoss nodes", detail: tip, life: 12000 });
+      return;
+    } catch (_error) {
+      // Try the next way into the Manager.
+    }
+  }
+  showToast({ severity: "info", summary: "AusBoss nodes", detail: tip, life: 12000 });
+  window.open(OWN_PACK.url, "_blank", "noopener,noreferrer");
 }
 
 // ---------------------------------------------------------------------------
@@ -497,6 +530,18 @@ function packRow(state, row) {
       pill.append(link);
     }
     action.append(pill);
+  } else if (installed === false && isOwnPackRow(row)) {
+    // This note is running, so the pack is installed: the workflow needs a
+    // newer version. Cloning from GitHub would add a second copy.
+    const tip = `This workflow needs a newer version of AusBoss nodes (${row.node} is missing). `
+      + "Update AusBoss nodes in ComfyUI-Manager, then restart ComfyUI.";
+    setDot(dot, "missing", tip);
+    const button = el("button", "ausboss-note-dl", "Update");
+    button.type = "button";
+    button.title = tip;
+    button.addEventListener("pointerdown", (event) => event.stopPropagation());
+    button.addEventListener("click", () => openManagerForUpdate(tip));
+    action.append(button);
   } else {
     setDot(dot, installed === false ? "missing" : "unknown",
       installed === false ? `${row.node} is not registered here - install the pack` : "No probe node set, so this row is not checked");
@@ -1049,8 +1094,8 @@ async function openEditor(state) {
   form.append(field("Models", models.box, "Each row shows a Download button until the file is found in its folder (subfolders count). The note shows in grey under the file name."), modelTools);
 
   const packs = table("packs", ["Pack", "URL", "Probe node class"], draft.packs, (row) => [
-    input(row.name, "ComfyUI-AusBoss"),
-    input(row.url, "https://github.com/ausboss/ComfyUI-AusBoss"),
+    input(row.name, OWN_PACK.name),
+    input(row.url, OWN_PACK.url),
     input(row.node, "AUSBOSS_NODES_LoraLoader"),
   ]);
   const packTools = el("div");
@@ -1065,11 +1110,9 @@ async function openEditor(state) {
   detect.addEventListener("click", () => {
     const types = collectGraphNodes(app.rootGraph ?? app.graph).map((node) => node.type);
     const have = new Set(packs.entries.map((entry) => entry.controls[0].value.trim()));
-    for (const pack of packsFromGraph(types, moduleOfType)) {
+    for (const pack of nameOwnPack(packsFromGraph(types, moduleOfType), ownPackFolder())) {
       if (have.has(pack.name)) continue;
-      packs.add(pack.name === "ComfyUI-AusBoss"
-        ? { ...pack, url: "https://github.com/ausboss/ComfyUI-AusBoss" }
-        : pack);
+      packs.add(pack);
     }
   });
   packTools.append(addPack, detect);

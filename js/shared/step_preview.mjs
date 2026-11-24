@@ -7,6 +7,10 @@
 // mountStepOverlay lays the picture, a progress line and a short caption
 // over a node's own picture box, and stopStepRun is the Stop button.
 //
+// For a clip, the server also sends about one frame per second of it after
+// each step (FRAMES_EVENT), and the overlay plays them in a loop at the
+// clip's own pace instead of the first frame alone.
+//
 // Runs queued from another workflow tab are left to that tab.
 
 import { api } from "../../../scripts/api.js";
@@ -22,6 +26,7 @@ import {
   consumersOf,
   drawsTiles,
   feedsInto,
+  frameMs,
   nextRunState,
   resultRank,
   stepFraction,
@@ -30,6 +35,8 @@ import {
 } from "./step_preview_math.mjs";
 
 const CSS_ID = "ausboss-step-preview-css";
+// The server's message with a clip's frames (nodes/_step_preview_helpers.py).
+const FRAMES_EVENT = "ausboss.step_frames";
 // How long a replaced picture's object URL lives on, so a face that is
 // still swapping to the new one never shows a broken picture.
 const URL_GRACE_MS = 2000;
@@ -105,8 +112,20 @@ function wire() {
       type: "picture",
       promptId: detail.jobId ?? null,
       maker,
+      real: detail.nodeId ?? null,
       url: URL.createObjectURL(detail.blob),
       tile: drawsTiles(nodeType(nodeByExecutionId(rootGraph(), maker))),
+    });
+  });
+  // A clip's frames for the step picture that follows them.
+  on(FRAMES_EVENT, (detail) => {
+    if (isForeignRun(detail?.prompt_id)) return;
+    apply({
+      type: "frames",
+      promptId: detail?.prompt_id ?? null,
+      maker: detail?.node === undefined || detail?.node === null ? null : String(detail.node),
+      list: detail?.frames,
+      seconds: detail?.seconds,
     });
   });
   // The tiles of a tiled upscale run between its split and its stitch.
@@ -245,6 +264,35 @@ export function mountStepOverlay(stage) {
   root.append(img, line, chip);
   stage.append(root);
   let shown = false;
+  // The moving picture: the frames playing, which one is up, and the timer.
+  let playing = null;
+  let frame = 0;
+  let timer = null;
+  const stopPlaying = () => {
+    if (timer) clearInterval(timer);
+    timer = null;
+    playing = null;
+  };
+  const tick = () => {
+    // A face taken off the page takes its timer with it.
+    if (!root.isConnected || !playing) return stopPlaying();
+    frame = (frame + 1) % playing.list.length;
+    img.src = playing.list[frame];
+  };
+  const play = (frames) => {
+    const ms = frameMs(frames);
+    const restart = !timer || frameMs(playing) !== ms;
+    // The frames of the next step pick up where the loop is.
+    if (playing !== frames) {
+      frame %= frames.list.length;
+      playing = frames;
+      img.src = frames.list[frame];
+    }
+    if (restart) {
+      if (timer) clearInterval(timer);
+      timer = setInterval(tick, ms);
+    }
+  };
   return {
     root,
     get shown() {
@@ -255,7 +303,12 @@ export function mountStepOverlay(stage) {
     show(current, { saves = false, result = false } = {}) {
       const url = (result && current?.result) || current?.url;
       if (!url) return this.hide();
-      if (img.getAttribute("src") !== url) img.src = url;
+      const frames = !(result && current?.result) && current?.frames?.list?.length > 1 ? current.frames : null;
+      if (frames) play(frames);
+      else {
+        stopPlaying();
+        if (img.getAttribute("src") !== url) img.src = url;
+      }
       const stopped = current.status === "stopped";
       root.classList.toggle("stopped", stopped);
       line.style.width = `${Math.round(stepFraction(current) * 100)}%`;
@@ -266,6 +319,8 @@ export function mountStepOverlay(stage) {
       return true;
     },
     hide() {
+      stopPlaying();
+      frame = 0;
       root.classList.remove("on", "stopped");
       stage.classList.remove("ausboss-steps-showing");
       img.removeAttribute("src");

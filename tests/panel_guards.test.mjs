@@ -149,7 +149,7 @@ test("a panel that should follow the node's height never declares computeSize", 
   //
   // workflow_switches is a list sized to its rows, like the widget cards: one
   // row per switch, and extra height would only be dead space under the last.
-  const fixedByDesign = new Set(["run_timer", "save_image", "seed", "widget_cards", "workflow_switches"]);
+  const fixedByDesign = new Set(["pause_shot", "run_timer", "save_image", "seed", "viewer_ratio", "widget_cards", "workflow_switches"]);
   const seen = new Set();
   for (const { name, source } of domWidgetEntries()) {
     seen.add(name);
@@ -391,6 +391,7 @@ test("every panel root class carries border-box and an overflow clip", () => {
     load_image_pad: ".ausboss-loadpad-root{",
     image_crop_rotate_pad: ".ausboss-transform-panel{",
     image_folder: ".ausboss-if{",
+    pause_shot: ".ausboss-pshot{",
     layout_boxes: ".ausboss-lb{",
     mask_by_touch: ".ausboss-touch{",
     save_image: ".ausboss-save{",

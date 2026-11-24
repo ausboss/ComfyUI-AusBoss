@@ -9,6 +9,34 @@ fill-color bands around it for a **video outpaint**: the `mask` output marks the
 bands (and rotation corners), ready for Crop For Inpaint or an in-context video
 model that paints black regions.
 
+## Clip window for App mode
+
+In an App-mode form, this node can show a **clip window** instead of its whole
+editor: the video, playing only the part that gets used on a loop, over a strip
+of pictures from the video with a box over that part. Click the video to pause it. Drag
+the box to pick where the clip starts; drag one of its edges to make it shorter
+or longer. A line under it says what you picked, such as "8.0 s used, starting at
+0:03". To put it in a form, list the field `clip_window` of this node, next to
+its `video` field. On the graph the node looks the same as before: the clip
+window only shows inside the form.
+
+**Min seconds** and **max seconds** (`min_seconds`, `max_seconds`) keep the clip
+inside a range, for example 5 to 8 seconds for a model that is only reliable
+there. The edges stop at those lengths, in the form and on the node's own
+timeline, and a run keeps to them too:
+
+- a longer pick, or the whole video, is cut to the max;
+- a shorter pick grows to the min, and where the video ends first the start
+  moves back instead;
+- a video shorter than the min is used whole, with no error.
+
+Set them in the **Clip length limits** fold, under Crop, pad & resize. It starts
+closed; its header shows the limits (`5 – 8 s`, `from 5 s`, `up to 8 s`, or `off`).
+Open it for **Shortest** and **Longest**. 0 means no limit, and both are 0 by
+default, so older workflows run as before. Typing a Shortest above the Longest
+moves the Longest up with it, and the other way round. An exact **Fixed frames**
+count wins over them.
+
 ## Source and window
 
 - **Inputs**: Pick an existing input video (the list plays the clip under the pointer, muted, and filters as you type), click **Load**, or drop a video file
@@ -164,7 +192,7 @@ The node performs no remote network requests and does not rewrite the source vid
 
 ## Connected timing inputs
 
-Five optional sockets sit on the left, above the editor:
+Optional timing inputs:
 
 | Input | Meaning |
 | --- | --- |
@@ -174,6 +202,7 @@ Five optional sockets sit on the left, above the editor:
 | `fixed_frames` | Exact output frames from IN; the source must be long enough. Connected, it sets the length: Duration, Ends at and Frames for step aside. |
 | `frame_load_cap` | Maximum frames after rate conversion and Every nth, before Frames for. 0 means unlimited. Connected, it sets the length in place of Duration. When the count is known, dragging the start stops at the last start that fits the kept frames. |
 | `last_seconds` | Load only this many seconds from the end of the clip, or of the part before OUT. 0 loads all of it. Use it to carry on from a clip: a long clip then costs no more memory than a short one. |
+| `min_seconds` / `max_seconds` | The shortest and longest the clip may be, in seconds; 0 is no limit. Applied after the window is worked out, so the start, Duration and the other inputs set the clip and these keep its length in range (see Clip window for App mode). |
 
 Frame bounds use the source's frame-rate grid, independent of `force_rate`.
 The footer labels **Source fps** separately from **Output fps**. A direct

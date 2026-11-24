@@ -12,8 +12,72 @@ All notable changes to ComfyUI-AusBoss are documented here.
   copy turns the old one off before ComfyUI loads anything: the folder is
   renamed `ComfyUI-AusBoss.disabled`, so nothing is deleted, and renaming it
   back undoes it. If the folder cannot be renamed, ComfyUI shows a message
-  naming the folder to delete. The README now clones into `ausboss-nodes`,
-  the folder the Manager uses, so a clone and the Manager share one copy.
+  naming the folder to delete.
+
+## 2.27.0 - 2026-11-23
+
+- **Video Crop + Rotate + Pad → Clip 🆎 can put a clip window in an App-mode
+  form.** List the node's `clip_window` field and the form shows the video,
+  playing only the part that gets used, over a strip of pictures with a box
+  over that part: drag the box to pick where the clip starts, drag an edge to
+  shorten it. Two new inputs, `min_seconds` and `max_seconds`, keep the clip's
+  length in a range; the edges stop there, on the node's timeline too, and a
+  run keeps to them. A video shorter than the minimum is used whole. Both are
+  0 (no limit) by default and are set in a new **Clip length limits** fold
+  under Crop, pad & resize, closed unless you open it.
+
+- **New node: Pause for Shot 🆎.** It stops a run right after the 3D
+  viewer so you can frame your shot on the model that run just made, then
+  **Continue** carries on with the camera exactly as the viewer shows it.
+  Nothing before the pause runs again. Wire in a 360 picture and it shows
+  behind the model while you frame, and the node hands on the part of it
+  the camera sees, with an optional floor shadow under the model.
+- **ComfyUI's 3D viewers get Blender keys, shape chips and a 360 strip.**
+  With the mouse over a viewer, G, R and S move, turn and size the model,
+  as in Blender. Preview 3D (Advanced) and Save 3D (Advanced) get the shape
+  chips from Latent Size above their width and height. Press N for a strip
+  that turns the 360 background and changes the model's light and colours.
+  The axis gizmo moves to the top-right corner, with zoom, pan and grid
+  tools under it.
+- **The 3D viewer's floor grid is under the model's feet.** It used to run
+  through the middle of many models, such as a person built by TRELLIS 2.
+  Now it sits at the model's lowest point, where the floor shadow goes.
+  The pictures a run takes from the viewer stay exactly as before.
+
+- **The step preview of a video now moves.** With **Preview steps** on in
+  Save Video, or a Step Preview node in the workflow, a video model such as
+  MiniMax H3 shows a few frames of the clip after each step, about one per
+  second, playing in a loop. You see the motion and the shots take shape,
+  not only the first frame, and can stop a clip that is going wrong. It
+  costs next to nothing: a 5 second H3 clip took 53.8 s with it, 53.6 s
+  with no step pictures at all.
+
+- **The picture and video picker shows every file, in folders.** The list
+  used to stop at 400 files and ask you to type to narrow it. Now you can
+  scroll through all of them, open folders, and go back up with `..`.
+  Typing still searches every folder. The picker opens in the folder of the
+  file you picked, with that file highlighted. Thanks to TWIISTED-STUDIOS.
+- **Switch names show in full again.** Workflow Switches cut its names down to
+  a letter or two ("Per…" for "Blur the person"), and other node cards lost
+  their row layout, once a Callout had been on the canvas. The Callout now
+  keeps its styles to its own cards.
+
+## 2.26.7 - 2026-11-21
+
+- **An old copy of the pack that keeps loading now says so in the browser.**
+  With an old git clone in `custom_nodes/ComfyUI-AusBoss` and a newer
+  Manager install in `custom_nodes/ausboss-nodes`, the old clone loads,
+  because copies from before 2.24.0 cannot step aside. Every node added
+  since, such as Edit Lock, then shows as missing, and updating does not
+  help. The newer copy now shows a message in ComfyUI that names the old
+  folder to delete. Before, the only sign was a line in the console.
+- **Workflow Note: a missing AusBoss node asks for an update, not a GitHub
+  clone.** When a workflow needs an AusBoss node your version doesn't have,
+  the note's AusBoss row now shows **Update**. It opens ComfyUI-Manager's
+  updates list and says to restart afterwards. Before, the row showed
+  **Get it**, which opened GitHub, and cloning from there added a second
+  copy of the pack. **Detect from this workflow** now lists the pack as
+  AusBoss nodes with its Comfy Registry link, whatever folder it is in.
 - **LoRA Loader: set a LoRA's strength with a wire.** Drag a number wire,
   from a slider or a Float node, onto any row and that row's strength follows
   it. The row's box turns dashed teal and shows the number coming in; click

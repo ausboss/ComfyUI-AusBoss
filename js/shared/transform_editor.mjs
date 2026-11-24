@@ -4,6 +4,7 @@ import { linkedNodeInfo, timingUnits as clipUnits } from "./timing_links.mjs";
 import { PANEL_LABELS } from "./panel_controls.mjs";
 import { hideInputsInDef, hideWidget } from "./widget_visibility.mjs";
 import { mountTransformTrim } from "./transform_trim.mjs";
+import { mountClipWindow } from "./clip_window.mjs";
 import { clipOutputRate, inputNumber } from "./clip_rate.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "./index.mjs";
 import { WIDGET_FRAME, fillNodeHeight, holdVueNodeMinWidth, holdVuePanelMinHeight } from "./panel_layout.mjs";
@@ -81,7 +82,7 @@ import {
   wrapDegrees,
   zoomAround,
 } from "./transform_geometry.mjs";
-import { clampFrame, clipInfo, frameTime } from "./timeline_math.mjs";
+import { clampFrame, clipInfo, frameTime, lengthLimits, limitsSummary, setLengthLimit } from "./timeline_math.mjs";
 import { liftSocket } from "./widget_card.mjs";
 import { COPY_EDITS_SETTING, copyPicture, transformPicture } from "./transform_picture.mjs";
 
@@ -92,6 +93,9 @@ const HIDDEN_WIDGETS = [
   "pad_left", "pad_top", "pad_right", "pad_bottom", "feather", "canvas_multiple", "fill_color",
   "seek_mode", "frame_index", "frame_time",
   "start_seconds", "end_seconds", "every_nth", "max_frames", "frame_snap", "fixed_frames",
+  // Clip node: the length limits, and the App-mode clip window (a DOM
+  // widget shown only in a form that lists it, js/app_mode/).
+  "min_seconds", "max_seconds", "clip_window",
   // Stitch settings (clip and image nodes), driven by the editor's Inpaint & Stitch section.
   "stitch_blend", "stitch_grow",
   // Image node: what a painted part is handed on as, set in the same section.
@@ -603,6 +607,15 @@ export function transformGroupOpen(node) {
   return node?.properties?.[TRANSFORM_GROUP_OPEN_PROPERTY] === true;
 }
 
+// The clip node's "Clip length limits" fold, under Crop, pad & resize: the
+// min_seconds / max_seconds pair, closed by default. Its own node property,
+// so it opens and shuts on its own.
+export const LIMITS_GROUP_OPEN_PROPERTY = "ausboss_clip_limits_open";
+
+function limitsGroupOpen(node) {
+  return node?.properties?.[LIMITS_GROUP_OPEN_PROPERTY] === true;
+}
+
 export function transformGroupSummary(state) {
   const node = state.node;
   const parts = [];
@@ -706,6 +719,94 @@ function buildTransformGroup(state, rows) {
   return group;
 }
 
+// Clip length limits: Shortest and Longest, in seconds (min_seconds,
+// max_seconds; 0 is off). Built like the Crop, pad & resize fold and opens
+// the same way: the picture keeps its size and the node grows by the body.
+function buildLimitsGroup(state) {
+  const node = state.node;
+  const group = createElement("div", "ausboss-transform-group ausboss-transform-limits");
+  const head = createElement("button", "ausboss-transform-group-head");
+  head.type = "button";
+  const left = createElement("span", "ausboss-transform-group-title");
+  const caret = createElement("span", "ausboss-transform-group-caret", "▸");
+  caret.setAttribute("aria-hidden", "true");
+  left.append(caret, createElement("span", "", "Clip length limits"));
+  const right = createElement("span", "ausboss-transform-group-summary");
+  head.append(left, right);
+  const body = createElement("div", "ausboss-transform-group-body");
+  const row = createElement("div", "ausboss-transform-row ausboss-transform-canvas-row");
+  const current = () => ({ min: Number(value(node, "min_seconds", 0)) || 0, max: Number(value(node, "max_seconds", 0)) || 0 });
+  const fields = {};
+  const write = (edge, amount) => {
+    const next = setLengthLimit(edge, amount, current());
+    setValue(node, "min_seconds", next.min);
+    setValue(node, "max_seconds", next.max);
+    sync();
+    for (const trim of state.trimViews) trim.sync();
+  };
+  for (const [edge, caption, tip] of [
+    ["min", "Shortest", "The shortest the clip may be, in seconds. 0 is off. A shorter clip grows to this; a video shorter than this is used whole."],
+    ["max", "Longest", "The longest the clip may be, in seconds. 0 is off. A longer clip, or the whole video, is cut to this."],
+  ]) {
+    const label = createElement("label");
+    const control = makeScrubInput({
+      value: current()[edge], min: 0, max: 86400, step: 0.5, fineStep: 0.1, decimals: 2, minDecimals: 0, width: 72, unit: "s",
+      title: tip,
+      onChange: (amount) => write(edge, amount),
+      onSettle: notifyAusbossChange,
+    });
+    label.title = tip;
+    label.append(createElement("span", "", caption), control.root);
+    row.append(label);
+    fields[edge] = control;
+  }
+  body.append(row);
+  group.append(head, body);
+
+  const apply = () => {
+    const open = limitsGroupOpen(node);
+    group.classList.toggle("open", open);
+    body.hidden = !open;
+    head.setAttribute("aria-expanded", String(open));
+    head.title = open ? "Hide the clip length limits" : "Show the clip length limits: the shortest and longest the clip may be";
+  };
+  const sync = () => {
+    const limits = current();
+    const text = limitsSummary(limits.min, limits.max);
+    if (right.textContent !== text) right.textContent = text;
+    const clean = lengthLimits(limits.min, limits.max);
+    right.title = clean.active ? `The clip stays ${text} long` : "No limits: the clip is as long as you set it";
+    fields.min.set(limits.min);
+    fields.max.set(limits.max);
+  };
+  head.addEventListener("click", () => {
+    const stageHeight = state.previewCanvas?.clientHeight ?? 0;
+    const before = measureChrome(state) ?? 0;
+    node.properties ??= {};
+    node.properties[LIMITS_GROUP_OPEN_PROPERTY] = !limitsGroupOpen(node);
+    notifyAusbossChange();
+    apply();
+    const after = measureChrome(state) ?? before;
+    holdVuePanelMinHeight(state.previewCanvas?.parentElement, transformPanelFloor(node) - WIDGET_FRAME);
+    if (node.size && after !== before) {
+      const nextHeight = Math.max(transformPanelFloor(node), node.size[1] + after - before);
+      node.setSize?.([node.size[0], nextHeight]);
+      state.stageGrowth = { height: stageHeight, target: nextHeight };
+    }
+    node.setDirtyCanvas?.(true, true);
+    draw(state);
+  });
+  head.addEventListener("pointerdown", (event) => event.stopPropagation());
+  // The limits also change from the saved workflow and from undo.
+  state.trimViews.add({ sync });
+  chainCallback(node, "onConfigure", () => queueMicrotask(() => {
+    if (!state.disposed) { apply(); sync(); measureChrome(state); }
+  }));
+  apply();
+  sync();
+  return group;
+}
+
 export function installTransformNode(node, kind, mountPanel = null) {
   installStyles();
   const state = {
@@ -776,6 +877,7 @@ export function installTransformNode(node, kind, mountPanel = null) {
   // center and resize controls into one collapsible group, with a live
   // summary on the header so active settings stay visible when closed.
   panel.append(buildTransformGroup(state, [modeRow.row, chipRow.row, ...canvasRows]));
+  if (state.isClip && widget(node, "min_seconds") && widget(node, "max_seconds")) panel.append(buildLimitsGroup(state));
   panel.append(row);
   state.previewCanvas = preview;
   open.addEventListener("click", () => openEditor(state));
@@ -797,6 +899,7 @@ export function installTransformNode(node, kind, mountPanel = null) {
   } else {
     node.addWidget?.("button", "Open editor", null, () => openEditor(state), { serialize: false });
   }
+  if (state.isClip && typeof node.addDOMWidget === "function") installClipWindow(state);
   // A fresh node opens at its floor: the stage as tall as its width asks.
   node.setSize?.([
     Math.max(TRANSFORM_MIN_WIDTH, Math.min(520, node.size?.[0] || TRANSFORM_MIN_WIDTH)),
@@ -1764,6 +1867,8 @@ async function requestStoryboard(state, key, attempt = 0) {
       image, times: payload.times, count: payload.count,
       tileWidth: payload.tile_width, tileHeight: payload.tile_height,
     };
+    // The App-mode clip window draws its strip from the same tiles.
+    for (const trim of state.trimViews) trim.sync();
   } catch { /* storyboard is an enhancement, never an error */ }
 }
 
@@ -1932,7 +2037,7 @@ function editorSnapshot(node) {
   }
   const properties = {};
   for (const [key, current] of Object.entries(node.properties ?? {})) {
-    if (key.startsWith("ausboss_") && key !== TRANSFORM_GROUP_OPEN_PROPERTY) properties[key] = JSON.stringify(current);
+    if (key.startsWith("ausboss_") && key !== TRANSFORM_GROUP_OPEN_PROPERTY && key !== LIMITS_GROUP_OPEN_PROPERTY) properties[key] = JSON.stringify(current);
   }
   return { widgets, properties };
 }
@@ -2334,6 +2439,43 @@ function buildTrim(state) {
   return control.root;
 }
 
+// The clip window an App-mode form can list (js/shared/clip_window.mjs):
+// only the part of the video the run uses, as one box to drag. Hidden on
+// the graph, so the node's face is unchanged; js/app_mode/ shows it while a
+// form that lists it is open.
+function installClipWindow(state) {
+  const node = state.node;
+  const view = mountClipWindow({
+    get: (name, fallback) => value(node, name, fallback),
+    set: (name, next) => {
+      setValue(node, name, next);
+      for (const other of state.trimViews) if (other !== view) other.sync();
+    },
+    driven: (name) => trimInputDriven(node, name),
+    number: (name, fallback) => inputNumber(node, name, value(node, name, fallback)),
+    outputRate: () => clipOutputRate(node, state.metadata?.fps, value(node, "every_nth", 1)),
+    metadata: () => state.metadata,
+    storyboard: () => state.storyboard,
+    // Both source modes hold a name the way ComfyUI writes one
+    // ("clip.mp4", "clip.mp4 [output]"), so /view serves either.
+    videoUrl: () => {
+      const query = mediaViewQuery(sourceKey(node, "video") ? videoSourceState(
+        value(node, "source_mode", INPUT_FOLDER_MODE), value(node, "video", ""), value(node, "local_path", ""),
+      ).selection : "");
+      return query ? api.apiURL(`/view?${query}`) : "";
+    },
+    onCommit: notifyAusbossChange,
+  });
+  state.trimViews.add(view);
+  const clipWidget = node.addDOMWidget("clip_window", "ausboss_clip_window", view.root, {
+    serialize: false,
+    hideOnZoom: false,
+  });
+  clipWidget.serialize = false;
+  clipWidget.label = "Clip window";
+  hideWidget(clipWidget);
+}
+
 function setPlayhead(state, index) {
   const info = clipInfo(state.metadata);
   const frame = clampFrame(index, info);
@@ -2634,8 +2776,9 @@ function draw(state) {
 // measured on every draw; before the panel is on screen, these stand in:
 // the rows of a node with no file picked yet, as the examples open (the
 // canvas row's Resize adds the budget row under it).
-const PANEL_CHROME_CLOSED_ESTIMATE = { image: 188, video: 291, clip: 377 };
-const PANEL_CHROME_OPEN_ESTIMATE = { image: 347, video: 450, clip: 536 };
+// The clip node's rows include the closed Clip length limits fold.
+const PANEL_CHROME_CLOSED_ESTIMATE = { image: 188, video: 291, clip: 417 };
+const PANEL_CHROME_OPEN_ESTIMATE = { image: 347, video: 450, clip: 576 };
 // Node width minus stage width: the DOM widget frame, panel padding, borders.
 const PANEL_SIDE_INSET = 38;
 // The narrowest face the chip row and the button rows fit on.

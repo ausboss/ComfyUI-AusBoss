@@ -393,3 +393,33 @@ test("onlyCopy picks a file without asking only when there is one copy", () => {
   assert.equal(onlyCopy("missing.safetensors", files), null);
   assert.equal(onlyCopy("model.safetensors", []), null);
 });
+
+test("this pack's rows are recognized by name or link, never by an AUSBOSS_NODES_ probe", async () => {
+  const { isOwnPackRow, OWN_PACK } = await import("../js/shared/workflow_note.mjs");
+  assert.equal(isOwnPackRow({ name: "ComfyUI-AusBoss", url: "https://github.com/ausboss/ComfyUI-AusBoss" }), true);
+  assert.equal(isOwnPackRow({ name: "anything", url: "https://github.com/ausboss/ComfyUI-AusBoss.git/" }), true);
+  assert.equal(isOwnPackRow({ name: "ausboss-nodes" }), true);
+  assert.equal(isOwnPackRow(OWN_PACK), true);
+  assert.equal(isOwnPackRow({ name: "ComfyUI-AusBoss-Model-Downloader", url: "https://github.com/ausboss/ComfyUI-AusBoss-Model-Downloader", node: "AUSBOSS_NODES_ModelDownloader" }), false);
+  assert.equal(isOwnPackRow({ name: "rgthree-comfy", url: "https://github.com/rgthree/rgthree-comfy" }), false);
+  assert.equal(isOwnPackRow(null), false);
+});
+
+test("Detect names this pack by its Registry id, from either folder", async () => {
+  const { nameOwnPack, OWN_PACK } = await import("../js/shared/workflow_note.mjs");
+  const detected = [
+    { name: "ComfyUI-AusBoss", url: "", node: "AUSBOSS_NODES_Seed" },
+    { name: "rgthree-comfy", url: "", node: "Power Lora Loader (rgthree)" },
+  ];
+  assert.deepEqual(nameOwnPack(detected, "ComfyUI-AusBoss")[0], { ...OWN_PACK, node: "AUSBOSS_NODES_Seed" });
+  assert.equal(nameOwnPack(detected, "ComfyUI-AusBoss")[1].name, "rgthree-comfy");
+  assert.equal(nameOwnPack([{ name: "ausboss-nodes", url: "", node: "AUSBOSS_NODES_Seed" }], "ausboss-nodes")[0].url, OWN_PACK.url);
+  assert.deepEqual(nameOwnPack(detected, ""), detected);
+});
+
+test("a missing node of this pack offers an update in the Manager, not a GitHub link", () => {
+  const source = readFileSync(new URL("../js/workflow_note/index.js", import.meta.url), "utf8");
+  assert.match(source, /installed === false && isOwnPackRow\(row\)/);
+  assert.match(source, /Comfy\.Manager\.ShowUpdateAvailablePacks/);
+  assert.doesNotMatch(source, /github\.com\/ausboss\/ComfyUI-AusBoss/);
+});
