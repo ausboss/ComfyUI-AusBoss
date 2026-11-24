@@ -257,6 +257,13 @@ export const ZH = {
   "Each line becomes a moment. A blank line between lines is a cut.": "每一行是一个时刻，两行之间的空行表示切换场景。",
   "Enable or disable this LoRA": "启用或停用这个 LoRA",
   "Fetching...": "获取中…",
+  "Fetch all": "全部获取",
+  "Fetch Civitai info for every LoRA in this stack that has none yet, one at a time.": "逐个为这组中还没有 Civitai 信息的每个 LoRA 获取信息。",
+  "Fetching Civitai info for every LoRA in this stack that has none yet, one at a time. Click to stop after the current one.": "正在逐个为这组中还没有 Civitai 信息的每个 LoRA 获取信息。点击可在当前这个完成后停止。",
+  "Civitai info for all": "全部获取 Civitai 信息",
+  "Look up every LoRA in this stack that has no Civitai info yet, one at a time, the same way the info card's button does. The bottom of the node shows how far it is; click there to stop.": "逐个查询这组中还没有 Civitai 信息的每个 LoRA，方式与信息卡里的按钮相同。节点底部会显示进度；点击那里可停止。",
+  "Stopping...": "正在停止…",
+  "Civitai: checking · Stop": "Civitai：检查中 · 停止",
   "Group name": "分组名称",
   "Held": "已锁定",
   "Hide file extension": "隐藏文件扩展名",
@@ -332,6 +339,7 @@ export const SCRUB_HINT_ZH = "拖动调节，点击输入数字或算式（如 1
 
 // A few strings carry a number or a name; the number stays and the words around it change.
 export const PATTERNS = [
+  [/^Civitai (\d+) \/ (\d+) · Stop$/, (m, done, total) => `Civitai ${done} / ${total} · 停止`],
   [/^The limits of what this is wired to: (.*)\.$/, (m, names) => `它所连接对象的取值范围：${names}。`],
   [/^Set by "(.*)"\. Click to show it\. Right-click the row to unlink\.$/, (m, name) => `由“${name}”设置。点击可定位到它。右键该行可断开连线。`],
   [/^Source · feather (\d+) px · Fill (#[0-9a-fA-F]{6})$/, (m, f, c) => `素材 · 羽化 ${f} px · 填充 ${c}`],

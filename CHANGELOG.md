@@ -2,6 +2,17 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **LoRA Loader 🆎 can fetch Civitai info for every LoRA at once.** A new
+  **Fetch all** button in a LoRA's info card (also in the gear menu) looks
+  up each LoRA in the stack that has no Civitai info yet, one at a time
+  with a short pause, and saves its info and picture the same way the
+  one-LoRA button does. The bottom of the node shows how far it is
+  (`Civitai 12 / 44 · Stop`); click it to stop. It follows the Civitai
+  picture setting, never replaces a picture, and slows down or stops when
+  Civitai asks it to.
+
 ## 2.27.0 - 2026-11-23
 
 - **Video Crop + Rotate + Pad → Clip 🆎 can put a clip window in an App-mode
