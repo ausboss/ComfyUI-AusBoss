@@ -455,6 +455,27 @@ class FormatTests(unittest.TestCase):
                     with av.open(str(path)) as container:
                         self.assertEqual(container.metadata.get(key), "ausboss-test")
 
+    def test_animated_webp_carries_the_workflow_as_core_writes_it(self):
+        # Core's animated WebP: prompt in EXIF Model, the workflow in Make,
+        # each as "key:json". gif has no place for it and stays clean.
+        from PIL import Image
+
+        metadata = {"prompt": '{"1": {}}', "workflow": '{"nodes": []}'}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "loop.webp"
+            encode_video(path, gradient_batch(3, 32, 32), 8.0, None, 23, metadata, "webp")
+            with Image.open(path) as image:
+                exif = image.getexif()
+            self.assertEqual(exif.get(0x0110), 'prompt:{"1": {}}')
+            self.assertEqual(exif.get(0x010F), 'workflow:{"nodes": []}')
+            clean = Path(tmp) / "clean.webp"
+            encode_video(clean, gradient_batch(3, 32, 32), 8.0, None, 23, None, "webp")
+            with Image.open(clean) as image:
+                self.assertEqual(len(image.getexif()), 0)
+            gif = Path(tmp) / "loop.gif"
+            encode_video(gif, gradient_batch(3, 32, 32), 8.0, None, 23, metadata, "gif")
+            self.assertNotIn(b"workflow", gif.read_bytes())
+
     def test_stream_options_map_crf_onto_each_codecs_own_dial(self):
         options = _video_save_helpers.stream_options
         self.assertEqual(options("libx264", 19)["crf"], "19")

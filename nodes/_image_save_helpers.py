@@ -8,7 +8,6 @@ bottom and are the only functions that touch PIL.
 
 from __future__ import annotations
 
-import json
 import re
 import secrets
 import threading
@@ -313,19 +312,36 @@ def _png_info(metadata: dict | None):
     return info
 
 
-def _exif_bytes(metadata: dict | None) -> bytes | None:
-    """Workflow JSON in EXIF, mirroring core's animated-webp convention
-    (prompt in Make, workflow and friends in ImageDescription). Shared by
-    the WebP and JPEG XL encoders."""
+# EXIF tags of core ComfyUI's WebP layout: the prompt in Model, then the
+# workflow and any other key in Make, ImageDescription and on downwards.
+EXIF_MODEL = 0x0110
+EXIF_MAKE = 0x010F
+EXIF_IFD = 0x8769
+EXIF_USER_COMMENT = 0x9286
+
+
+def exif_bytes(metadata: dict | None) -> bytes | None:
+    """The workflow in EXIF, laid out exactly as core ComfyUI writes WebP:
+    ``prompt:<json>`` in Model, then ``workflow:<json>`` (and any other key)
+    in Make, ImageDescription and downwards. ComfyUI's canvas reads each
+    entry back as ``key:value``, and civitai.com finds a ComfyUI picture by
+    the ``prompt:`` in Model. A ``parameters`` entry (the Civitai line) goes
+    in UserComment instead, where A1111-style readers look for it.
+
+    Shared by Save Image's WebP and JPEG XL encoders and Save Video's
+    animated WebP. Values arrive as the JSON text workflow_metadata made."""
     if not metadata:
         return None
     exif = Image.Exif()
-    prompt = metadata.get("prompt")
+    rest = dict(metadata)
+    prompt = rest.pop("prompt", None)
+    parameters = rest.pop("parameters", None)
     if prompt is not None:
-        exif[0x010F] = "prompt:" + prompt
-    rest = {key: value for key, value in metadata.items() if key != "prompt"}
-    if rest:
-        exif[0x010E] = json.dumps({key: json.loads(value) for key, value in rest.items()})
+        exif[EXIF_MODEL] = "prompt:" + prompt
+    for tag, (key, value) in zip(range(EXIF_MAKE, 0, -1), rest.items()):
+        exif[tag] = f"{key}:{value}"
+    if parameters:
+        exif.get_ifd(EXIF_IFD)[EXIF_USER_COMMENT] = b"UNICODE\0" + str(parameters).encode("utf-16-be")
     return exif.tobytes()
 
 
@@ -337,7 +353,7 @@ def encode_image(path: Path, frame: torch.Tensor, format_name: str, metadata: di
         return
     if format_name == "webp lossless":
         kwargs = {"format": "WEBP", "lossless": True, "quality": 100, "method": 4}
-        exif = _exif_bytes(metadata)
+        exif = exif_bytes(metadata)
         if exif is not None:
             kwargs["exif"] = exif
         image.save(path, **kwargs)
@@ -349,7 +365,7 @@ def encode_image(path: Path, frame: torch.Tensor, format_name: str, metadata: di
                 "(add the pillow-jxl-plugin package to ComfyUI's python)."
             )
         kwargs = {"format": "JXL", "lossless": True}
-        exif = _exif_bytes(metadata)
+        exif = exif_bytes(metadata)
         if exif is not None:
             kwargs["exif"] = exif
         try:
@@ -375,6 +391,7 @@ __all__ = [
     "PREVIEW_FOLDER",
     "counter_pattern",
     "encode_image",
+    "exif_bytes",
     "existing_action",
     "fill_name_tokens",
     "frame_to_pil",

@@ -238,7 +238,8 @@ def _rgb_uint8(frame: torch.Tensor) -> np.ndarray:
 
 
 def _encode_animation(
-    path: Path, batch: torch.Tensor, fps: float, crf: int, extension: str
+    path: Path, batch: torch.Tensor, fps: float, crf: int, extension: str,
+    metadata: dict | None = None,
 ) -> None:
     """Write an animated gif or webp through Pillow.
 
@@ -246,7 +247,8 @@ def _encode_animation(
     streaming encoder, so every frame has to be resident before the first byte
     is written - which is why the node's tooltip points them at short clips.
     GIF frames are quantized individually so each carries its own adaptive
-    palette rather than sharing one flattened web palette.
+    palette rather than sharing one flattened web palette. webp carries the
+    workflow in EXIF the way core's animated WebP does; gif has no place for it.
     """
     from PIL import Image
 
@@ -277,7 +279,11 @@ def _encode_animation(
     else:
         # webp's quality runs the opposite way to crf: 0 is worst, 100 best.
         quality = max(0, min(100, int(round(100.0 - int(crf) * 100.0 / 51.0))))
-        head.save(path, **shared, quality=quality, method=4)
+        from ._image_save_helpers import exif_bytes
+
+        exif = exif_bytes(metadata)
+        extra = {} if exif is None else {"exif": exif}
+        head.save(path, **shared, quality=quality, method=4, **extra)
 
 
 def encode_video(
@@ -303,7 +309,7 @@ def encode_video(
     frame_count = int(batch.shape[0])
     rate = _fps_fraction(fps)
     if not spec.video_codec:
-        _encode_animation(path, batch, fps, crf, spec.extension)
+        _encode_animation(path, batch, fps, crf, spec.extension, metadata)
         return width, height, frame_count
     prepared_audio = _prepare_audio(audio)
     if prepared_audio is not None and spec.audio_codec == "libopus":

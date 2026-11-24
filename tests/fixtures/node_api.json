@@ -1029,7 +1029,8 @@
       "name_batch",
       "preview",
       "step_preview",
-      "autosave"
+      "autosave",
+      "civitai_info"
     ],
     "outputs": [
       [
