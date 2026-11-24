@@ -877,7 +877,8 @@
       "pause"
     ],
     "optional": [
-      "panorama"
+      "panorama",
+      "mesh"
     ],
     "outputs": [
       [
@@ -899,6 +900,10 @@
       [
         "IMAGE",
         "backdrop"
+      ],
+      [
+        "MESH",
+        "mesh"
       ]
     ]
   },

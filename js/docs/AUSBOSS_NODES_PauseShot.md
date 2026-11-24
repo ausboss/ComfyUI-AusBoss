@@ -28,6 +28,18 @@ Take the 360 out of the viewer while the run waits, and `backdrop` comes out
 plain grey, the same as with no 360 wired in. What you see in the viewer is
 what you get.
 
+## Cut the front or back off the model
+
+**Cut front** and **Cut back** on the viewer's Model tab take away part of
+the model as the camera sees it: Back the far side, Front the near side, each
+as a share of the model's depth. Use Back to hide what should sit behind
+something in the picture, such as the inside of a hat behind the head. The
+viewer shows the cut as you drag.
+
+For the shot to be cut too, wire the model's mesh into `mesh` and take `mesh`
+from this node to Render Mesh. A run that goes straight through uses the cut
+saved on the viewer.
+
 ## Settings
 
 - **Pause**: *wait for me* stops every run here. *run through* lets runs go
@@ -51,3 +63,9 @@ what you get.
   tenth of the model. Continue sends that patch with
   the camera, and the backdrop is darkened along the same rays Render Mesh
   casts, so the shadow lands where the model's feet are drawn.
+- The cut planes face the camera. The model's depth is how far the box around
+  its own points reaches along the view, measured the same way in the viewer
+  and on the run's mesh. The viewer cuts at the exact plane; the mesh keeps
+  the triangles whose middle lies between the planes, so the edges agree to
+  within a triangle. While a cut is on, the viewer draws both sides of the
+  model, so through the cut you see its inside, the way Render Mesh draws it.

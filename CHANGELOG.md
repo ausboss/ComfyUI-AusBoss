@@ -10,6 +10,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
   it). It hands Pixal3D the crop's lens, the 3D viewer your photo's own
   view, and where the photo goes on a 360 canvas so the 360 lines up
   behind the model.
+- **The 3D viewer can cut the front or back off a model.** Cut front and
+  Cut back on the 360 strip's Model tab take away part of the model as the
+  camera sees it, such as the inside of a hat that should sit behind the
+  head. Pause for Shot 🆎 gets an optional `mesh` input and output that cut
+  the run's model the same way, so the shot matches the viewer.
 - **Pause for Shot 🆎 keeps the viewer's 360 settings on runs that don't
   pause.** With Pause on *run through*, the backdrop now uses the Turn,
   Tilt, Shadow and the rest saved on the viewer, as a paused run does.

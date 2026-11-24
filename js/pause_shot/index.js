@@ -58,6 +58,9 @@ async function readShot(viewer) {
   }
   const sky = viewer?.properties?.["AusBoss View"]?.sky;
   if (sky && typeof sky === "object") shot.sky = sky;
+  // The viewer's Cut, so the run's mesh is cut the way the viewer shows it.
+  const cut = viewer?.properties?.["AusBoss View"]?.cut;
+  if (cut && typeof cut === "object") shot.cut = cut;
   // The 360 taken out of the viewer (its background image removed) leaves
   // the backdrop grey, as with no 360 wired in.
   const scene = viewerGizmo(viewer)?.__ausbossScene;

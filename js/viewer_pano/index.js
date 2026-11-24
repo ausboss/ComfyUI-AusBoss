@@ -3,7 +3,9 @@
 // end (the bar itself is full at a normal node width), so it never covers
 // the frame. Its tabs:
 //   - Model: spin, tip and lean the model itself (saved with the shot, so
-//     the run's 3D shot follows).
+//     the run's 3D shot follows), and Cut: take away the front or back of
+//     the model, a share of its depth as the camera sees it (Pause for
+//     Shot cuts the run's mesh the same way, nodes/_mesh_cut_helpers.py).
 //   - Angle: turn, tilt and roll the 360 background, and its own field of
 //     view, and whether the 360 moves as the camera orbits (as the viewer
 //     draws it) or stays fixed in the frame like a photo backdrop.
@@ -37,6 +39,7 @@ export const SKY_DEFAULTS = Object.freeze({ turn: 0, tilt: 0, roll: 0, fov: null
 export const ORBITS = Object.freeze(["moves", "fixed"]);
 export const LIGHTS = Object.freeze(["studio", "photo", "360"]);
 export const LOOK_DEFAULTS = Object.freeze({ light: "studio", strength: 100, bright: 100, contrast: 100, saturation: 100, warmth: 0 });
+export const CUT_DEFAULTS = Object.freeze({ front: 0, back: 0 });
 
 const ICONS = {
   sky: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><ellipse cx="12" cy="12" rx="3.6" ry="8.5"/><path d="M3.5 12h17"/></svg>',
@@ -367,13 +370,112 @@ function applyLook(manager, state) {
   state.dirty = false;
 }
 
+// ------------------------------------------------------------------ cut
+// Two clipping planes square to the camera keep a band of the model's
+// depth: Front takes that share off the near side, Back off the far side.
+// The depth is how far the box around the model's own points reaches along
+// the view, the same box Pause for Shot measures on the run's mesh.
+
+const cutBoxes = new WeakMap();
+function modelBox(model) {
+  if (cutBoxes.has(model)) return cutBoxes.get(model);
+  const Matrix = model.matrixWorld.constructor;
+  model.updateMatrixWorld(true);
+  const toModel = new Matrix().copy(model.matrixWorld).invert();
+  const lo = [Infinity, Infinity, Infinity];
+  const hi = [-Infinity, -Infinity, -Infinity];
+  model.traverse((part) => {
+    if (!part.isMesh || !part.geometry) return;
+    if (!part.geometry.boundingBox) part.geometry.computeBoundingBox?.();
+    const box = part.geometry.boundingBox;
+    if (!box) return;
+    const into = new Matrix().multiplyMatrices(toModel, part.matrixWorld);
+    const point = box.min.clone();
+    for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) {
+      point.set(x, y, z).applyMatrix4(into);
+      ["x", "y", "z"].forEach((axis, i) => { lo[i] = Math.min(lo[i], point[axis]); hi[i] = Math.max(hi[i], point[axis]); });
+    }
+  });
+  const box = Number.isFinite(lo[0]) ? { lo, hi } : null;
+  if (box) cutBoxes.set(model, box);
+  return box;
+}
+
+const materialsOf = (part) => (Array.isArray(part.material) ? part.material : [part.material]).filter(Boolean);
+function clearCut(state) {
+  state.cutModel?.traverse?.((part) => {
+    if (!part.isMesh) return;
+    for (const material of materialsOf(part)) {
+      if (material.clippingPlanes !== state.cutPlanes) continue;
+      material.clippingPlanes = null;
+      if ("ausbossCutSide" in material.userData) {
+        material.side = material.userData.ausbossCutSide;
+        delete material.userData.ausbossCutSide;
+      }
+      material.needsUpdate = true;
+    }
+  });
+  state.cutModel = null;
+}
+
+function applyCut(manager, state) {
+  const cut = state.values.cut;
+  const model = modelOf(manager);
+  if (!(cut.front > 0 || cut.back > 0) || !model) { if (state.cutModel) clearCut(state); return; }
+  const camera = manager.getActiveCamera?.();
+  const box = modelBox(model);
+  if (!camera || !box) return;
+  if (state.cutModel && state.cutModel !== model) clearCut(state);
+  model.updateMatrixWorld(true);
+  camera.updateMatrixWorld();
+  const Vector = camera.position.constructor;
+  const eye = new Vector().setFromMatrixPosition(camera.matrixWorld);
+  const forward = camera.getWorldDirection(new Vector());
+  const point = new Vector();
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const x of [box.lo[0], box.hi[0]]) for (const y of [box.lo[1], box.hi[1]]) for (const z of [box.lo[2], box.hi[2]]) {
+    const depth = point.set(x, y, z).applyMatrix4(model.matrixWorld).sub(eye).dot(forward);
+    lo = Math.min(lo, depth);
+    hi = Math.max(hi, depth);
+  }
+  const front = Math.min(99, Math.max(0, cut.front));
+  const back = Math.min(99 - front, Math.max(0, cut.back));
+  const near = lo + (hi - lo) * front / 100;
+  const far = hi - (hi - lo) * back / 100;
+  // three keeps the side where normal . p + constant >= 0.
+  state.cutPlanes ??= [{ normal: new Vector(), constant: 0 }, { normal: new Vector(), constant: 0 }];
+  const [nearPlane, farPlane] = state.cutPlanes;
+  const along = eye.dot(forward);
+  nearPlane.normal.copy(forward);
+  nearPlane.constant = -(along + near);
+  farPlane.normal.copy(forward).negate();
+  farPlane.constant = along + far;
+  manager.renderer.localClippingEnabled = true;
+  // The viewer swaps materials for its own modes, so check them each frame.
+  model.traverse((part) => {
+    if (!part.isMesh) return;
+    for (const material of materialsOf(part)) {
+      if (material.clippingPlanes === state.cutPlanes) continue;
+      material.clippingPlanes = state.cutPlanes;
+      material.clipShadows = true;
+      // Through the cut you see the model's inside, as Render Mesh draws
+      // it, not a hole: both sides while cut (three's DoubleSide is 2).
+      if (!("ausbossCutSide" in material.userData)) material.userData.ausbossCutSide = material.side;
+      material.side = 2;
+      material.needsUpdate = true;
+    }
+  });
+  state.cutModel = model;
+}
+
 // ------------------------------------------------------- viewer registry
 
 const managers = new Set();
 
 function stateOf(manager) {
   return (manager.__ausbossViewState ??= {
-    values: { sky: { ...SKY_DEFAULTS }, look: { ...LOOK_DEFAULTS } },
+    values: { sky: { ...SKY_DEFAULTS }, look: { ...LOOK_DEFAULTS }, cut: { ...CUT_DEFAULTS } },
     sky: null, skyWasOn: false, envTexture: null, lookUsed: false, frame: 0, dirty: true,
     node: null, panorama: false, restored: false, lastMode: null,
   });
@@ -418,6 +520,7 @@ function patchSceneManager() {
       const state = stateOf(this);
       keepPanorama(this, state);
       applyLook(this, state);
+      applyCut(this, state);
       if (skyActive(this, state.values.sky)) {
         if (drawSky(this, state)) { state.skyWasOn = true; drawShadow(this, state); return undefined; }
       } else if (state.skyWasOn) {
@@ -583,10 +686,15 @@ const COLOUR = { title: "Colour", group: "look", fields: [
 // The model's own turn. These read and write the loaded model's rotation
 // directly, which the viewer saves with the shot and hands to the run (its
 // model_3d_info), so the 3D shot follows. Nothing extra is saved here.
+// Front and Back cut are saved with the viewer ("cut" in its properties).
 const MODEL = { title: "Model", group: "model", fields: [
   { key: "spin", label: "Spin", min: -180, max: 180, step: 1, fineStep: 0.1, decimals: 1, unit: "°", title: "Turn the model around, left or right." },
   { key: "tip", label: "Tip", min: -90, max: 90, step: 1, fineStep: 0.1, decimals: 1, unit: "°", title: "Tip the model forward or back." },
   { key: "lean", label: "Lean", min: -90, max: 90, step: 1, fineStep: 0.1, decimals: 1, unit: "°", title: "Lean the model left or right." },
+  { key: "front", store: "cut", label: "Cut front", min: 0, max: 99, step: 1, fineStep: 0.1, decimals: 1, unit: "%",
+    title: "Cut away the part of the model nearest the camera, as a share of its depth." },
+  { key: "back", store: "cut", label: "Cut back", min: 0, max: 99, step: 1, fineStep: 0.1, decimals: 1, unit: "%",
+    title: "Cut away the far side of the model, as a share of its depth: the inside of a hat behind the head, a hood, a back you don't want seen. Pause for Shot cuts the run's model the same way." },
 ] };
 const TABS = [MODEL, ANGLE, BACKDROP, LIGHT, COLOUR];
 
@@ -615,7 +723,7 @@ function readSaved(node, state) {
   if (node?.properties?.["Scene Config"]?.backgroundRenderMode === "panorama") state.panorama = true;
   if (!saved || typeof saved !== "object") return;
   if (saved.panorama === true) state.panorama = true;
-  for (const [group, defaults] of [["sky", SKY_DEFAULTS], ["look", LOOK_DEFAULTS]]) {
+  for (const [group, defaults] of [["sky", SKY_DEFAULTS], ["look", LOOK_DEFAULTS], ["cut", CUT_DEFAULTS]]) {
     const from = saved[group] ?? {};
     for (const key of Object.keys(defaults)) {
       const value = from[key];
@@ -636,8 +744,12 @@ function writeSaved(node, state) {
   node.properties ??= {};
   const skyDefault = isDefault(state.values.sky, SKY_DEFAULTS);
   const lookDefault = isDefault(state.values.look, LOOK_DEFAULTS);
-  if (skyDefault && lookDefault && !state.panorama) delete node.properties[PROP];
-  else node.properties[PROP] = { panorama: state.panorama, sky: { ...state.values.sky }, look: { ...state.values.look } };
+  const cutDefault = isDefault(state.values.cut, CUT_DEFAULTS);
+  if (skyDefault && lookDefault && cutDefault && !state.panorama) delete node.properties[PROP];
+  else {
+    node.properties[PROP] = { panorama: state.panorama, sky: { ...state.values.sky }, look: { ...state.values.look } };
+    if (!cutDefault) node.properties[PROP].cut = { ...state.values.cut };
+  }
   app.graph?.setDirtyCanvas?.(true, false);
 }
 
@@ -791,7 +903,8 @@ function buildStrip(box, root, manager) {
         });
       }
       for (const field of spec.fields) {
-        const row = field.pill ? pillField(field, values) : scrubField(field, values);
+        const own = field.store ? state.values[field.store] : values;
+        const row = field.pill ? pillField(field, own) : scrubField(field, own);
         rows.push({ row, spec: field });
         fields.append(row);
       }
@@ -810,7 +923,9 @@ function buildStrip(box, root, manager) {
   reset.addEventListener("click", () => {
     if (tab.group === "model") {
       const model = modelOf(manager);
-      if (model) { writeModelTurn(model, { spin: 0, tip: 0, lean: 0 }); redraw(manager); }
+      if (model) writeModelTurn(model, { spin: 0, tip: 0, lean: 0 });
+      state.values.cut = { ...CUT_DEFAULTS };
+      changed();
       show(tab);
       return;
     }
