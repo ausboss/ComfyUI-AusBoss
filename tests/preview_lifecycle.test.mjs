@@ -209,6 +209,7 @@ test("deferred configuration cannot recreate removed or replaced panels", () => 
         hideInputsInDef() {}, livePanels: new Set(), unwatchSource() {}, clearMedia() {},
         buildPanel() { rebuilt += 1; return { eraser: {}, alive: true }; },
         syncErase() {}, syncAdvanced() {}, scheduleRefresh() {}, getMode: () => "slide", updateModeButtons() {},
+        REST_PROPERTY: "ausboss_compare_rest", savedRestSide: () => null,
       });
       const file = kind === "compare" ? COMPARE : PREVIEW;
       vm.runInContext('const NODE_NAME="Compare"; const REST_SETTING="test"; const NODE_CONFIG={Preview:{}}; const INPUT_SIDE=1;'

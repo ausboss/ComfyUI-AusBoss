@@ -136,6 +136,19 @@ export function seeThroughMap(rgba) {
   return map;
 }
 
+// Some browsers and privacy add-ons hand back blank or made-up pixels when a
+// page reads a canvas (Firefox's fingerprint protection, canvas blockers).
+// Blank pixels read as a fully see-through picture, so the stage would draw
+// nothing. PIXEL_PROBE is painted on a small canvas and read back; the read
+// is trusted only when it comes back solid and close to what was painted
+// (small colour noise, as Brave adds, is fine: only alpha decides here).
+export const PIXEL_PROBE = [[255, 0, 0], [0, 0, 255]];
+export function pixelReadTrusted(rgba) {
+  if (!rgba || rgba.length < PIXEL_PROBE.length * 4) return false;
+  return PIXEL_PROBE.every((color, p) =>
+    rgba[p * 4 + 3] === 255 && color.every((channel, c) => Math.abs(rgba[p * 4 + c] - channel) <= 16));
+}
+
 // Work-resolution planning for the overlay. Blend and grow are output
 // pixels AFTER any resize; the stage draws the pre-resize canvas. One
 // output pixel is `unit` work pixels (the two axes can differ by a step

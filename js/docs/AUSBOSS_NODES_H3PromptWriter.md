@@ -84,31 +84,42 @@ from.
 
 Connect a video, then pick what it is for:
 
-- **copy its moves**: your person does the moves in the video. It needs a
-  picture of your person. Say where in your lines:
-  `@1 dances on a rooftop at sunset.` The clothes can come from words or from an
-  outfit picture.
+- **copy its moves**: someone does the moves in the video. With a picture of
+  your person, your person does them. Say where in your lines:
+  `@1 dances on a rooftop at sunset.` With no person picture, the person in
+  the video keeps their own moves and goes somewhere new: give a picture the
+  job **place** and type `He dances in @1.` The clothes can come from words or
+  from an outfit picture. It doesn't have to be a person: give a cartoon hand,
+  a toy or a mascot the job **thing** and type `@1 waves.` It does the moves in
+  its own look, and nothing of the video's subject is kept.
 - **swap the person**: your person takes over from the one in the video. The
   place, the moves and the camera stay. With two person pictures, the first
   replaces the person on the left and the second replaces the person on the
   right. To choose who goes, type one line per picture, for example
   `@1 replaces the man in the hat`. Put spoken words in quotes and name
   the speaker. If a voice comes from off screen, say so in the line.
+  A line like `@1 dances.` is not read as who goes; only a description such
+  as `the man in the hat` is. With two people, name who speaks.
 - **change something**: keep the video and describe the change, for example
-  `She wears a red raincoat`. Be specific about what should change.
+  `She wears a red raincoat`. Be specific about what should change. To change
+  the whole look, connect a picture with the job **style** (or **place**, for
+  the same room looking different) and type `It looks like @1.` A clip with
+  nobody in it, such as an empty hallway, stays empty.
 - **keep going**: more of the same clip, from where it ends. Say what happens
   next, or leave the box empty and it just carries on. Connect the whole clip:
   the node sends H3 only the last 2 seconds.
 - **new voice**: the same clip with a new voice. Connect the voice, and type
   what they say in quotes.
+  This keeps the person in the clip, so a person picture is not allowed here;
+  use **swap the person** to change who is in it.
 
 If your swap keeps the video's audio, connect it to **video_sound** and turn on
 **More → Clip's own sound**. The writer uses the clip to estimate when each
 line is spoken and keeps only the incoming people's words in the swap prompt.
 Type a time such as `3.2s:` to set it yourself. This switch starts off.
 
-With an active video, **swap the person**, **change something** and **new voice**
-use the incoming clip to set the frame count. **Length** says **From the clip**;
+With an active video, **copy its moves**, **swap the person**, **change
+something** and **new voice** use the incoming clip to set the frame count. **Length** says **From the clip**;
 set the clip's length upstream. The bar does not show a guessed duration or offer
 retiming controls for these jobs. H3 rounds the frame count to a supported length.
 Other video jobs, or turning the video off, use the editable **Length** again.
@@ -137,6 +148,9 @@ workflows and scripts keep their previous behavior when it is absent.
   `ends on her sitting by the window`.
 - **Speech**: put the words in quotes: `@1 says "we are late."` Each person
   keeps their own voice.
+- **Talking over a cut**: end the words with `...` and the line keeps going
+  into the next shot, said once. On the last line, `...` means the clip ends
+  mid-sentence.
 - **Words on a sign**: name the sign: `a neon sign reads "OPEN"`.
 - **Sound and music**: use the **Sound** and **Music** boxes, or type
   `sound: rain on a tin roof` and `music: slow sad piano`. With no music you get
@@ -149,6 +163,17 @@ own, with blank lines around it, it is for the whole clip.
 
 Already wrote H3's six parts yourself? Paste them in and they go through as
 they are.
+
+## See and change the full prompt
+
+The **Full prompt** tab at the top of the node shows the prompt the node wrote
+on its last run. To change one thing, such as taking out "A slow push in.",
+edit it there and run again: H3 gets your text exactly as it is in the box. An
+amber dot on the tab shows that an edit is being sent. **Reset to written**
+throws the edit away and goes back to what the **Simple** tab writes.
+
+While an edit is in place, changes on the Simple tab do nothing, because your
+text is sent instead.
 
 ## What you can plug in
 
@@ -195,8 +220,10 @@ as not plugged in.
 - **Sound** (`sound`): what the clip sounds like, for the whole clip. Same as a
   `sound:` line.
 - **Music** (`music`): the music for the whole clip. Same as a `music:` line.
-- **Length** (`seconds`): how long the clip is, 5 to 15.
-- **Camera** (`camera`): how the camera moves the whole way through.
+- **Length** (`seconds`): how long the clip is, 4 to 15.
+- **Camera** (`camera`): how the camera moves the whole way through. The first
+  choice adds no camera words. With a video wired it reads **from the video**:
+  the camera does what it does in the video. Pick a move only to change it.
 - **Look** (`look`): from the picture keeps your photo's look. The others redraw
   the clip. Clay and 3D don't work from words, so change your picture first with
   an edit model.
@@ -208,6 +235,8 @@ as not plugged in.
 - **Moments on the beat** (`cut_on_beat`, under **More**): moves each moment onto
   the nearest beat of the song. Off keeps your own seconds.
 - **Language** (`language`, under **More**): the language of the words in quotes.
+- **Full prompt** (`full_prompt`, on the Full prompt tab): your own edit of the
+  finished prompt. Empty means the node's own prompt is sent.
 
 ## Tips
 
@@ -263,6 +292,12 @@ a place in your lines the clip stayed there to the end on 2 of 2 tries; without
 that sentence the picture's street came back halfway through on 2 of 2. With no
 place in your lines H3 has nothing else to use, so it stayed in the picture's
 place on 2 of 2.
+
+The Full prompt tab is filled from the node's run, so it shows nothing until
+the workflow has run once. The node still writes its own prompt on every run, a
+model on `clip` included, so the tab can show it next to your edit and Reset can
+go back to it. The last written prompt is kept with the node in a saved
+workflow.
 
 H3's own rewriter runs only on paid services, and the open model reads a prompt as
 it is. This node does that job on your machine, with no model needed.

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { clipSetsDuration, linkSource } from '../js/shared/h3_duration.mjs';
+import { cameraChoiceLabel, clipSetsDuration, linkSource } from '../js/shared/h3_duration.mjs';
+import { choiceLabel } from '../js/shared/widget_card_math.mjs';
 
 const graphWith = (mode = 0, useMap = false) => {
   const source = { id: 150, mode };
@@ -11,10 +12,27 @@ const graphWith = (mode = 0, useMap = false) => {
     getNodeById:id=>id===150?source:null,
   } } };
 };
-test('only the three backend duration overrides use the clip', () => {
+test('only the four backend duration overrides use the clip', () => {
   const {node}=graphWith();
-  for(const job of ['swap the person','new voice','change something']) assert.equal(clipSetsDuration(node,{video_job:job}),true);
-  for(const job of ['copy its moves','keep going','',undefined]) assert.equal(clipSetsDuration(node,{video_job:job}),false);
+  for(const job of ['copy its moves','swap the person','new voice','change something']) assert.equal(clipSetsDuration(node,{video_job:job}),true);
+  for(const job of ['keep going','',undefined]) assert.equal(clipSetsDuration(node,{video_job:job}),false);
+});
+test('Camera\'s first choice reads "from the video" while a live clip gives H3 its camera', () => {
+  const {node,source}=graphWith();
+  const row={labels:cameraChoiceLabel};
+  const job=(value)=>{node.widgets=[{name:'video_job',value}];};
+  for(const value of ['copy its moves','swap the person','new voice','change something']) {
+    job(value);assert.equal(choiceLabel(row,'as typed',[],node),'from the video',value);
+  }
+  // Keep going makes new footage, so the camera is still the user's words.
+  job('keep going');assert.equal(choiceLabel(row,'as typed',[],node),'as typed');
+  job('swap the person');
+  // Only the first choice changes; a picked move keeps its own name.
+  assert.equal(choiceLabel(row,'slow push in',[],node),'slow push in');
+  // A muted clip, no clip, or no node: the plain name.
+  source.mode=4;assert.equal(choiceLabel(row,'as typed',[],node),'as typed');
+  source.mode=0;node.inputs[0].link=null;assert.equal(choiceLabel(row,'as typed',[],node),'as typed');
+  assert.equal(choiceLabel(row,'as typed',[]),'as typed');
 });
 test('Full Video OFF/bypassed/missing/disconnected restore seconds; both link stores work', () => {
   for(const map of [false,true]) {
@@ -73,7 +91,7 @@ test('timeline omits guessed duration/retiming and rejects an old async report; 
    const {momentStrip}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
    const {node,source:video}=graphWith();let refreshes=0;node.__ausbossCard={refresh(){refreshes++;}};
    const panel=momentStrip(node), [ruler,track,note]=panel.element.children;
-   const values={seconds:12,script:'She walks.',video_job:'copy its moves'};
+   const values={seconds:12,script:'She walks.',video_job:'keep going'};
    panel.sync(values);assert.equal(timers.length,1);timers.shift()();await Promise.resolve();
    assert.equal(requests[0].seconds,12);
    panel.sync({...values,video_job:'swap the person'});

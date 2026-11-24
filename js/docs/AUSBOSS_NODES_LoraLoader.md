@@ -134,6 +134,30 @@ A group that a switch turns on and off shows the lock on its header
 instead. The LoRAs in it keep plain grips, so each one is still yours to
 turn on or off. Click the header's lock to take the group over.
 
+## A strength set by a wire
+
+To set one LoRA's strength from somewhere else, such as a slider, a Float
+node or a sweep, drag that number's wire onto the row and let go. The row
+under the pointer lights up teal while you aim; anywhere across the row
+works. The wire runs to that row and its strength box turns dashed teal,
+showing the number coming in. The bar behind the name follows it.
+
+- **Click the dashed box** to jump to the node the number comes from.
+- **Right-click the row → Unlink strength** to take the wire off. The row
+  goes back to the strength it had.
+- The wire sets the model strength. The CLIP strength keeps the same ratio
+  to it, so a row at 1.0 / 0.5 fed 0.6 runs at 0.6 / 0.3.
+- Gear menu → **Linked strength wires** shows the wire (the default), shows
+  it only while the pointer is on the loader or the number's node, or hides
+  it.
+
+### Technical details
+
+Each linked row has its own input, `strength_<row id>`, which exists only
+while something is linked to that row. It takes FLOAT or INT. In an API
+prompt, give a row's input the row's `id` from the `loras` text, for example
+`"strength_ra1": 0.6`. A name that matches no row is ignored.
+
 ## Strength bars
 
 Every named row paints a center-zero bar behind its name: teal grows right
@@ -176,8 +200,15 @@ last one you ticked and the one you click. Ticks stay while you search, so you c
 gather files from several searches; **Clear** unticks them all. Files that
 are already in the stack say **in stack** and have no box. With the
 keyboard, **Ctrl+Enter** ticks the highlighted file and **Shift+Enter**
-ticks the run up to it. Use the arrow beside a folder to collapse or expand it without
-adding anything. Folded folders are remembered in this browser. Search
+ticks the run up to it. The list opens with every folder folded. Use the
+arrow beside a folder to open or fold it without adding anything.
+**Open all** beside the search box opens every folder at once (it then
+reads **Fold all**), and **Alt**- or **Shift**-click on a folder's arrow
+opens or folds that folder and every folder inside it. With the keyboard,
+**Right** opens the highlighted folder and **Left** folds it; **Left** on a
+file folds the folder it is in and moves up to it. To have the list open
+the way you left it instead, set **Settings → 🆎 AusBoss → LoRA Loader →
+Picker folders** to **Remember my folds**. Search
 reveals matching files; clearing it brings back your folded view. You can
 also fold folders while searching.
 

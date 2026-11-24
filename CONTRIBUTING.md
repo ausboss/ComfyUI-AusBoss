@@ -150,6 +150,13 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
 - Category: `🆎 AusBoss/<Group>`. The emoji is safe here — categories reach
   the frontend as JSON and are never printed to the console at import time.
 - Every node gets `DESCRIPTION`, input `tooltip`s, and `OUTPUT_TOOLTIPS`.
+- Words a node face draws itself (card labels, buttons, choices, tooltips)
+  are translated for a Chinese ComfyUI by `js/i18n/index.js`: add the English
+  text and its Chinese to `js/shared/i18n_zh.mjs`, or to `STAYS_ENGLISH` there
+  when it should not change. Text with no entry stays English, and a widget's
+  name and value are never translated. Never read a label back from the DOM
+  to decide something; keep that in state (the translator changes the text).
+  `tests/i18n.test.mjs` fails on a card word with no entry.
 - IMAGE tensors are BHWC float batches; MASK is BHW. Return tuples always,
   even for one output: `(value,)`.
 - Console output at import time must stay ASCII — ComfyUI on Windows often
@@ -330,7 +337,7 @@ run by hand against any ComfyUI:
 ```bash
 AUSBOSS_COMFY_ROOT=<ComfyUI> python tests/test_comfy_core_contract.py
 python scripts/compat_boot.py --url http://127.0.0.1:8188
-node scripts/dev/face_smoke.mjs <chrome port>            # and again with --vue
+node scripts/dev/face_smoke.mjs <chrome port>            # and again with --vue, and --blocked-reads
 ```
 
 - `test_comfy_core_contract.py` reads the pack's own source for everything
@@ -341,7 +348,9 @@ node scripts/dev/face_smoke.mjs <chrome port>            # and again with --vue
 - `compat_boot.py` asks a running ComfyUI which nodes it offers: every public
   node of the pack, and every node and required input the examples use.
 - `face_smoke.mjs` puts every node on a graph and fails when a face does not
-  come up or something throws.
+  come up or something throws. With `--blocked-reads` it acts like a privacy
+  browser that blanks pixel reads, and fails when a node that loads a
+  picture then draws none.
 
 A failure on the release opens an issue labelled `comfyui-update`. What these
 cannot see is anything that needs a model: run the real thing on a GPU

@@ -26,6 +26,40 @@ Boxes only shows "Node 2.0 only".
 
 Wire `preview` to a Preview Image to see the boxes with their numbers and words.
 
+## Place people with MiniMax H3 Image
+
+The `h3_prompt` output says the boxes in words for MiniMax H3 Image: who goes
+where, what they do there, how big, and who stands beside whom. Use it to put the people from your
+reference pictures into a scene, each one where you drew a box.
+
+1. Wire your scene picture into `background` and into the first picture of
+   the H3 Image node: it is `<Picture 1>`, the picture that is changed.
+2. Wire the people's pictures into the next ones: `<Picture 2>`,
+   `<Picture 3>` and so on.
+3. Draw one **object** box for each person. In its **Description**, name
+   their picture and say what they do there, for example "the man from
+   `<Picture 2>`, sitting on the couch". That second part is what puts them
+   in the box: told only where to go, H3 Image keeps people standing as in
+   their own picture, often outside the box.
+4. A box with no description still gets the next picture, `<Picture 2>`, then
+   `<Picture 3>`, in the order of the boxes, and keeps that person's face,
+   hair and clothes. It is a rough place only. A description without a
+   picture is a thing: a dog, a sofa. A **text** box writes its words at its
+   place.
+5. Wire `h3_prompt` to the prompt of the H3 Image node. To add words of your
+   own, such as the light or the mood, join the two texts first, for example
+   with ComfyUI's Concatenate Text node.
+
+Without a picture on `background` there is no scene picture, and the people
+start at `<Picture 1>`.
+
+The prompt says every place in words, never in numbers: H3 Image draws
+numbers from a prompt onto the picture as text. Tried on three rooms and two
+seeds: with a description like the one above, the man was in his box 6 times
+of 6 and the woman 4 of 6, and the room stayed as it was; with empty boxes,
+2 of 12. Keep `preview` out of H3
+Image's pictures too, or the boxes' lines can stay in the picture.
+
 ## Change the words in a picture
 
 The `mask` output is white inside every box. Use it to change only one part
@@ -149,11 +183,12 @@ removes it. The first color also colors the box on the canvas.
 | `bboxes` | The boxes in pixels of the canvas (x, y, width, height), for nodes that take bounding boxes. A turned box gives the straight box around it. |
 | `elements` | The boxes as prompt elements. Wire it to MOSS-Image Layout Prompt. A turned box gives the straight box around it, and a turned text box says its slant in its description. |
 | `mask` | White inside every box, black elsewhere, to change only those places of a picture. A turned box is white inside its turned shape only. |
+| `h3_prompt` | The boxes as a prompt for MiniMax H3 Image, in words: where each thing goes and how big it is. Name each person's picture and what they do in the box's description. See **Place people with MiniMax H3 Image**. |
 
 ## In place of Create Bounding Boxes
 
 Layout Boxes has the same inputs and the same outputs in the same order (and
-`mask` after them), so the wires move straight over. For the same boxes it
+`mask` and `h3_prompt` after them), so the wires move straight over. For the same boxes it
 gives the same `bboxes` and `elements`, and MOSS-Image Layout Prompt makes the
 same prompt from them.
 
@@ -209,5 +244,18 @@ run once: they fill the canvas. Then remove the old node.
 - Like Create Bounding Boxes, it is an output node: it runs with the workflow
   even when nothing is wired to its outputs, so new boxes on the `bboxes` wire
   reach the canvas.
+- `h3_prompt` has an opening sentence (one photograph of the scene in
+  `<Picture 1>`, kept as it is), one sentence per box in box order, and a
+  closing one (the same ground and light for everything). Across, a box is at
+  the far left, left, middle, right or far right by its centre; it is "high"
+  or "low" when its centre is in the top or bottom third and it is less than
+  0.6 of the frame tall. Its height and width are said as a tenth, a quarter,
+  a third, half, two thirds, three quarters or all of the frame. Each object
+  is placed against the object on its left when the two share some height:
+  right beside it (a gap under 5% of the frame), a little to the right (under
+  15%), well to the right, or partly in front of or behind it when they
+  overlap (the later box is in front). Text boxes are placed by the frame
+  only. A turned box is placed by the straight box around it. A text box with
+  no text and no description is left out. No boxes give an empty text.
 - The background is saved, shrunk, in ComfyUI's temp folder for the node's
   face. Nothing else is written.

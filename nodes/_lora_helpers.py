@@ -9,9 +9,12 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from collections import OrderedDict
 from pathlib import Path
 from typing import Any
+
+from ._route_errors import error_detail
 
 try:
     import folder_paths
@@ -62,6 +65,7 @@ def parse_lora_stack(raw: str | None) -> list[dict[str, Any]]:
         enabled = bool(entry.get("enabled", True)) and entry.get("group_off") is not True
         rows.append(
             {
+                "id": str(entry.get("id") or ""),
                 "name": name,
                 "strength": strength,
                 "strength_clip": clamp_strength(entry.get("strength_clip", strength), strength),
@@ -70,6 +74,42 @@ def parse_lora_stack(raw: str | None) -> list[dict[str, Any]]:
             }
         )
     return rows
+
+
+# A row's strength can come in on a link: the node then has an input named
+# strength_<row id>, made by the frontend when a value is dropped on the row.
+ROW_STRENGTH_PREFIX = "strength_"
+_ROW_INPUT = re.compile(r"^strength_[A-Za-z0-9_-]{1,64}$")
+
+
+def is_row_strength_input(name: Any) -> bool:
+    return isinstance(name, str) and bool(_ROW_INPUT.match(name))
+
+
+def apply_linked_strengths(rows: list[dict[str, Any]], linked: dict[str, Any]) -> list[dict[str, Any]]:
+    """Rows with each linked value as the model strength.
+
+    The CLIP strength keeps the ratio the row had to its model strength, so
+    one slider moves the whole LoRA. A row at model strength 0 has no ratio
+    to keep; its CLIP strength then follows the slider one for one.
+    """
+    values = {
+        name[len(ROW_STRENGTH_PREFIX):]: value
+        for name, value in linked.items()
+        if is_row_strength_input(name) and value is not None
+    }
+    if not values:
+        return rows
+    out = []
+    for row in rows:
+        row_id = row.get("id")
+        if not row_id or row_id not in values:
+            out.append(row)
+            continue
+        strength = clamp_strength(values[row_id], row["strength"])
+        ratio = row["strength_clip"] / row["strength"] if row["strength"] else 1.0
+        out.append({**row, "strength": strength, "strength_clip": clamp_strength(strength * ratio, strength)})
+    return out
 
 
 def collect_trigger_words(rows: list[dict[str, Any]], separator: str = ", ") -> str:
@@ -136,27 +176,29 @@ _remap_noted: set[str] = set()
 def resolve_lora_path(name: str) -> Path:
     if folder_paths is None:
         raise ValueError("folder_paths is unavailable outside ComfyUI.")
-    full = folder_paths.get_full_path("loras", name)
-    if not full:
+    # Only a name on ComfyUI's own LoRA list reaches the disk. A route's
+    # name or a widget value is never joined to a folder as given: it is
+    # matched against the list first, and anything else is refused here.
+    candidate, status = match_lora_name(str(name), list_loras())
+    if status == "remapped":
         # The saved path is stale; a moved file should just keep working.
-        candidate, status = match_lora_name(str(name), list_loras())
-        if status == "remapped":
-            if name not in _remap_noted:
-                _remap_noted.add(name)
-                print(
-                    f"[AusBoss] LoRA Loader: '{name}' is not at its saved "
-                    f"path; using '{candidate}'."
-                )
-            full = folder_paths.get_full_path("loras", candidate)
-        elif status == "ambiguous":
-            raise ValueError(
-                f"LoRA name matches several files in models/loras: {name}"
+        if name not in _remap_noted:
+            _remap_noted.add(name)
+            print(
+                f"[AusBoss] LoRA Loader: '{name}' is not at its saved "
+                f"path; using '{candidate}'."
             )
+    elif status == "ambiguous":
+        raise ValueError(
+            f"LoRA name matches several files in models/loras: {name}"
+        )
+    elif status != "exact":
+        raise ValueError(f"LoRA file not found in models/loras: {name}")
+    full = folder_paths.get_full_path("loras", candidate)
     if not full:
         raise ValueError(f"LoRA file not found in models/loras: {name}")
-    # Containment is checked on the path as written, with ".." folded but
-    # links not followed: a LoRA kept on another drive and linked into
-    # models/loras is the user's own choice, and ComfyUI loads it too.
+    # The listed file must also sit below one of the loras folders, read
+    # from the path as ComfyUI built it, with ".." folded.
     path = Path(os.path.abspath(full))
     roots = [Path(os.path.abspath(root)) for root in folder_paths.get_folder_paths("loras")]
     if not any(root in path.parents for root in roots):
@@ -388,8 +430,8 @@ def apply_lora_stack(
         except MemoryError:
             raise
         except Exception as exc:
-            # ComfyUI's own message here is PyTorch's and never names the file.
-            detail = f"{type(exc).__name__}: {' '.join(str(exc).split())}"
+            # ComfyUI can add the file's path; error_detail drops words that name one.
+            detail = error_detail(exc)
             raise ValueError(
                 unreadable_lora_message(row["name"], unreadable_lora_reason(path), detail)
             ) from exc

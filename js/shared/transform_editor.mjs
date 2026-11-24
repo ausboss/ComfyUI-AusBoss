@@ -12,9 +12,10 @@ import { mediaViewQuery, unlistedMedia } from "./media_list.mjs";
 import { createMediaPicker } from "./media_picker.mjs";
 import { normalizeFillColor } from "./fill_color.mjs";
 import { makeSlideSwitch } from "./slide_switch.mjs";
+import { t } from "./i18n.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
 import { confirmDiscard } from "./discard_prompt.mjs";
-import { featherGeneratedMask, generatedAreaMask, overlayPlan, seeThroughMap, stitchBlendFromMask } from "./stitch_preview.mjs";
+import { PIXEL_PROBE, featherGeneratedMask, generatedAreaMask, overlayPlan, pixelReadTrusted, seeThroughMap, stitchBlendFromMask } from "./stitch_preview.mjs";
 import { suppressCoreVideoPreview } from "./core_preview.mjs";
 import { gearIconSvg, loadSettings, openSettingsMenu } from "./settings_menu.mjs";
 import { createSettle } from "./settle.mjs";
@@ -83,6 +84,7 @@ import {
 } from "./transform_geometry.mjs";
 import { clampFrame, clipInfo, frameTime, lengthLimits, limitsSummary, setLengthLimit } from "./timeline_math.mjs";
 import { liftSocket } from "./widget_card.mjs";
+import { COPY_EDITS_SETTING, copyPicture, transformPicture } from "./transform_picture.mjs";
 
 const HIDDEN_WIDGETS = [
   "image", "upload",
@@ -111,7 +113,7 @@ const RESIZE_METHODS = ["lanczos", "area", "bicubic", "bilinear", "nearest-exact
 const TRANSFORM_DEFAULTS = resetTransformValues(false);
 const CORE_IMAGE_PREVIEW_WIDGET = "$$canvas-image-preview";
 
-// The gear on the image node's source card. Display choices only, kept for
+// The gear on the image node's source card. Browser preferences, kept for
 // every image node on this browser (settings_menu.mjs stores them).
 const SETTINGS_SCOPE = "image_crop_rotate_pad";
 const SETTINGS_SCHEMA = [
@@ -119,6 +121,7 @@ const SETTINGS_SCHEMA = [
     key: "show_mask", label: "Show the mask on the picture", type: "toggle", default: true,
     hint: "Teal over the parts of your picture the model paints: a mask drawn in the MaskEditor, or see-through parts of a PNG.",
   },
+  COPY_EDITS_SETTING,
 ];
 let transformSettings = null;
 function settings() {
@@ -1152,7 +1155,7 @@ function buildAspectChipRow(state) {
       caption.textContent = untouched ? "Source" : "Custom";
       caption.title = `${untouched ? "The picture's own shape" : "No ratio button has this shape"}: ${canvas.width}×${canvas.height} (${ratioLabel(canvas.width, canvas.height)}). Tap a ratio to use one.`;
     }
-    caption.classList.toggle("generic", caption.textContent === "Ratio");
+    caption.classList.toggle("generic", !held && Boolean(request || !picture));
     caption.classList.toggle("custom", Boolean(picture && !request && !untouched && !held));
     caption.classList.toggle("held", held);
     for (const { chip, aspect } of chips) {
@@ -3004,6 +3007,9 @@ function maskLayer(state) {
   if (state.seeThrough?.image === state.image) return state.seeThrough.layer;
   let layer = null;
   try {
+    // A browser that blanks pixel reads would make the whole picture look
+    // see-through: draw it as it is instead.
+    if (!canReadPixels()) throw new Error("pixel reads are blocked");
     const k = Math.min(1, MASK_LAYER_SIDE / Math.max(state.sourceWidth, state.sourceHeight));
     const width = Math.max(1, Math.round(state.sourceWidth * k));
     const height = Math.max(1, Math.round(state.sourceHeight * k));
@@ -3029,6 +3035,22 @@ function maskLayer(state) {
   }
   state.seeThrough = { image: state.image, layer };
   return layer;
+}
+
+// Whether this browser hands back the pixels a canvas holds (pixelReadTrusted).
+// Asked once per page.
+let pixelReadsWork = null;
+function canReadPixels() {
+  if (pixelReadsWork !== null) return pixelReadsWork;
+  try {
+    const probe = document.createElement("canvas"); probe.width = PIXEL_PROBE.length; probe.height = 1;
+    const context = probe.getContext("2d");
+    PIXEL_PROBE.forEach(([r, g, b], x) => { context.fillStyle = `rgb(${r},${g},${b})`; context.fillRect(x, 0, 1, 1); });
+    pixelReadsWork = pixelReadTrusted(context.getImageData(0, 0, PIXEL_PROBE.length, 1).data);
+  } catch {
+    pixelReadsWork = false;
+  }
+  return pixelReadsWork;
 }
 
 // White where the tint is, for Show blend's raster.
@@ -3249,6 +3271,68 @@ function drawRotateGlyph(context, x, y, radius, color) {
 // node itself can still drag, and pointercancel plus mouseleave both end a
 // gesture in case the capture was refused.
 function attachStageHandlers(state, canvas, signal) {
+  if (state.kind === "image") {
+    canvas.addEventListener("contextmenu", (event) => {
+      event.preventDefault(); event.stopPropagation();
+      if (!state.image) return;
+      const picture = async () => {
+        let source = state.image;
+        const sourceWidth = state.sourceWidth, sourceHeight = state.sourceHeight;
+        const current = values(state.node), resize = resizeRequest(state.node);
+        const includeEdits = settings().copy_edits;
+        if (includeEdits && maskLayer(state)) {
+          if (value(state.node, "painted_area", "fill") === "keep picture") {
+            // The browser loses colours under fully transparent pixels. Core's
+            // RGB view restores the stored picture under MaskEditor strokes.
+            source = new Image();
+            source.src = api.apiURL(`/view?${mediaViewQuery(value(state.node, "image", ""))}&channel=rgb`);
+            await source.decode();
+          } else {
+            // The stage's mask layer is capped at 2048px. Copy from the source
+            // at full size, using the same rule for which pixels stay picture.
+            const full = document.createElement("canvas");
+            full.width = sourceWidth; full.height = sourceHeight;
+            const context = full.getContext("2d");
+            context.drawImage(source, 0, 0);
+            const pixels = context.getImageData(0, 0, full.width, full.height);
+            const map = seeThroughMap(pixels.data);
+            if (map) for (let i = 0; i < map.length; i++) pixels.data[i * 4 + 3] = map[i] ? 0 : 255;
+            context.putImageData(pixels, 0, 0);
+            source = full;
+          }
+        }
+        return transformPicture({
+          sourceWidth, sourceHeight, values: current, resize, includeEdits,
+          fill: normalizeColor(current.fill_color),
+          drawSource: (context) => context.drawImage(source, -sourceWidth / 2, -sourceHeight / 2, sourceWidth, sourceHeight),
+        });
+      };
+      const report = (error) => showToast({ severity: "error", summary: "Copy image", detail: error?.message ?? String(error) });
+      new globalThis.LiteGraph.ContextMenu([
+        { content: "Copy image", callback: () => {
+          try {
+            Promise.resolve(copyPicture(picture)).then(
+              () => showToast({ summary: "Copy image", severity: "success", detail: "The picture is on the clipboard." }), report,
+            );
+          } catch (error) { report(error); }
+        } },
+        { content: "Open image", callback: async () => {
+          try {
+            // A real image retains the browser's native Copy image on plain
+            // HTTP too. A data URL stays usable for as long as the tab is open.
+            const tab = window.open("about:blank", "_blank");
+            if (!tab) throw new Error("Allow pop-ups to open the picture.");
+            tab.opener = null;
+            const image = tab.document.createElement("img");
+            image.src = (await picture()).toDataURL("image/png");
+            image.style.maxWidth = "100%";
+            tab.document.title = "Crop image — right-click to copy";
+            tab.document.body.append(image);
+          } catch (error) { report(error); }
+        } },
+      ], { event });
+    }, { signal });
+  }
   canvas.addEventListener("pointerdown", (event) => pointerDown(state, canvas, event), { signal });
   canvas.addEventListener("pointermove", (event) => pointerMove(state, canvas, event), { signal });
   canvas.addEventListener("pointerup", (event) => pointerUp(state, canvas, event), { signal });
@@ -3486,7 +3570,7 @@ function sizeLines(state) {
   return lines;
 }
 function drawEmpty(state, text) { state.render = null; state.panelRender = null; syncReadout(state); for (const canvas of [state.canvas, state.previewCanvas]) { if (!canvas) continue; const prepared = prepareCanvas(canvas); drawEmptyCanvas(prepared.context, prepared.width, prepared.height, text); } }
-function drawEmptyCanvas(context, width, height, text) { context.fillStyle = "#111"; context.fillRect(0, 0, width, height); context.fillStyle = "#9ba2aa"; context.font = "13px system-ui"; context.textAlign = "center"; context.fillText(text, width / 2, height / 2); context.textAlign = "left"; }
+function drawEmptyCanvas(context, width, height, text) { context.fillStyle = "#111"; context.fillRect(0, 0, width, height); context.fillStyle = "#9ba2aa"; context.font = "13px system-ui"; context.textAlign = "center"; context.fillText(t(text), width / 2, height / 2); context.textAlign = "left"; }
 
 // True when the node is an AusBoss transform node whose editor can open
 // (installed by installTransformNode). Used by the pack-wide command.

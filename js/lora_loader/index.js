@@ -9,6 +9,10 @@ import {
   loadSettings,
   openSettingsMenu,
 } from "../shared/settings_menu.mjs";
+import { compactAction } from "../shared/panel_controls.mjs";
+import {
+  STRENGTH_LINK_STYLES, WIRE_LOOKS, installStrengthLinks, sourceTitle, sourceValue, syncStrengthLinks, unlinkRow,
+} from "./strength_links.mjs";
 import { makeScrubInput } from "../shared/scrub_input.mjs";
 import { isAppShortcut, keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { resetUnknownValues } from "../shared/widget_card_math.mjs";
@@ -47,6 +51,8 @@ import {
   collectUpstreamLoaders,
   collectDownstreamLoaders,
   absorbChainIssue,
+  anyFolderOpen,
+  parentFolder,
   mergeImportedRows,
   moveGroup,
   moveHighlight,
@@ -65,6 +71,7 @@ import {
   scrubValue,
   serializeRows,
   setGroupEnabled,
+  setFolderFolds,
   setGroupOff,
   setStrength,
   shortLoraName,
@@ -138,6 +145,14 @@ const SETTINGS_SCHEMA = [
     type: "toggle", default: false, persist: false,
     hint: "Two strength boxes per row on this node. New nodes always start "
       + "unified.",
+  },
+  {
+    key: "strength_wires", label: "Linked strength wires", type: "choice",
+    options: WIRE_LOOKS, default: "shown",
+    hint: "A number wire dropped on a row sets that row's strength. shown: "
+      + "the wire runs to the row. on hover: it shows while the pointer is on "
+      + "this node or its source. hidden: never drawn; the row still says "
+      + "what sets it.",
   },
   {
     key: "strength_bars", label: "Strength bars", type: "toggle",
@@ -219,7 +234,7 @@ function installStyles() {
   if (document.getElementById("ausboss-lora-styles")) return;
   const style = document.createElement("style");
   style.id = "ausboss-lora-styles";
-  style.textContent = `
+  style.textContent = STRENGTH_LINK_STYLES + `
   .ausboss-lora-panel, .ausboss-lora-panel *,
   .ausboss-lora-pop, .ausboss-lora-pop *,
   .ausboss-lora-hoverthumb { box-sizing: border-box; }
@@ -394,6 +409,10 @@ function installStyles() {
   .ausboss-lora-pop { position: fixed; z-index: 10000; background: #1c1f23;
     border: 1px solid #3a4047; border-radius: 7px; box-shadow: 0 8px 28px rgba(0,0,0,.5);
     font: ${POP_FONT}; color: #d7dde2; display: flex; flex-direction: column; }
+  .ausboss-lora-pickhead { display: flex; align-items: center; gap: 6px; margin: 8px; }
+  .ausboss-lora-pickhead .ausboss-lora-search { flex: 1 1 auto; min-width: 0; margin: 0; }
+  /* Wide enough for either label, so the search box keeps its width. */
+  .ausboss-lora-pickhead .ausboss-compact-action { min-width: 64px; }
   .ausboss-lora-search { margin: 8px; height: 26px; border: 1px solid #3a4047; border-radius: 5px;
     background: #23272c; color: inherit; padding: 0 8px; outline: none; }
   .ausboss-lora-search:focus { border-color: ${BRAND}; }
@@ -909,7 +928,11 @@ function strengthBox(state, index, key) {
   input.dataset.ausbossStrength = key;
   // A short name; the tooltip above stays as the longer description.
   input.setAttribute("aria-label", key === "strength" ? "Model strength" : "CLIP strength");
-  input.__ausbossRead = () => state.rows[index]?.[key].toFixed(2) ?? "1.00";
+  input.__ausbossRead = () => {
+    const entry = linkedEntry(state, index);
+    if (entry) return sourceValue(entry)?.toFixed(2) ?? "link";
+    return state.rows[index]?.[key].toFixed(2) ?? "1.00";
+  };
   input.__ausbossTint = () => state.rows[index] && applyRangeTint(input, state.rows[index], key);
   ensureRange(state, state.rows[index].name);
 
@@ -923,6 +946,16 @@ function strengthBox(state, index, key) {
   let drag = null;
   input.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 || !input.readOnly) return;
+    // A linked strength is set by its wire: a click shows where it comes from.
+    const entry = linkedEntry(state, index);
+    if (entry) {
+      event.preventDefault();
+      if (entry.source) {
+        app.canvas?.selectNode?.(entry.source);
+        app.canvas?.centerOnNode?.(entry.source);
+      }
+      return;
+    }
     drag = { x: event.clientX, y: event.clientY, start: state.rows[index][key], scrubbed: false };
     input.setPointerCapture(event.pointerId);
     event.preventDefault();
@@ -994,6 +1027,34 @@ function strengthBox(state, index, key) {
   return box;
 }
 
+function linkedEntry(state, index) {
+  const row = state.rows[index];
+  return row ? state.linkedStrengths?.get(row.id) ?? null : null;
+}
+
+// Mark the rows a wire sets: the strength box shows the incoming number,
+// and its tooltip names where it comes from.
+function decorateStrengthLinks(state) {
+  if (state.disposed || state.box) return;
+  state.linkedStrengths = syncStrengthLinks(state);
+  for (const box of state.panel.querySelectorAll(".ausboss-lora-strengthbox")) {
+    const rowId = box.closest(".ausboss-lora-row")?.dataset.rowId;
+    const entry = rowId ? state.linkedStrengths.get(rowId) : null;
+    box.classList.toggle("linked", Boolean(entry));
+    const input = box.querySelector(".ausboss-lora-strength");
+    if (!input) continue;
+    input.title = entry
+      ? `Set by "${sourceTitle(entry)}". Click to show it. Right-click the row to unlink.`
+      : input.dataset.baseTitle ?? "";
+    if (input.readOnly && input.__ausbossRead) input.value = input.__ausbossRead();
+  }
+  const signature = [...state.linkedStrengths].map(([id, entry]) => `${id}:${sourceValue(entry)}`).join("|");
+  if (signature !== state.linkSignature) {
+    state.linkSignature = signature;
+    decorateRows(state);
+  }
+}
+
 // ---------- picker ----------
 
 // Width of the longest label in the picker's font. Remembered across opens,
@@ -1005,6 +1066,14 @@ let widestPickerLabel = 0;
 // pickers. It never changes the workflow or enters its undo history.
 const COLLAPSED_FOLDERS_KEY = "AusBoss.lora_loader.collapsedFolders";
 let rememberedCollapsedFolders = new Set();
+
+// "Start folded" (the default) opens the picker with every folder folded
+// and forgets folds when it closes. "Remember my folds" keeps them.
+const PICKER_FOLDERS_SETTING = "AusBoss.LoraLoader.PickerFolders";
+const START_FOLDED = "Start folded";
+const REMEMBER_FOLDS = "Remember my folds";
+const pickerStartsFolded = () =>
+  (app.ui?.settings?.getSettingValue?.(PICKER_FOLDERS_SETTING) ?? START_FOLDED) !== REMEMBER_FOLDS;
 
 function loadCollapsedFolders() {
   try {
@@ -1040,9 +1109,15 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
   const search = el("input", "ausboss-lora-search");
   search.placeholder = "Search LoRAs...";
   search.setAttribute("aria-label", "Search LoRAs");
+  // Folds or opens every folder at once. Hidden until the list has folders.
+  const foldAll = compactAction("Fold all");
+  foldAll.hidden = true;
+  foldAll.addEventListener("keydown", keepKeyInField);
+  const head = el("div", "ausboss-lora-pickhead");
+  head.append(search, foldAll);
   const list = el("div", "ausboss-lora-list");
   list.append(el("div", "ausboss-lora-empty", "Loading..."));
-  pop.append(search, list);
+  pop.append(head, list);
   if (adding) pop.append(el("div", "ausboss-lora-picker-note",
     "Click a file to add it. Tick boxes (or Ctrl-click) to add several at once. Click a folder name to add all of it. Skips files already in this stack."));
   const anchorRect = anchor.getBoundingClientRect();
@@ -1065,7 +1140,8 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
   const inStack = () => new Set(state.rows.map((row) => pathKey(row.name)));
   let loadError = false;
   let highlight = -1;
-  const collapsedFolders = loadCollapsedFolders();
+  const startFolded = pickerStartsFolded();
+  const collapsedFolders = startFolded ? new Set() : loadCollapsedFolders();
   // Search reveals matches without losing the user's usual folded view.
   let searchCollapsed = new Set();
   const currentFolds = () => search.value.trim() ? searchCollapsed : collapsedFolders;
@@ -1073,15 +1149,21 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
   // after: "highlight" keeps the folder highlighted for the search box's
   // arrow keys, "arrow" keeps focus on the fold arrow that was pressed with
   // the keyboard, "search" hands the keys back to the search box.
-  const toggleFolder = (name, collapsed = !currentFolds().has(name), after = "highlight") => {
+  // subtree: the folder's own folders fold or open with it (Alt- or
+  // Shift-click on its arrow). A null name means every folder (Fold all).
+  const toggleFolder = (name, collapsed = !currentFolds().has(name), after = "highlight", { subtree = false } = {}) => {
     const folds = currentFolds();
-    if (collapsed) folds.add(name);
+    if (subtree || name == null) {
+      const next = setFolderFolds(folds, folders.keys(), collapsed, name);
+      folds.clear();
+      for (const folder of next) folds.add(folder);
+    } else if (collapsed) folds.add(name);
     else folds.delete(name);
-    if (folds === collapsedFolders) saveCollapsedFolders(folds);
+    if (folds === collapsedFolders && !startFolded) saveCollapsedFolders(folds);
     const scrollTop = list.scrollTop;
     highlight = -1;
     renderList();
-    if (after === "highlight" && adding) {
+    if (after === "highlight" && adding && name != null) {
       highlight = options.findIndex((entry) => entry.kind === "folder" && entry.name === name);
       list.querySelector(`[data-ausboss-flat="${highlight}"]`)?.classList.add("highlight");
     }
@@ -1098,15 +1180,16 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
     button.dataset.folder = name;
     button.innerHTML = chevronIconSvg(false);
     button.setAttribute("aria-expanded", String(expanded));
-    button.title = `${expanded ? "Collapse" : "Expand"} ${name}`;
-    button.setAttribute("aria-label", button.title);
+    button.setAttribute("aria-label", `${expanded ? "Collapse" : "Expand"} ${name}`);
+    button.title = `${button.getAttribute("aria-label")} (Alt-click: and every folder inside it)`;
     button.addEventListener("keydown", keepKeyInField);
     button.addEventListener("click", (event) => {
       // Only the folder name adds files; its arrow is browse-only.
       event.stopPropagation();
       // A click made with a key (detail 0) stays on the arrow. A mouse click
       // goes back to the search box, so typing keeps searching.
-      toggleFolder(name, !currentFolds().has(name), event.detail === 0 ? "arrow" : "search");
+      toggleFolder(name, !currentFolds().has(name), event.detail === 0 ? "arrow" : "search",
+        { subtree: event.altKey || event.shiftKey });
     });
     row.append(button);
   };
@@ -1329,6 +1412,11 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
       for (const entry of entries) if (entry.kind === "file") entry.inStack = have.has(pathKey(entry.name));
     }
     options = entries.filter((entry) => adding || entry.kind === "file");
+    const open = anyFolderOpen(entries, currentFolds());
+    foldAll.hidden = !entries.some((entry) => entry.kind === "folder");
+    foldAll.textContent = open ? "Fold all" : "Open all";
+    foldAll.dataset.folds = open ? "1" : "";
+    foldAll.title = open ? "Fold every folder in this list" : "Open every folder in this list";
     if (highlight >= 0) highlight = clampHighlight(highlight, options.length);
     list.textContent = "";
     hideHoverThumb();
@@ -1356,6 +1444,9 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
     place();
   };
 
+  foldAll.addEventListener("click", () => {
+    toggleFolder(null, foldAll.dataset.folds === "1", "search");
+  });
   search.addEventListener("input", () => { highlight = -1; searchCollapsed = new Set(); renderList(); });
   search.addEventListener("keydown", (event) => {
     keepKeyInField(event);
@@ -1365,9 +1456,18 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
       highlight = moveHighlight(highlight, event.key === "ArrowDown" ? 1 : -1, options.length);
       renderList();
     } else if ((event.key === "ArrowLeft" || event.key === "ArrowRight")
-        && options[highlight]?.kind === "folder") {
+        && options[highlight]?.kind === "folder"
+        && !(event.key === "ArrowLeft" && currentFolds().has(options[highlight].name)
+          && parentFolder(options[highlight].name) && !event.altKey && !event.shiftKey)) {
       event.preventDefault();
-      toggleFolder(options[highlight].name, event.key === "ArrowLeft");
+      toggleFolder(options[highlight].name, event.key === "ArrowLeft", "highlight",
+        { subtree: event.altKey || event.shiftKey });
+    } else if (event.key === "ArrowLeft" && adding && highlight >= 0
+        && parentFolder(options[highlight]?.name)) {
+      // On a file, or on a folder that is already folded, Left folds the
+      // folder it sits in and moves up to it, as in a file tree.
+      event.preventDefault();
+      toggleFolder(parentFolder(options[highlight].name), true);
     } else if (event.key === "Home" || event.key === "End") {
       event.preventDefault();
       highlight = event.key === "Home" ? 0 : options.length - 1;
@@ -1396,6 +1496,13 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
       if (!pop.isConnected) return;
       names = fetched;
       folders = new Map(loraFolders(fetched).map(({ folder, names }) => [folder, names]));
+      if (startFolded) {
+        for (const folder of folders.keys()) collapsedFolders.add(folder);
+        // A row's own picker opens the way to that row's file.
+        for (let folder = parentFolder(state.rows[index]?.name); folder; folder = parentFolder(folder)) {
+          collapsedFolders.delete(folder);
+        }
+      }
       state.available = fetched;
       state.nameStatus = new Map();
       widestPickerLabel = widestLabel(names.map((name) => displayName(state, name))) + (adding ? 110 : 30);
@@ -1804,6 +1911,13 @@ function openRowMenu(state, index, event) {
     commitRows(state, rows, { structural: true });
     fitNode(state);
   };
+  if (state.linkedStrengths?.has(row.id)) {
+    item("Unlink strength", () => {
+      unlinkRow(state, row.id);
+      decorateStrengthLinks(state);
+    });
+    menu.append(el("div", "ausboss-lora-menu-rule"));
+  }
   item("Insert empty LoRA above", () => insertEmpty(index));
   item("Insert empty LoRA below", () => insertEmpty(index + 1));
   item("Move up", () => commitGroups(state, moveRowInStack(state.rows, index, -1)),
@@ -2330,7 +2444,12 @@ function renameOwnedGroup(state, from, to) {
 // value update - the bar scale can change whenever any row's strength does.
 function decorateRows(state) {
   const showBars = state.settings?.strength_bars !== false;
-  const scale = strengthBarScale(state.rows);
+  // A linked row's bar shows the number coming in on its wire.
+  const shown = state.rows.map((row, index) => {
+    const value = sourceValue(linkedEntry(state, index));
+    return value === null ? row : { ...row, strength: value };
+  });
+  const scale = strengthBarScale(shown);
   const dups = duplicateLoraKeys(state.rows);
   state.panel.querySelectorAll(".ausboss-lora-name").forEach((button, index) => {
     const row = state.rows[index];
@@ -2341,8 +2460,8 @@ function decorateRows(state) {
     }
     const notes = [row.name];
     if (showBars) {
-      button.style.background = strengthBarBackground(row.strength, scale);
-      notes.push(`Model strength ${row.strength.toFixed(2)}; `
+      button.style.background = strengthBarBackground(shown[index].strength, scale);
+      notes.push(`Model strength ${shown[index].strength.toFixed(2)}; `
         + `bar edges are ±${scale.toFixed(2)}`);
     } else {
       button.style.background = "";
@@ -2387,6 +2506,7 @@ function updateRowValues(state) {
     master.classList.toggle("mixed", overall === "mixed");
   }
   decorateRows(state);
+  decorateStrengthLinks(state);
 }
 
 // ---------- absorb the loader chain ----------
@@ -2868,7 +2988,7 @@ function renderRows(state) {
     let nameDrag = null;
     name.addEventListener("pointerdown", (event) => {
       if (event.button !== 0 || !row.name
-          || state.settings?.name_scrub === false) return;
+          || state.settings?.name_scrub === false || linkedEntry(state, index)) return;
       nameDrag = { x: event.clientX, y: event.clientY,
                    start: state.rows[index].strength, scrubbed: false };
       name.setPointerCapture(event.pointerId);
@@ -2960,6 +3080,7 @@ function renderRows(state) {
   stack.append(actions);
   body.append(stack);
   decorateRows(state);
+  decorateStrengthLinks(state);
   state.lockSignature = null;
   refreshLocks(state);
   // Names refit whenever the stack's box changes - the node was resized,
@@ -3091,6 +3212,7 @@ function ensureRedrawHook() {
         if (state.node.graph !== shown) continue;
         syncRows(state);
         refreshLocks(state);
+        decorateStrengthLinks(state);
       }
     }, 250);
   });
@@ -3196,6 +3318,7 @@ function watchBox(box) {
 function unmountCard(state, { resize = true } = {}) {
   liveCards.delete(state);
   state.disposed = true;
+  state.unlinkStrengthWatch?.();
   state.nameObserver?.disconnect();
   closePopup();
   try {
@@ -3289,6 +3412,10 @@ function mountCard(node, { box = null, separatorWidget = null, onMissingWidget =
     panel.style.height = `calc(100% + ${reclaim}px)`;
   }
 
+  if (!box) {
+    state.unlinkStrengthWatch = installStrengthLinks(state, app);
+    state.onStrengthLinks = () => decorateStrengthLinks(state);
+  }
   renderRows(state);
   refreshAvailable(state);
   node.setSize?.([Math.max(336, node.size?.[0] || 336), node.computeSize?.()[1] || 220]);
@@ -3351,6 +3478,18 @@ function installLoraNode(node) {
 
 app.registerExtension({
   name: "AusBoss.LoraLoader",
+  settings: [
+    {
+      id: PICKER_FOLDERS_SETTING,
+      name: "+ LoRA list folders",
+      type: "combo",
+      options: [START_FOLDED, REMEMBER_FOLDS],
+      defaultValue: START_FOLDED,
+      category: ["🆎 AusBoss", "LoRA Loader", "Picker folders"],
+      tooltip: "Start folded opens the + LoRA list with every folder folded. "
+        + "Remember my folds opens it the way you left it in this browser.",
+    },
+  ],
   setup() {
     watchEnteredBoxes();
     ensureRedrawHook();

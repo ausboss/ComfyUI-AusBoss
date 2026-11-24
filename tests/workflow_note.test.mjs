@@ -12,7 +12,9 @@ import {
   folderPath,
   groupModels,
   hostLabel,
+  installFolders,
   matchInstalled,
+  modelFolderKey,
   onlyCopy,
   noteFit,
   noteIsEmpty,
@@ -23,6 +25,7 @@ import {
   parseMarkdown,
   rowFromCells,
   safeUrl,
+  sharedFolders,
   serializeNote,
 } from "../js/shared/workflow_note.mjs";
 import { collectGraphNodes } from "../js/shared/appearance.mjs";
@@ -125,6 +128,51 @@ test("folderPath and groupModels read like the install tree", () => {
     { name: "a", dir: "vae" }, { name: "b", dir: "loras" }, { name: "c", dir: "vae" },
   ]);
   assert.deepEqual(groups.map((g) => [g.dir, g.rows.map((r) => r.name)]), [["vae", ["a", "c"]], ["loras", ["b"]]]);
+});
+
+// Stability Matrix's extra_model_paths.yaml, as ComfyUI's
+// /experiment/models reports it on Windows (issue #386).
+const STABILITY_MATRIX = [
+  { name: "loras", folders: ["C:\\SM\\Packages\\ComfyUI\\models\\loras", "C:\\SM\\Data\\Models\\Lora", "C:\\SM\\Data\\Models\\LyCORIS"] },
+  { name: "text_encoders", folders: ["C:\\SM\\Packages\\ComfyUI\\models\\text_encoders", "C:\\SM\\Packages\\ComfyUI\\models\\clip", "C:\\SM\\Data\\Models\\TextEncoders"] },
+  { name: "diffusion_models", folders: ["/opt/ComfyUI/models/unet", "/opt/ComfyUI/models/diffusion_models/", "/mnt/shared/DiffusionModels"] },
+  { name: "vae", folders: ["/opt/ComfyUI/models/vae"] },
+];
+
+test("old folder names are checked under the names ComfyUI lists them by", () => {
+  // GET /models/clip and /models/unet answer 404; ComfyUI files them as these.
+  assert.equal(modelFolderKey("clip"), "text_encoders");
+  assert.equal(modelFolderKey("unet"), "diffusion_models");
+  assert.equal(modelFolderKey("loras"), "loras");
+  assert.equal(modelFolderKey("clip_vision"), "clip_vision");
+  assert.equal(modelFolderKey("input"), "input");
+});
+
+test("installFolders lists every folder the install reads, shared ones included", () => {
+  assert.deepEqual(installFolders("loras", STABILITY_MATRIX), STABILITY_MATRIX[0].folders);
+  assert.deepEqual(installFolders("clip", STABILITY_MATRIX), STABILITY_MATRIX[1].folders);
+  assert.deepEqual(installFolders("input", STABILITY_MATRIX), []);
+  assert.deepEqual(installFolders("checkpoints", STABILITY_MATRIX), []);
+  assert.deepEqual(installFolders("loras", null), []);
+  assert.deepEqual(installFolders("loras", [null, { name: "loras" }]), []);
+});
+
+test("sharedFolders names only the folders outside ComfyUI/models", () => {
+  assert.deepEqual(sharedFolders("loras", STABILITY_MATRIX), ["C:\\SM\\Data\\Models\\Lora", "C:\\SM\\Data\\Models\\LyCORIS"]);
+  // models/clip is ComfyUI's own old text-encoder folder, not a shared one.
+  assert.deepEqual(sharedFolders("text_encoders", STABILITY_MATRIX), ["C:\\SM\\Data\\Models\\TextEncoders"]);
+  assert.deepEqual(sharedFolders("clip", STABILITY_MATRIX), ["C:\\SM\\Data\\Models\\TextEncoders"]);
+  assert.deepEqual(sharedFolders("unet", STABILITY_MATRIX), ["/mnt/shared/DiffusionModels"]);
+  // A plain install has nothing extra to show, and neither do folders
+  // named like the kind (ComfyUI's own output/loras, a shared .../loras).
+  assert.deepEqual(sharedFolders("vae", STABILITY_MATRIX), []);
+  assert.deepEqual(sharedFolders("loras", [{ name: "loras", folders: ["/c/ComfyUI/models/loras", "/c/ComfyUI/output/loras", "D:\\shared\\LoRAs\\"] }]), []);
+  assert.deepEqual(sharedFolders("loras", []), []);
+});
+
+test("the note asks ComfyUI for a folder by the name it lists it under", () => {
+  const source = readFileSync(new URL("../js/workflow_note/index.js", import.meta.url), "utf8");
+  assert.match(source, /fetchApi\(`\/models\/\$\{encodeURIComponent\(modelFolderKey\(dir\)\)\}`\)/);
 });
 
 test("matchInstalled finds exact paths first, then basenames in any subfolder", () => {
@@ -344,4 +392,34 @@ test("onlyCopy picks a file without asking only when there is one copy", () => {
   assert.equal(onlyCopy("win.safetensors", files), "a/Win.safetensors");
   assert.equal(onlyCopy("missing.safetensors", files), null);
   assert.equal(onlyCopy("model.safetensors", []), null);
+});
+
+test("this pack's rows are recognized by name or link, never by an AUSBOSS_NODES_ probe", async () => {
+  const { isOwnPackRow, OWN_PACK } = await import("../js/shared/workflow_note.mjs");
+  assert.equal(isOwnPackRow({ name: "ComfyUI-AusBoss", url: "https://github.com/ausboss/ComfyUI-AusBoss" }), true);
+  assert.equal(isOwnPackRow({ name: "anything", url: "https://github.com/ausboss/ComfyUI-AusBoss.git/" }), true);
+  assert.equal(isOwnPackRow({ name: "ausboss-nodes" }), true);
+  assert.equal(isOwnPackRow(OWN_PACK), true);
+  assert.equal(isOwnPackRow({ name: "ComfyUI-AusBoss-Model-Downloader", url: "https://github.com/ausboss/ComfyUI-AusBoss-Model-Downloader", node: "AUSBOSS_NODES_ModelDownloader" }), false);
+  assert.equal(isOwnPackRow({ name: "rgthree-comfy", url: "https://github.com/rgthree/rgthree-comfy" }), false);
+  assert.equal(isOwnPackRow(null), false);
+});
+
+test("Detect names this pack by its Registry id, from either folder", async () => {
+  const { nameOwnPack, OWN_PACK } = await import("../js/shared/workflow_note.mjs");
+  const detected = [
+    { name: "ComfyUI-AusBoss", url: "", node: "AUSBOSS_NODES_Seed" },
+    { name: "rgthree-comfy", url: "", node: "Power Lora Loader (rgthree)" },
+  ];
+  assert.deepEqual(nameOwnPack(detected, "ComfyUI-AusBoss")[0], { ...OWN_PACK, node: "AUSBOSS_NODES_Seed" });
+  assert.equal(nameOwnPack(detected, "ComfyUI-AusBoss")[1].name, "rgthree-comfy");
+  assert.equal(nameOwnPack([{ name: "ausboss-nodes", url: "", node: "AUSBOSS_NODES_Seed" }], "ausboss-nodes")[0].url, OWN_PACK.url);
+  assert.deepEqual(nameOwnPack(detected, ""), detected);
+});
+
+test("a missing node of this pack offers an update in the Manager, not a GitHub link", () => {
+  const source = readFileSync(new URL("../js/workflow_note/index.js", import.meta.url), "utf8");
+  assert.match(source, /installed === false && isOwnPackRow\(row\)/);
+  assert.match(source, /Comfy\.Manager\.ShowUpdateAvailablePacks/);
+  assert.doesNotMatch(source, /github\.com\/ausboss\/ComfyUI-AusBoss/);
 });

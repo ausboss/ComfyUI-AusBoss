@@ -7,6 +7,7 @@ import {
   slideFraction,
   compareClip,
   compareResultSide,
+  savedRestSide,
   compareSizeLabel,
   findCompareImages,
   findComparePairs,
@@ -167,13 +168,14 @@ test("A and B sit on either side of the split line and move with it", () => {
 // A graph as { node id: ids of the nodes wired into it }. A subgraph node
 // also lists, under `subgraphs`, the graph inside it and where each of its
 // outputs comes from in there.
-function view(feeds, subgraphs = {}) {
+function view(feeds, subgraphs = {}, switches = {}) {
   return {
     feeds: (id) => feeds[id] ?? [],
+    branches: (id) => switches[id] ?? null,
     inside(id) {
       const inner = subgraphs[id];
       if (!inner) return null;
-      return { ...view(inner.feeds, inner.subgraphs), output: (slot) => inner.outputs[slot] ?? null };
+      return { ...view(inner.feeds, inner.subgraphs, inner.switches), output: (slot) => inner.outputs[slot] ?? null };
     },
   };
 }
@@ -209,6 +211,37 @@ test("both pictures out of one subgraph are told apart inside it", () => {
   // An output that is not wired inside gives nothing to go on.
   const open = view({}, { 12: { feeds: {}, outputs: [from(38)] } });
   assert.equal(compareResultSide(from(12, 0), from(12, 1), open), "B");
+});
+
+test("a before that a switch can fill with the result still rests on the result", () => {
+  // An edit-or-generate subgraph: decode 213 is the picture, and "before" is
+  // switch 460, your picture (-10) for an edit or the picture itself for a
+  // new one. B feeds A only through one branch of the switch, so A is not
+  // made from B and the panel rests on B, the result.
+  const inner = {
+    feeds: { 212: [-10], 213: [212], 480: [213], 460: [480, -10, -10] },
+    switches: { 480: [213], 460: [480, -10] },
+    outputs: [from(480), from(460)],
+  };
+  const graph = view({ 39: [6] }, { 39: inner });
+  assert.equal(compareResultSide(from(39, 1), from(39, 0), graph), "B");
+  assert.equal(compareResultSide(from(39, 0), from(39, 1), graph), "A");
+  // The same at the top level: 4 hands on the result 3 or the loader 1.
+  const picker = view({ 2: [1], 3: [2], 4: [3, 1, 9] }, {}, { 4: [3, 1] });
+  assert.equal(compareResultSide(from(4), from(3), picker), "B");
+  assert.equal(compareResultSide(from(3), from(4), picker), "A");
+  // A switch between an edit of B and B itself, or a picture from elsewhere,
+  // is still made from B.
+  assert.equal(compareResultSide(from(4), from(1), view({ 2: [1], 4: [2, 1, 9] }, {}, { 4: [2, 1] })), "A");
+  assert.equal(compareResultSide(from(4), from(1), view({ 2: [1], 4: [2, 7, 9] }, {}, { 4: [2, 7] })), "A");
+  // A switch with no picture wired proves nothing.
+  assert.equal(compareResultSide(from(4), from(1), view({ 4: [9] }, {}, { 4: [] })), "B");
+});
+
+test("only A or B counts as a saved resting side", () => {
+  assert.equal(savedRestSide("A"), "A");
+  assert.equal(savedRestSide("B"), "B");
+  for (const value of [undefined, null, "", "a", "b", "slide", 1, true]) assert.equal(savedRestSide(value), null);
 });
 
 test("an input with nothing to compare against rests on B", () => {

@@ -697,7 +697,7 @@ class EdgeHaloTests(unittest.TestCase):
         stitch_cls = NODE_CLASS_MAPPINGS["AUSBOSS_NODES_StitchInpaint"]
         types = stitch_cls.INPUT_TYPES()
         self.assertEqual(list(types["required"]), ["stitcher", "inpainted"])
-        self.assertEqual(list(types["optional"]), ["fix_edge_halo", "color_match", "seam", "paste_onto"])
+        self.assertEqual(list(types["optional"]), ["fix_edge_halo", "color_match", "seam", "paste_onto", "follow_changes"])
         kind, options = types["optional"]["fix_edge_halo"]
         self.assertEqual(kind, "BOOLEAN")
         self.assertIs(options["default"], False)
@@ -1146,6 +1146,157 @@ class CanvasStitcherBboxTests(unittest.TestCase):
         )
 
 
+
+
+class ToneMatchInpaintTests(unittest.TestCase):
+    """color_match on a Crop For Inpaint crop: the drift is read inside the
+    painted area, so it holds when the sampler used its own, wider noise
+    mask and left the soft edge close to the original (issue #361)."""
+
+    def _case(self, repaint):
+        generator = torch.Generator().manual_seed(4)
+        rows = torch.linspace(0.0, 1.0, 320).view(1, 320, 1, 1)
+        image = torch.tensor([0.72, 0.55, 0.45]).view(1, 1, 1, 3) - 0.15 * rows
+        image = (image + 0.01 * torch.randn((1, 320, 320, 3), generator=generator)).clamp(0.0, 1.0)
+        mask = torch.zeros((1, 320, 320))
+        mask[:, 110:210, 110:210] = 1.0
+        crop, sampling, stitcher = build_crop(image, mask, 2.0, 16, 16)
+        # The model drifts where it paints, but the workflow's noise mask and
+        # the model itself keep the soft edge on the original: the drift
+        # fades out before the paste's feathered band begins.
+        painted = inpaint_helpers.blur_mask(sampling, 3.0).unsqueeze(-1)
+        patch = crop + painted * (repaint(crop) - crop)
+        cx, cy, cw, ch = stitcher["crop_to_canvas"]
+        ox, oy, ow, oh = stitcher["canvas_to_original"]
+        inside = stitcher["blend"][0, oy : oy + oh, ox : ox + ow] > 0.999
+        return image, patch, stitcher, inside
+
+    def _left_over(self, image, stitched, inside):
+        from nodes._color_helpers import rgb_to_lab
+        return float((rgb_to_lab(stitched) - rgb_to_lab(image))[0][inside].median(dim=0).values.norm())
+
+    def test_a_washed_out_repaint_comes_back_to_the_picture(self):
+        image, patch, stitcher, inside = self._case(lambda crop: crop * 0.85 + 0.11)
+        off = self._left_over(image, apply_stitch(stitcher, patch, color_match=0.0), inside)
+        half = self._left_over(image, apply_stitch(stitcher, patch, color_match=0.5), inside)
+        full = self._left_over(image, apply_stitch(stitcher, patch, color_match=1.0), inside)
+        self.assertGreater(off, 3.0)
+        self.assertLess(half, 0.65 * off)
+        self.assertLess(full, 0.25 * off)
+
+    def test_the_band_alone_read_a_fraction_of_that_drift(self):
+        # What the slider had to work with before: the regression in numbers.
+        image, patch, stitcher, inside = self._case(lambda crop: crop * 0.85 + 0.11)
+        cx, cy, cw, ch = stitcher["crop_to_canvas"]
+        region = stitcher["canvas"][:, cy : cy + ch, cx : cx + cw]
+        alpha = stitcher["blend"][:, cy : cy + ch, cx : cx + cw]
+        band = inpaint_helpers.estimate_tone_offset(patch, region, alpha)
+        inner, held = inpaint_helpers.inner_tone_offset(patch, region, alpha)
+        self.assertTrue(bool(held[0]))
+        self.assertLess(float(band.norm()), 0.5 * float(inner.norm()))
+
+    def test_new_content_is_not_pulled_toward_the_old_colour(self):
+        # A black jacket over skin is a change, not a drift: the reading
+        # holds at zero, so the band is not asked and nothing is shifted.
+        image, patch, stitcher, inside = self._case(lambda crop: torch.full_like(crop, 0.05))
+        cx, cy, cw, ch = stitcher["crop_to_canvas"]
+        region = stitcher["canvas"][:, cy : cy + ch, cx : cx + cw]
+        alpha = stitcher["blend"][:, cy : cy + ch, cx : cx + cw]
+        inner, held = inpaint_helpers.inner_tone_offset(patch, region, alpha)
+        self.assertTrue(bool(held[0]))
+        self.assertEqual(float(inner.abs().max()), 0.0)
+        stitched = apply_stitch(stitcher, patch, color_match=1.0)
+        self.assertLess(float(stitched[0][inside].mean()), 0.12)
+
+    def test_new_content_painted_to_the_edge_is_left_as_painted(self):
+        # A model with no noise mask repaints the soft edge too. The band
+        # then reads the new colour as drift; Tone match must not act on it.
+        def repaint(crop):
+            return torch.tensor([0.85, 0.7, 0.1]).view(1, 1, 1, 3).expand_as(crop).clone()
+
+        image, _patch, stitcher, _inside = self._case(repaint)
+        cx, cy, cw, ch = stitcher["crop_to_canvas"]
+        crop = stitcher["canvas"][:, cy : cy + ch, cx : cx + cw]
+        patch = repaint(crop)
+        plain = apply_stitch(stitcher, patch, color_match=0.0)
+        matched = apply_stitch(stitcher, patch, color_match=1.0)
+        self.assertLess(float((matched - plain).abs().max()), 1.0 / 255)
+
+    def _shirt_case(self, paint):
+        """Skin with a dark shirt on it. The mask covers the shirt with a
+        thin margin, and the model paints skin there, so the painted area
+        has almost no "before" of its own to be read against."""
+        generator = torch.Generator().manual_seed(7)
+        skin = torch.tensor([0.72, 0.55, 0.45]).view(1, 1, 1, 3)
+        rows = torch.linspace(0.0, 1.0, 320).view(1, 320, 1, 1)
+        clean = (skin - 0.1 * rows + 0.01 * torch.randn((1, 320, 320, 3), generator=generator)).clamp(0.0, 1.0)
+        image = clean.clone()
+        image[:, 104:216, 104:216] = 0.06
+        mask = torch.zeros((1, 320, 320))
+        mask[:, 100:220, 100:220] = 1.0
+        crop, sampling, stitcher = build_crop(image, mask, 2.0, 16, 16)
+        cx, cy, cw, ch = stitcher["crop_to_canvas"]
+        ox, oy, ow, oh = stitcher["canvas_to_original"]
+        wanted = clean[:, oy : oy + oh, ox : ox + ow][:, cy : cy + ch, cx : cx + cw]
+        painted = inpaint_helpers.blur_mask(sampling, 3.0).unsqueeze(-1)
+        patch = crop + painted * (paint(wanted) - crop)
+        inside = stitcher["blend"][0, oy : oy + oh, ox : ox + ow] > 0.999
+        return clean, patch, stitcher, inside
+
+    def test_new_skin_is_matched_to_the_skin_beside_it(self):
+        # Skin where a shirt was, painted paler than the skin around it:
+        # the area's own "before" is the shirt, so it is read against the
+        # untouched skin just outside the paste.
+        clean, patch, stitcher, inside = self._shirt_case(lambda skin: skin * 0.85 + 0.13)
+        off = self._left_over(clean, apply_stitch(stitcher, patch, color_match=0.0), inside)
+        full = self._left_over(clean, apply_stitch(stitcher, patch, color_match=1.0), inside)
+        self.assertGreater(off, 3.0)
+        self.assertLess(full, 0.35 * off)
+
+    def test_new_skin_that_already_matches_is_left_alone(self):
+        clean, patch, stitcher, inside = self._shirt_case(lambda skin: skin)
+        plain = apply_stitch(stitcher, patch, color_match=0.0)
+        matched = apply_stitch(stitcher, patch, color_match=1.0)
+        self.assertLess(float((matched - plain).abs().max()), 2.0 / 255)
+
+    def test_a_mixed_rim_is_not_read_as_drift(self):
+        # Half the painted area turned into something else: too little of
+        # the rim agrees, so nothing inside is trusted.
+        def repaint(crop):
+            out = crop.clone()
+            out[:, :, : crop.shape[2] // 2] = 0.05
+            return out
+        image, patch, stitcher, inside = self._case(repaint)
+        cx, cy, cw, ch = stitcher["crop_to_canvas"]
+        region = stitcher["canvas"][:, cy : cy + ch, cx : cx + cw]
+        alpha = stitcher["blend"][:, cy : cy + ch, cx : cx + cw]
+        offset, held = inpaint_helpers.inner_tone_offset(patch, region, alpha)
+        self.assertLess(float(offset.norm()), 1.0)
+
+    def test_an_unchanged_crop_reads_no_drift(self):
+        image, _patch, stitcher, _inside = self._case(lambda crop: crop)
+        cx, cy, cw, ch = stitcher["crop_to_canvas"]
+        crop = stitcher["canvas"][:, cy : cy + ch, cx : cx + cw]
+        stitched = apply_stitch(stitcher, crop, color_match=1.0)
+        # Nothing to undo; what is left is the colour-space round trip.
+        self.assertLess(float((stitched - image).abs().max()), 0.5 / 255)
+
+    def test_a_large_picture_is_read_at_the_size_the_model_painted(self):
+        _image, patch, stitcher, _inside = self._case(lambda crop: crop * 0.85 + 0.11)
+        cx, cy, cw, ch = stitcher["crop_to_canvas"]
+        canvas = stitcher["canvas"][:, cy : cy + ch, cx : cx + cw]
+        blend = stitcher["blend"][:, cy : cy + ch, cx : cx + cw]
+        small, small_held = inpaint_helpers.inner_tone_offset(patch, canvas, blend)
+
+        def grow(image):
+            return torch.nn.functional.interpolate(image.movedim(-1, 1), scale_factor=4, mode="bilinear").movedim(1, -1)
+
+        big, big_held = inpaint_helpers.inner_tone_offset(
+            grow(patch), grow(canvas), grow(blend.unsqueeze(-1)).squeeze(-1), sampled=(cw, ch)
+        )
+        self.assertTrue(bool(small_held[0]) and bool(big_held[0]))
+        # Pasted back four times larger, the reading is the same one.
+        self.assertLess(float((big - small).norm()), 0.3)
 
 
 class ToneMatchTests(unittest.TestCase):

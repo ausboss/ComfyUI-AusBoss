@@ -30,19 +30,25 @@ import {
   MODEL_COLUMNS,
   groupModels,
   hostLabel,
+  installFolders,
   listedSpelling,
   loadersNeeding,
   loraRowsNeeding,
   matchInstalled,
+  modelFolderKey,
   noteFit,
   noteIsEmpty,
   noteShowsTileFace,
   normalizeNote,
   onlyCopy,
+  OWN_PACK,
+  isOwnPackRow,
+  nameOwnPack,
   packsFromGraph,
   parseMarkdown,
   rowFromCells,
   serializeNote,
+  sharedFolders,
   subfolderOf,
 } from "../shared/workflow_note.mjs";
 import { comboValues, commitWidgetValue } from "../shared/widget_card_math.mjs";
@@ -94,12 +100,13 @@ const PANEL_TOP = 2;
 
 const folderLists = new Map(); // dir -> { at, promise }
 let modelFolders = null; // Promise<string[]> from GET /models
+let folderInfo = null; // { at, promise } of GET /experiment/models
 
 function listFolder(dir, fresh = false) {
   const cached = folderLists.get(dir);
   if (!fresh && cached && performance.now() - cached.at < FOLDER_CACHE_MS) return cached.promise;
   const promise = api
-    .fetchApi(`/models/${encodeURIComponent(dir)}`)
+    .fetchApi(`/models/${encodeURIComponent(modelFolderKey(dir))}`)
     .then((response) => (response.ok ? response.json() : null))
     .then((files) => (Array.isArray(files) ? files : null))
     .catch(() => null);
@@ -124,12 +131,58 @@ function knownFolders() {
   return modelFolders;
 }
 
+// Where this install looks for each kind of model: [{ name, folders }].
+// Launchers such as Stability Matrix add shared folders outside
+// ComfyUI/models through extra_model_paths.yaml. [] when the endpoint is
+// missing (an older or newer ComfyUI): the card then just names the usual
+// folder, as before.
+function installFolderList(fresh = false) {
+  if (!fresh && folderInfo && performance.now() - folderInfo.at < FOLDER_CACHE_MS) return folderInfo.promise;
+  const promise = api
+    .fetchApi("/experiment/models")
+    .then((response) => (response.ok ? response.json() : []))
+    .then((list) => (Array.isArray(list) ? list : []))
+    .catch(() => []);
+  folderInfo = { at: performance.now(), promise };
+  return promise;
+}
+
 function nodeTypeRegistered(type) {
   return Boolean(type && globalThis.LiteGraph?.registered_node_types?.[type]);
 }
 
 function moduleOfType(type) {
   return globalThis.LiteGraph?.registered_node_types?.[type]?.nodeData?.python_module;
+}
+
+// The custom_nodes folder this pack runs from, read off the Workflow Note's
+// own registration.
+function ownPackFolder() {
+  return /^custom_nodes\.([^.]+)/.exec(String(moduleOfType("AUSBOSS_NODES_WorkflowNote") ?? ""))?.[1] ?? "";
+}
+
+// Open ComfyUI-Manager on its updates list, or its node list. Without the
+// Manager, say what to do and open the Registry page instead.
+const MANAGER_COMMANDS = [
+  "Comfy.Manager.ShowUpdateAvailablePacks",
+  "Comfy.Manager.CustomNodesManager.ShowCustomNodesMenu",
+  "Comfy.Manager.Menu.ToggleVisibility",
+];
+async function openManagerForUpdate(tip) {
+  const command = app.extensionManager?.command;
+  const known = new Set((command?.commands ?? []).map((entry) => entry?.id));
+  for (const id of MANAGER_COMMANDS) {
+    if (!known.has(id)) continue;
+    try {
+      await command.execute(id);
+      showToast({ severity: "info", summary: "AusBoss nodes", detail: tip, life: 12000 });
+      return;
+    } catch (_error) {
+      // Try the next way into the Manager.
+    }
+  }
+  showToast({ severity: "info", summary: "AusBoss nodes", detail: tip, life: 12000 });
+  window.open(OWN_PACK.url, "_blank", "noopener,noreferrer");
 }
 
 // ---------------------------------------------------------------------------
@@ -214,6 +267,8 @@ ${TILE_FACE_CSS}
 .ausboss-note-body a:hover,.ausboss-note-link:hover{text-decoration:underline;}
 .ausboss-note-folder{margin:8px 0 4px;color:#a9c4c2;font:11px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
 .ausboss-note-folder:first-child{margin-top:0;}
+.ausboss-note-folder-also{margin:-2px 0 4px 18px;color:#7f9896;font:10.5px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-wrap:anywhere;}
+.ausboss-note-folder-also[hidden]{display:none;}
 .ausboss-note-row{display:flex;align-items:center;gap:8px;min-height:30px;padding:3px 0;}
 .ausboss-note-dot{flex:none;width:8px;height:8px;border-radius:50%;background:#4b5a5a;}
 .ausboss-note-dot.checking{background:#4b5a5a;animation:ausboss-note-pulse 1s ease-in-out infinite;}
@@ -475,6 +530,18 @@ function packRow(state, row) {
       pill.append(link);
     }
     action.append(pill);
+  } else if (installed === false && isOwnPackRow(row)) {
+    // This note is running, so the pack is installed: the workflow needs a
+    // newer version. Cloning from GitHub would add a second copy.
+    const tip = `This workflow needs a newer version of AusBoss nodes (${row.node} is missing). `
+      + "Update AusBoss nodes in ComfyUI-Manager, then restart ComfyUI.";
+    setDot(dot, "missing", tip);
+    const button = el("button", "ausboss-note-dl", "Update");
+    button.type = "button";
+    button.title = tip;
+    button.addEventListener("pointerdown", (event) => event.stopPropagation());
+    button.addEventListener("click", () => openManagerForUpdate(tip));
+    action.append(button);
   } else {
     setDot(dot, installed === false ? "missing" : "unknown",
       installed === false ? `${row.node} is not registered here - install the pack` : "No probe node set, so this row is not checked");
@@ -525,6 +592,7 @@ function render(state) {
   const scroll = state.scroll;
   scroll.textContent = "";
   state.rows = [];
+  state.folderHints = new Map();
 
   const head = el("div", "ausboss-note-head");
   head.append(el("h1", "ausboss-note-title", note.title || "Untitled workflow"));
@@ -612,6 +680,10 @@ function renderSections(state, scroll) {
     section.append(heading);
     for (const group of groupModels(note.models)) {
       section.append(el("div", "ausboss-note-folder", `📂 ${group.path}`));
+      const also = el("div", "ausboss-note-folder-also");
+      also.hidden = true;
+      section.append(also);
+      (state.folderHints ??= new Map()).set(group.dir, also);
       for (const row of group.rows) section.append(modelRow(state, row));
     }
     scroll.append(section);
@@ -639,11 +711,26 @@ function renderSections(state, scroll) {
   checkModels(state, false);
 }
 
+// A launcher's shared model folder (Stability Matrix keeps LoRAs in
+// Data/Models/Lora) under the usual ComfyUI/models/<dir> line, so the card
+// says where this install also finds the files and where to put new ones.
+function showSharedFolders(state, dir, list) {
+  const also = state.folderHints?.get(dir);
+  if (!also) return;
+  const shared = sharedFolders(dir, list);
+  also.hidden = !shared.length;
+  also.textContent = shared.length ? `also read from ${shared.join(", ")}` : "";
+  also.title = shared.length
+    ? "This install also reads this kind of model from here (set in extra_model_paths.yaml, for example by Stability Matrix). A file in either place counts."
+    : "";
+}
+
 async function checkModels(state, fresh) {
   const generation = (state.checkGeneration = (state.checkGeneration || 0) + 1);
   const rows = state.rows;
   const picked = [];
   for (const entry of rows) setDot(entry.dot, "checking", "checking…");
+  const folderList = installFolderList(fresh);
   const byDir = new Map();
   for (const entry of rows) {
     const dir = entry.row.dir;
@@ -669,8 +756,13 @@ async function checkModels(state, fresh) {
       }));
       return;
     }
-    const files = await listFolder(dir, fresh);
+    const [files, list] = await Promise.all([listFolder(dir, fresh), folderList]);
     if (generation !== state.checkGeneration) return;
+    showSharedFolders(state, dir, list);
+    const searched = installFolders(dir, list);
+    const notFound = searched.length
+      ? `Not found in the ${searched.length === 1 ? "folder" : "folders"} this install reads for ${dir}: ${searched.join(", ")}`
+      : `Not found in ComfyUI/models/${dir}`;
     for (const entry of entries) {
       if (files === null) {
         setDot(entry.dot, "unknown", `This install has no "${dir}" model folder, so the file is not checked`);
@@ -695,7 +787,7 @@ async function checkModels(state, fresh) {
         setDot(entry.dot, "ok", `Found: ${match.path}`);
         entry.showInstalled(match.path);
       } else {
-        setDot(entry.dot, "missing", `Not found in ComfyUI/models/${dir}`);
+        setDot(entry.dot, "missing", notFound);
         entry.showDownload();
       }
     }
@@ -1002,8 +1094,8 @@ async function openEditor(state) {
   form.append(field("Models", models.box, "Each row shows a Download button until the file is found in its folder (subfolders count). The note shows in grey under the file name."), modelTools);
 
   const packs = table("packs", ["Pack", "URL", "Probe node class"], draft.packs, (row) => [
-    input(row.name, "ComfyUI-AusBoss"),
-    input(row.url, "https://github.com/ausboss/ComfyUI-AusBoss"),
+    input(row.name, OWN_PACK.name),
+    input(row.url, OWN_PACK.url),
     input(row.node, "AUSBOSS_NODES_LoraLoader"),
   ]);
   const packTools = el("div");
@@ -1018,11 +1110,9 @@ async function openEditor(state) {
   detect.addEventListener("click", () => {
     const types = collectGraphNodes(app.rootGraph ?? app.graph).map((node) => node.type);
     const have = new Set(packs.entries.map((entry) => entry.controls[0].value.trim()));
-    for (const pack of packsFromGraph(types, moduleOfType)) {
+    for (const pack of nameOwnPack(packsFromGraph(types, moduleOfType), ownPackFolder())) {
       if (have.has(pack.name)) continue;
-      packs.add(pack.name === "ComfyUI-AusBoss"
-        ? { ...pack, url: "https://github.com/ausboss/ComfyUI-AusBoss" }
-        : pack);
+      packs.add(pack);
     }
   });
   packTools.append(addPack, detect);

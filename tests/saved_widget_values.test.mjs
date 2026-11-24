@@ -162,7 +162,7 @@ const APPENDED_SINCE = {
   AUSBOSS_NODES_Resolution: { workflow_sizes: "workflow-policy" },
   // Added in 2.4.0; 2.0.0 - 2.3.0 saves hold the card's value there.
   AUSBOSS_NODES_CropForInpaint: { keep_inside: "toggle" },
-  AUSBOSS_NODES_StitchInpaint: { seam: "combo", paste_onto: "combo" },
+  AUSBOSS_NODES_StitchInpaint: { seam: "combo", paste_onto: "combo", follow_changes: "toggle" },
   // Added in 2.0.0; 1.x saves hold the preview panel's value there (Select
   // Frame's from 1.2.0), or the LoRA panel's. Mask Refine's max_hole_size
   // came after 2.4.0; 2.x saves hold the card's value there.

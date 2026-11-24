@@ -50,6 +50,7 @@ export function isBlendIn(values) {
 // Hover hints on the rows blend in does not read.
 export const SEAM_MUTE_TITLES = {
   fix_edge_halo: "Blend in doesn't use Fix edge halo. Switch Seam back to classic in the gear menu to use it.",
+  follow_changes: "Blend in doesn't use Follow changes. Switch Seam back to classic in the gear menu to use it.",
 };
 
 // Room the corner tools take from every row's control, so the controls keep

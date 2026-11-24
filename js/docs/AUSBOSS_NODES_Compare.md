@@ -20,10 +20,9 @@ middle of a graph without breaking anything downstream.
 Run the workflow once to load the previews. The switch under the picture
 picks what the panel does, and its marker slides to your choice:
 
-- **Slide** (default): the panel shows the result. Move the pointer across
-  it to compare: A appears on the left of the line and B on the right. Move
-  the pointer away and the result is back. Every new run shows its result
-  too.
+- **Slide** (default): the panel shows B, the result. Move the pointer
+  across it to compare: A appears on the left of the line and B on the
+  right. Move the pointer away and B is back. Every new run shows it too.
 - **A** / **B**: show that picture and hold it, whatever the pointer does.
 - **Erase**: mix the two pictures by hand. One picture is on top; paint on
   it and it rubs away, so the other one shows through. Then save the mix.
@@ -132,11 +131,12 @@ Your paint is kept with the workflow. A new run keeps it while the picture
 keeps its size, so you can change a seed and look again; press **CLEAR**
 to start over. Pictures of another size start clean.
 
-## Which picture is the result
+## Which picture shows when the pointer is away
 
-B, the "after" picture. If your graph makes A out of B's picture (B is the
-picture you loaded and A is the edited one), the result is A. To keep one
-picture up whatever happens, use the **A** or **B** button.
+B, the "after" picture, on a new node. If your result is wired to A,
+right-click the node and choose **Show A when the pointer is away**. The
+choice is saved with the workflow. To keep one picture up whatever the
+pointer does, use the **A** or **B** button.
 
 ## Outputs
 
@@ -152,12 +152,13 @@ network requests are made.
 ## Technical details
 
 - While sliding, the outer 6% on either side snaps to a full image.
-- The result is found from the links: when the node that feeds `image_b` is
-  somewhere upstream of the node that feeds `image_a`, A was made from B and
-  A is the result. When both pictures come out of one subgraph, the same
-  check is made inside it. In every other case it is B: two unrelated
-  pictures, both pictures out of one plain node, or a link the node cannot
-  follow (a Set and Get pair, for example).
+- The side is saved in the node's `ausboss_compare_rest` property. A
+  workflow saved by an earlier version has none, so its side is worked out
+  from the links, the way earlier versions did, until a side is picked in
+  the menu: when A is made from B's picture, A is the result. A switch
+  counts only when it cannot hand on the picture B started from. When both
+  pictures come out of one subgraph, the same check is made inside it. In
+  every other case it is B.
 - Settings → AusBoss → Image Compare → **Rest on the result** switches this
   off. The panel then stays on the picture nearest to where the pointer
   left, and a new run does not change it.

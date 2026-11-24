@@ -6,6 +6,7 @@ import {
   consumersOf,
   drawsTiles,
   feedsInto,
+  frameMs,
   nextRunState,
   resultRank,
   stepFraction,
@@ -325,4 +326,41 @@ test("tile events from another run or after the end change nothing", () => {
   // A new run forgets the last one's tiles.
   const tiling = nextRunState(started, { type: "tiles", promptId: "p1", on: true });
   assert.equal(nextRunState(tiling, { type: "start", promptId: "p3" }).tiling, false);
+});
+
+test("a clip's frames ride with the step picture of the node that made them", () => {
+  const frames = { type: "frames", promptId: "p1", maker: "5:3", list: ["a", "b", "c"], seconds: 1 };
+  const run = play([
+    { type: "start", promptId: "p1" },
+    frames,
+    { type: "picture", promptId: "p1", maker: "5:3", real: "5:3", url: "blob:1" },
+  ]);
+  assert.deepEqual(run.frames, { maker: "5:3", list: ["a", "b", "c"], seconds: 1 });
+  assert.equal(run.url, "blob:1");
+  // The next sampler's still drops them; its own frames would come first.
+  const next = nextRunState(run, { type: "picture", promptId: "p1", maker: "9", real: "9", url: "blob:2" });
+  assert.equal(next.frames, null);
+  // A stopped run keeps the frames it reached.
+  const stopped = nextRunState(run, { type: "end", promptId: "p1", kind: "interrupted" });
+  assert.equal(stopped.frames, run.frames);
+  // A new run starts without them.
+  assert.equal(nextRunState(stopped, { type: "start", promptId: "p2" }).frames, null);
+});
+
+test("frames from another run, a single frame or junk change nothing", () => {
+  const run = play([{ type: "start", promptId: "p1" }]);
+  assert.equal(nextRunState(run, { type: "frames", promptId: "p2", maker: "1", list: ["a", "b"] }), run);
+  assert.equal(nextRunState(run, { type: "frames", promptId: "p1", maker: "1", list: ["a"] }), run);
+  assert.equal(nextRunState(run, { type: "frames", promptId: "p1", maker: "1", list: "x" }), run);
+  assert.equal(nextRunState(IDLE, { type: "frames", promptId: "p1", maker: "1", list: ["a", "b"] }), IDLE);
+  const kept = nextRunState(run, { type: "frames", promptId: "p1", maker: "1", list: ["a", 3, "", "b"], seconds: "x" });
+  assert.deepEqual(kept.frames, { maker: "1", list: ["a", "b"], seconds: 1 });
+});
+
+test("each frame stays up for the clip's own pace, within bounds", () => {
+  assert.equal(frameMs({ seconds: 1 }), 1000);
+  assert.equal(frameMs({ seconds: 0.85 }), 850);
+  assert.equal(frameMs({ seconds: 0.01 }), 250);
+  assert.equal(frameMs({ seconds: 9 }), 2000);
+  assert.equal(frameMs(null), 1000);
 });

@@ -7,13 +7,250 @@ All notable changes to ComfyUI-AusBoss are documented here.
 - **Video Crop + Rotate + Pad → Clip 🆎 can put a clip window in an App-mode
   form.** List the node's `clip_window` field and the form shows the video,
   playing only the part that gets used, over a strip of pictures with a box
-  over that part: drag the box to
-  pick where the clip starts, drag an edge to shorten it. Two new inputs,
-  `min_seconds` and `max_seconds`, keep the clip's length in a range; the edges
-  stop there, on the node's timeline too, and a run keeps to them. A video
-  shorter than the minimum is used whole. Both are 0 (no limit) by default and
-  are set in a new **Clip length limits** fold under Crop, pad & resize, closed
-  unless you open it.
+  over that part: drag the box to pick where the clip starts, drag an edge to
+  shorten it. Two new inputs, `min_seconds` and `max_seconds`, keep the clip's
+  length in a range; the edges stop there, on the node's timeline too, and a
+  run keeps to them. A video shorter than the minimum is used whole. Both are
+  0 (no limit) by default and are set in a new **Clip length limits** fold
+  under Crop, pad & resize, closed unless you open it.
+
+- **New node: Pause for Shot 🆎.** It stops a run right after the 3D
+  viewer so you can frame your shot on the model that run just made, then
+  **Continue** carries on with the camera exactly as the viewer shows it.
+  Nothing before the pause runs again. Wire in a 360 picture and it shows
+  behind the model while you frame, and the node hands on the part of it
+  the camera sees, with an optional floor shadow under the model.
+- **ComfyUI's 3D viewers get Blender keys, shape chips and a 360 strip.**
+  With the mouse over a viewer, G, R and S move, turn and size the model,
+  as in Blender. Preview 3D (Advanced) and Save 3D (Advanced) get the shape
+  chips from Latent Size above their width and height. Press N for a strip
+  that turns the 360 background and changes the model's light and colours.
+  The axis gizmo moves to the top-right corner, with zoom, pan and grid
+  tools under it.
+
+- **The step preview of a video now moves.** With **Preview steps** on in
+  Save Video, or a Step Preview node in the workflow, a video model such as
+  MiniMax H3 shows a few frames of the clip after each step, about one per
+  second, playing in a loop. You see the motion and the shots take shape,
+  not only the first frame, and can stop a clip that is going wrong. It
+  costs next to nothing: a 5 second H3 clip took 53.8 s with it, 53.6 s
+  with no step pictures at all.
+
+- **The picture and video picker shows every file, in folders.** The list
+  used to stop at 400 files and ask you to type to narrow it. Now you can
+  scroll through all of them, open folders, and go back up with `..`.
+  Typing still searches every folder. The picker opens in the folder of the
+  file you picked, with that file highlighted. Thanks to TWIISTED-STUDIOS.
+
+## 2.26.7 - 2026-11-21
+
+- **An old copy of the pack that keeps loading now says so in the browser.**
+  With an old git clone in `custom_nodes/ComfyUI-AusBoss` and a newer
+  Manager install in `custom_nodes/ausboss-nodes`, the old clone loads,
+  because copies from before 2.24.0 cannot step aside. Every node added
+  since, such as Edit Lock, then shows as missing, and updating does not
+  help. The newer copy now shows a message in ComfyUI that names the old
+  folder to delete. Before, the only sign was a line in the console.
+- **Workflow Note: a missing AusBoss node asks for an update, not a GitHub
+  clone.** When a workflow needs an AusBoss node your version doesn't have,
+  the note's AusBoss row now shows **Update**. It opens ComfyUI-Manager's
+  updates list and says to restart afterwards. Before, the row showed
+  **Get it**, which opened GitHub, and cloning from there added a second
+  copy of the pack. **Detect from this workflow** now lists the pack as
+  AusBoss nodes with its Comfy Registry link, whatever folder it is in.
+- **LoRA Loader: set a LoRA's strength with a wire.** Drag a number wire,
+  from a slider or a Float node, onto any row and that row's strength follows
+  it. The row's box turns dashed teal and shows the number coming in; click
+  it to find the source, or right-click the row to unlink. The CLIP strength
+  keeps its ratio to the model strength (#388).
+- **Node faces show Chinese when ComfyUI's language is Chinese.** The
+  labels, buttons, choices and tooltips the pack draws on its nodes, such as
+  the cards on FlashVSR and Image Resize, H3 Prompt Writer, Workflow Switches
+  and the video and image crop faces, now follow Settings > Language
+  (Chinese, in Simplified characters). Reload the page after changing the language. Nothing
+  saved in a workflow changes, and text with no Chinese yet stays English.
+  H3 Prompt Writer's socket names are translated too.
+- **H3 Prompt Writer: see and change the full prompt.** A new **Full
+  prompt** tab at the top of the node shows the prompt it wrote on its last
+  run. Edit it there, for example to take out one camera move, and H3 gets
+  your text as it is. An amber dot shows an edit is being sent, and **Reset
+  to written** goes back to the node's own prompt. The **Simple** tab works
+  as before and stays the default.
+- **Latent Size's ratio chips keep your megapixels.** Clicking a ratio chip
+  now changes the shape at the size you set, instead of jumping back to about
+  one megapixel. The old jump is still in the gear: turn off **Chips keep
+  current budget**. The setting is kept in the browser, so a private window
+  forgot it every time; it now starts on.
+- **The pack loads on Python 3.10 again.** On a 3.10 install, such as some
+  Stability Matrix setups, the whole pack failed to load with
+  `No module named 'tomllib'`. It now loads there with nothing extra to
+  install (#387).
+- **Workflow Note finds models in Stability Matrix's shared folders.**
+  A row whose folder uses an old name, `clip` or `unet`, was never checked
+  ("This install has no model folder") even with the file in place. Those
+  rows are now checked like `text_encoders` and `diffusion_models`, the
+  names ComfyUI files them under. When the install also reads a kind of
+  model from a folder with a different name, such as Stability Matrix's
+  `Data/Models/Lora`, the card names that folder under the usual one, so
+  you know where your files are found and where a new one can go (#386).
+
+## 2.26.6 - 2026-11-20
+
+- **Image Toolbox's help page says what happens with too many pieces.**
+  Asking for more pieces than the picture is wide in pixels gives one piece
+  per pixel column, so fewer pieces than asked for. The page now says so.
+
+## 2.26.5 - 2026-11-20
+
+- **New node: Image Toolbox.** Small picture jobs in one node: pick the job
+  from a list. Its first job, split sheet at gaps, cuts a row of pictures
+  such as a character sheet's four views into separate pictures. Each cut
+  goes to the gap between two pictures instead of an equal share of the
+  width, so no piece gets part of its neighbour's sleeve. The pieces come out
+  as one batch of the same size, padded with the sheet's backdrop colour.
+- **Box edits on big photos start much sooner.** Crop For Inpaint,
+  Image Crop + Rotate + Pad and Stitch Inpaint grew and softened their
+  masks across the whole picture, even when the box was small or there was
+  nothing to do. On a 17 MP photo that took about 5 seconds before the
+  model started. The work now covers only the area around the mask:
+  Crop For Inpaint went from 3.1 s to 0.14 s, and Image Crop + Rotate + Pad
+  with nothing to do from 2.2 s to 0.5 s. The results are the same pixels.
+
+- **Stitch Inpaint can paste past the box.** Edit models that redraw the
+  whole crop, such as MiniMax H3 Image, often draw a new boot, a plate rim
+  or a collar a little past the box, and the paste cut it off at the box's
+  edge. Turn on the new **Follow changes** switch: the paste then grows to
+  every change that touches the box, and fades out before the edge of the
+  crop. It first undoes the small zoom or shift such a model can draw, so
+  the wall or table around the edit lines up again. When the model redrew
+  nearly everything around the box, the paste stays the box. It is off by
+  default, so saved workflows paste exactly as before.
+
+- **LoRA Loader's + LoRA list opens with its folders folded.** A big LoRA
+  folder now opens as a short list of top folders. **Open all** and
+  **Fold all** beside the search box open or fold every folder at once,
+  and **Alt**- or **Shift**-click on a folder's arrow does the same for
+  that folder and every folder inside it. **Left** on a highlighted file
+  folds the folder it is in and moves up to it. To keep the old way, where
+  the list opens as you left it, set **Settings → 🆎 AusBoss → LoRA Loader
+  → Picker folders** to **Remember my folds**.
+
+## 2.26.4 - 2026-11-18
+
+- **A video upload stops at 4 GB.** Dropping a video on Load Video had no
+  size limit, so a huge file could fill the input folder. An upload over
+  4 GB is now refused with a message, and the partly saved file is removed.
+
+- **Image Crop + Rotate + Pad shows your picture in every browser.** Some
+  browsers and privacy add-ons (Firefox's fingerprint protection, Brave
+  Shields, canvas blockers) blank a picture when a page reads its pixels.
+  The node read that as a fully see-through picture and drew an empty stage,
+  although the size line and the run were right. It now checks first and,
+  where reads are blocked, draws the picture as it is; only the teal tint
+  over see-through parts is missing there.
+
+- **Image Compare A/B always rests on the same picture.** While the
+  pointer is away, a new node shows B, the "after" picture. To show A
+  instead, right-click the node; the choice is saved with the workflow.
+  Earlier versions worked the side out from the links on every run, and a
+  workflow whose "before" came out of a switch showed the before. A
+  workflow saved by an earlier version keeps showing the picture it did.
+
+- **Layout Boxes 🆎 places people for MiniMax H3 Image.** A new
+  `h3_prompt` output says the boxes in words: who goes where, how big, and
+  who stands beside whom. Describe each person in their box by their
+  picture and what they do, such as "the man from <Picture 2>, sitting on
+  the couch"; the scene on `background` is `<Picture 1>`. Places are said in
+  words only, because H3 Image draws numbers from a prompt onto the picture.
+
+- **H3 Prompt Writer's Camera says "from the video" when the video sets
+  the camera.** With a clip wired to copy its moves, swap the person, give it
+  a new voice or change something, the first Camera choice now reads "from
+  the video": the camera does what it does in the clip. It is the same
+  choice as "as typed", so saved workflows are unchanged.
+
+- **A picture whose name starts with a space now shows its preview.** The
+  name was trimmed before the preview was asked for, so Image Crop + Rotate
+  + Pad and the other nodes that share that code looked for a file that
+  did not exist.
+
+## 2.26.3 - 2026-11-17
+
+- **Tone match now works on inpaints.** On a Crop For Inpaint 🆎 crop,
+  Stitch Inpaint 🆎 read the colour shift in the soft edge around the
+  painted area. Workflows such as Krea 2 Inpaint Masked let the model paint
+  a little wider than that edge, so the edge came back close to your picture
+  and the slider hardly did anything: in a test on skin it took off a
+  third of the shift at 1. It is now read just inside the painted area and
+  takes off more than half, on a picture of any size. A workflow that already had Tone match on for
+  an inpaint gives a slightly different picture, closer to the original's
+  colour. When the painted area holds something new, it is matched to your
+  picture right beside it where the two look alike, such as new skin where
+  a shirt was. Something different from what is beside it, such as a
+  swimsuit over skin, is left as painted; before, Tone match could tint the
+  whole patch with the opposite colour. Outpaints, blend in and Tone match 0
+  are unchanged.
+
+- **Copy a crop node's picture without its handles.** Right-click the picture
+  on Image Crop + Rotate + Pad and choose Copy image. By default it copies
+  the original picture. To include crop, rotation, padding and resize, turn
+  on Copy with crop, rotation and padding in the gear menu. Editing controls
+  and guides are never copied. Open image provides a clean
+  picture to copy with the browser on plain HTTP addresses too.
+
+- **H3 Prompt Writer: a swap reads the new person's looks however you type
+  them.** `@1 looks like ...` on the same line as the swap sentence, and
+  clothes on a line of their own (`@1 is wearing a black suit.`), were
+  left out of the prompt without a word, and the clip often came back
+  unchanged. Both are now used.
+
+- **H3 Prompt Writer no longer drops lines.** When one line held two
+  people talking, like `The phone says: "Get a job." @1 looks up and says:
+  "What?"`, only the first words reached the prompt. Each quote is its own
+  moment now. A swap's `@1 looks like` line also keeps only the looks: a
+  sentence after it that names an `@` again, like `The trees behind @1 stay
+  the same.`, is read as its own line instead of going into the description
+  with a raw `@1`. `"Hi," she says` is spoken as "Hi." instead of "Hi,.",
+  and a Chinese or Japanese line keeps its own full stop: "。", not "。.".
+
+- **H3 Prompt Writer can carry a line across a cut.** End the words with
+  `...` and the person keeps talking into the next shot, without saying the
+  words twice. On the last line, `...` lets the clip end mid-sentence. A line
+  too long for its shot carries on the same way instead of a warning.
+
+- **H3 Prompt Writer makes 4-second clips.** The shortest length went from
+  5 to 4 seconds.
+
+- **H3 Prompt Writer can put the person from your video somewhere new.** With
+  Copy its moves and no person picture, the person in the video keeps their
+  own look and moves. Give a picture the job place and type `He dances in @1.`
+  Before, the node asked for a person picture and stopped. Copy its moves
+  also takes its length from the video now, like Swap, Change something and
+  New voice.
+
+- **H3 Prompt Writer can restyle a video from a picture.** With Change
+  something and a style or place picture, the look comes from the picture
+  instead of the video. Type `It looks like @1.` A clip with nobody in it,
+  like an empty hallway, no longer gets a made-up person in its prompt.
+
+- **H3 Prompt Writer can make a thing do the moves.** With Copy its moves or
+  Swap the person and no person picture, a thing picture your lines make do
+  the action (a cartoon hand, a toy) takes the moves in its own look. A thing
+  that is held or worn stays a prop.
+
+- **H3 Prompt Writer's job lists take a click again.** Picking a job from a
+  chip's list closed the list without changing the job.
+
+- **H3 Prompt Writer's job lists match the node.** The pick list on each
+  picture and on the video opens under its chip in the node's own colours
+  and grows with the zoom. Before, it was the browser's small plain list.
+
+- **An AI agent can now learn the video workflows from the repository.**
+  `npx skills add ausboss/ComfyUI-AusBoss` gives your agent a skill for the
+  MiniMax H3 Pika Person Swap and Pika Remix workflows: how to write the
+  words, which model files to get, and how to run a workflow in your
+  ComfyUI. The same page is at https://ausboss-examples.vercel.app/skill.md.
+
 - **The "AusBoss was updated" message no longer asks for a reload by
   mistake.** After the Manager switched the pack to another version, a
   page reload before ComfyUI restarted brought up the message, telling you
@@ -21,6 +258,22 @@ All notable changes to ComfyUI-AusBoss are documented here.
   was needed. Now the message only comes up when the pack really is newer
   than the page, and versions such as 2.25.10 and 2.25.9 are compared as
   numbers.
+
+- **LoRA routes only open files on ComfyUI's LoRA list.** The LoRA
+  Loader's info, hash and preview routes used to hand the name they were
+  given to ComfyUI's file lookup and check the answer afterwards. Now the
+  name is matched against the list first, and a name that is not on it is
+  refused before anything on disk is looked up.
+- **Image Folder 🆎 checks a folder or picture name as text before the
+  disk.** A drive letter in the middle of a name, or a control character,
+  is refused like `..`, and the joined path is checked before it is
+  resolved as well as after. The list no longer sends each picture's size
+  and time; the thumbnail's cache tag is a short hash instead.
+- **Error messages no longer pass on server paths.** When a model,
+  decoder or encoder fails, its message can name a file on the server's
+  disk. SAM 3 masks, LoRA loading and video saving now keep the kind of
+  error and drop its words when they name a path, since node errors reach
+  the browser and stay in the history.
 
 ## 2.26.2 - 2026-11-14
 

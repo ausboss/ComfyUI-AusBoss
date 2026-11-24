@@ -303,23 +303,29 @@ test("Mask Refine saved since keeps its Max hole size", () => {
 
 test("Stitch Inpaint saved before Seam still opens classic", () => {
   const names = widgetNames("AUSBOSS_NODES_StitchInpaint", ["stitcher", "inpainted"]);
-  const types = { fix_edge_halo: "toggle", seam: "combo", paste_onto: "combo" };
+  const types = { fix_edge_halo: "toggle", seam: "combo", paste_onto: "combo", follow_changes: "toggle" };
   const choices = (list) => {
     list.find((widget) => widget.name === "seam").options = { values: ["classic", "blend in"] };
     list.find((widget) => widget.name === "paste_onto").options = { values: ["crop", "original"] };
   };
   const widgets = restoreByPosition(names, [false, 0.5, ""], types);
   choices(widgets);
-  assert.deepEqual(resetUnknownValues(widgets, cardFallbacks("AUSBOSS_NODES_StitchInpaint")), ["seam", "paste_onto"]);
-  assert.deepEqual(widgets.map((widget) => widget.value), [false, 0.5, "classic", "crop", undefined]);
+  assert.deepEqual(resetUnknownValues(widgets, cardFallbacks("AUSBOSS_NODES_StitchInpaint")), ["seam", "paste_onto", "follow_changes"]);
+  assert.deepEqual(widgets.map((widget) => widget.value), [false, 0.5, "classic", "crop", false, undefined]);
   // Saved with Seam: its choice stays, and the card's empty value is crop.
   const seamed = restoreByPosition(names, [false, 0.5, "blend in", ""], types);
   choices(seamed);
-  assert.deepEqual(resetUnknownValues(seamed, cardFallbacks("AUSBOSS_NODES_StitchInpaint")), ["paste_onto"]);
+  assert.deepEqual(resetUnknownValues(seamed, cardFallbacks("AUSBOSS_NODES_StitchInpaint")), ["paste_onto", "follow_changes"]);
   assert.equal(seamed.find((widget) => widget.name === "seam").value, "blend in");
   assert.equal(seamed.find((widget) => widget.name === "paste_onto").value, "crop");
+  // Saved with Paste onto, before Follow changes: the card's empty value
+  // lands in Follow changes, which opens off.
+  const pasted = restoreByPosition(names, [false, 0.5, "blend in", "original", ""], types);
+  choices(pasted);
+  assert.deepEqual(resetUnknownValues(pasted, cardFallbacks("AUSBOSS_NODES_StitchInpaint")), ["follow_changes"]);
+  assert.equal(pasted.find((widget) => widget.name === "follow_changes").value, false);
   // A real choice is left alone.
-  const chosen = restoreByPosition(names, [false, 0.5, "blend in", "original", ""], types);
+  const chosen = restoreByPosition(names, [false, 0.5, "blend in", "original", true, ""], types);
   choices(chosen);
   assert.deepEqual(resetUnknownValues(chosen, cardFallbacks("AUSBOSS_NODES_StitchInpaint")), []);
 });

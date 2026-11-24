@@ -164,7 +164,7 @@ class AusBossH3PromptWriter:
                     "INT",
                     {
                         "default": 8,
-                        "min": 5,
+                        "min": 4,
                         "max": 15,
                         "step": 1,
                         "tooltip": "How long the clip is. Plan on about one moment a second at most.",
@@ -203,7 +203,7 @@ class AusBossH3PromptWriter:
                     [AS_TYPED, *CAMERAS],
                     {
                         "default": AS_TYPED,
-                        "tooltip": "How the camera moves the whole way through. As typed leaves it to your words.",
+                        "tooltip": "How the camera moves the whole way through. As typed leaves it to your words; with a video wired it shows as from the video and keeps the video's own camera.",
                     },
                 ),
                 "look": (
@@ -254,8 +254,8 @@ class AusBossH3PromptWriter:
                         "default": VIDEO_JOBS[0],
                         "tooltip": (
                             "What the video is for: copy its moves, swap the person in it, keep it going, give it "
-                            "a new voice, or change something in it and keep the person (a hat, a shirt). Swap, "
-                            "new voice and change something ignore Seconds and keep the video's length."
+                            "a new voice, or change something in it and keep the person (a hat, a shirt). Copy its "
+                            "moves, swap, new voice and change something ignore Seconds and keep the video's length."
                         ),
                     },
                 ),
@@ -282,6 +282,19 @@ class AusBossH3PromptWriter:
                         "tooltip": (
                             "Turn on when a swap keeps the video's own sound. Each line is timed from that sound, "
                             "and words from anyone else are left out so only the new person's mouth moves."
+                        ),
+                    },
+                ),
+                "full_prompt": (
+                    "STRING",
+                    {
+                        "default": "",
+                        "multiline": True,
+                        "dynamicPrompts": False,
+                        "tooltip": (
+                            "Your own edit of the finished prompt, from the Full prompt tab. When it holds "
+                            "text, H3 gets exactly this text instead of the prompt the node writes. Empty "
+                            "means the node's own prompt."
                         ),
                     },
                 ),
@@ -321,7 +334,7 @@ class AusBossH3PromptWriter:
         "The height of your video, or else of your first picture. Wire it into H3's height.",
         "On when the finished clip should keep your video's own sound: with clip_sound on, or always for change something.",
     )
-    FUNCTION = "write"
+    FUNCTION = "run"
 
     def write(self, script, seconds, clip=None, picture_1=None, picture_2=None, picture_3=None, picture_4=None, video=None,
               video_sound=None, voice=None, song=None, camera=AS_TYPED, look=FROM_PICTURE, song_start=0.0, cut_on_beat=True,
@@ -378,6 +391,17 @@ class AusBossH3PromptWriter:
         ordered = [*given.values(), None, None, None, None][: len(PICTURES)]
         return (text, *ordered, video, video_sound, voice, song, song_under, frames, *clip_shape(video, ordered[0]), keeps_clip_sound)
 
+    def run(self, script, seconds, full_prompt="", **inputs):
+        # The Full prompt tab shows what the node wrote; an edit typed there is sent in its place.
+        written, *rest = self.write(script, seconds, **inputs)
+        return {"ui": {"written_prompt": [written]}, "result": (sent_prompt(written, full_prompt), *rest)}
+
+
+def sent_prompt(written, edited):
+    """The prompt H3 gets: the edit from the Full prompt tab when it holds any text, else the written one."""
+    edited = str(edited or "")
+    return edited if edited.strip() else written
+
 
 def _register_routes():
     try:
@@ -393,7 +417,7 @@ def _register_routes():
     async def read(request):
         try:
             body = await request.json()
-            seconds = min(max(int(body.get("seconds", 8)), 5), LONGEST_SECONDS)
+            seconds = min(max(int(body.get("seconds", 8)), 4), LONGEST_SECONDS)
             jobs = {int(slot): job for slot, job in dict(body.get("jobs") or {}).items() if job in JOBS and int(slot) in PICTURES}
             video = body.get("video") if body.get("video") in VIDEO_JOBS else ""
             return web.json_response(script_report(str(body.get("script", ""))[:LONGEST_SCRIPT], seconds, jobs, video))

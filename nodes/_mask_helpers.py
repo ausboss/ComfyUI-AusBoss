@@ -63,6 +63,41 @@ def _as_bhw(mask: torch.Tensor) -> torch.Tensor:
 MASK_CHUNK = 8
 
 
+def _within_support(mask: torch.Tensor, reach: int, run) -> torch.Tensor:
+    """Run a neighbourhood filter only where it can change anything.
+
+    ``run`` is a grow, shrink or blur whose output pixel reads the input no
+    further than ``reach`` pixels away, and gives exactly 0 where all it
+    reads is 0. Outside the nonzero pixels grown by ``reach`` the result is
+    therefore 0, so the filter runs on a window around them, grown by twice
+    the reach: every pixel kept from it reads only what it would read on the
+    whole frame, and at the frame's own edge the window ends there too, so
+    edge padding behaves the same. A box drawn on a big photo then costs the
+    box, not the photo; an empty mask costs one scan.
+    """
+    if mask.ndim != 3 or mask.numel() == 0:
+        return run(mask)
+    height, width = int(mask.shape[1]), int(mask.shape[2])
+    nonzero = (mask != 0).any(dim=0)
+    rows = torch.nonzero(nonzero.any(dim=1)).flatten()
+    if rows.numel() == 0:
+        return torch.zeros_like(mask)
+    cols = torch.nonzero(nonzero.any(dim=0)).flatten()
+    top, bottom = int(rows[0]), int(rows[-1]) + 1
+    left, right = int(cols[0]), int(cols[-1]) + 1
+    wy0, wy1 = max(0, top - 2 * reach), min(height, bottom + 2 * reach)
+    wx0, wx1 = max(0, left - 2 * reach), min(width, right + 2 * reach)
+    # Most of the frame anyway: the copies would cost more than they save.
+    if (wy1 - wy0) * (wx1 - wx0) * 2 > height * width:
+        return run(mask)
+    window = run(mask[:, wy0:wy1, wx0:wx1].contiguous())
+    oy0, oy1 = max(0, top - reach), min(height, bottom + reach)
+    ox0, ox1 = max(0, left - reach), min(width, right + reach)
+    result = torch.zeros_like(mask)
+    result[:, oy0:oy1, ox0:ox1] = window[:, oy0 - wy0 : oy1 - wy0, ox0 - wx0 : ox1 - wx0]
+    return result
+
+
 def grow_shrink_mask(mask: torch.Tensor, pixels: int) -> torch.Tensor:
     """Dilate (positive) or erode (negative) by whole pixels; soft values survive.
 
@@ -77,17 +112,40 @@ def grow_shrink_mask(mask: torch.Tensor, pixels: int) -> torch.Tensor:
     steps = abs(int(pixels))
     if steps == 0:
         return mask
+    return _within_support(mask, steps, lambda part: _grow_shrink_full(part, pixels, steps))
+
+
+def _grow_shrink_full(mask: torch.Tensor, pixels: int, steps: int) -> torch.Tensor:
     if mask.shape[0] > MASK_CHUNK:
-        return torch.cat([grow_shrink_mask(part, pixels) for part in mask.split(MASK_CHUNK)])
-    size = 2 * steps + 1
-    grown = mask.unsqueeze(1)
+        return torch.cat([_grow_shrink_full(part, pixels, steps) for part in mask.split(MASK_CHUNK)])
     if pixels > 0:
-        grown = functional.max_pool2d(grown, kernel_size=(1, size), stride=1, padding=(0, steps))
-        grown = functional.max_pool2d(grown, kernel_size=(size, 1), stride=1, padding=(steps, 0))
-    else:
-        grown = -functional.max_pool2d(-grown, kernel_size=(1, size), stride=1, padding=(0, steps))
-        grown = -functional.max_pool2d(-grown, kernel_size=(size, 1), stride=1, padding=(steps, 0))
-    return grown.squeeze(1)
+        return _running_max(_running_max(mask, steps, 2), steps, 1)
+    return -_running_max(_running_max(-mask, steps, 2), steps, 1)
+
+
+def _running_max(values: torch.Tensor, steps: int, dim: int) -> torch.Tensor:
+    """Max over the ``2 * steps + 1`` pixels centred on each pixel along ``dim``.
+
+    The same numbers as a max pool with that kernel and ``steps`` of -inf
+    padding, but by doubling: after k passes each pixel holds the max of the
+    2**k pixels from it on, and two such overlapping runs cover the whole
+    window. Max is exact in any order, so this matches the pool to the bit,
+    in about log2 of the window passes instead of one read per window pixel.
+    """
+    size = 2 * steps + 1
+    length = values.shape[dim]
+    pad_shape = list(values.shape)
+    pad_shape[dim] = steps
+    edge = values.new_full(pad_shape, float("-inf"))
+    run = torch.cat((edge, values, edge), dim=dim)
+    width = 1
+    while width * 2 <= size:
+        count = run.shape[dim] - width
+        run = torch.maximum(run.narrow(dim, 0, count), run.narrow(dim, width, count))
+        width *= 2
+    if width == size:
+        return run.narrow(dim, 0, length).contiguous()
+    return torch.maximum(run.narrow(dim, 0, length), run.narrow(dim, size - width, length))
 
 
 def _torch_fill_holes(solid: torch.Tensor) -> torch.Tensor:
@@ -194,9 +252,13 @@ def fill_mask_holes(mask: torch.Tensor, max_hole_size: float = 0.0) -> torch.Ten
 def blur_mask(mask: torch.Tensor, sigma: float) -> torch.Tensor:
     if sigma <= 0.0:
         return mask
-    if mask.shape[0] > MASK_CHUNK:
-        return torch.cat([blur_mask(part, sigma) for part in mask.split(MASK_CHUNK)])
     radius = max(1, int(math.ceil(float(sigma) * 3.0)))
+    return _within_support(mask, radius, lambda part: _blur_full(part, sigma, radius))
+
+
+def _blur_full(mask: torch.Tensor, sigma: float, radius: int) -> torch.Tensor:
+    if mask.shape[0] > MASK_CHUNK:
+        return torch.cat([_blur_full(part, sigma, radius) for part in mask.split(MASK_CHUNK)])
     coords = torch.arange(-radius, radius + 1, dtype=torch.float32, device=mask.device)
     kernel = torch.exp(-(coords**2) / (2.0 * float(sigma) ** 2))
     kernel = kernel / kernel.sum()

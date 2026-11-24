@@ -251,7 +251,8 @@
       "video_job",
       "sound",
       "music",
-      "clip_sound"
+      "clip_sound",
+      "full_prompt"
     ],
     "outputs": [
       [
@@ -469,6 +470,20 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_ImageToolbox": {
+    "required": [
+      "image",
+      "job",
+      "pieces"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "IMAGE",
+        "images"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_Integer": {
     "required": [
       "value"
@@ -562,6 +577,10 @@
       [
         "MASK",
         "mask"
+      ],
+      [
+        "STRING",
+        "h3_prompt"
       ]
     ]
   },
@@ -849,6 +868,40 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_PauseShot": {
+    "required": [
+      "model_3d_info",
+      "camera_info",
+      "width",
+      "height",
+      "pause"
+    ],
+    "optional": [
+      "panorama"
+    ],
+    "outputs": [
+      [
+        "LOAD3D_MODEL_INFO",
+        "model_3d_info"
+      ],
+      [
+        "LOAD3D_CAMERA",
+        "camera_info"
+      ],
+      [
+        "INT",
+        "width"
+      ],
+      [
+        "INT",
+        "height"
+      ],
+      [
+        "IMAGE",
+        "backdrop"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_PromptVariations": {
     "required": [
       "text",
@@ -1091,7 +1144,8 @@
       "fix_edge_halo",
       "color_match",
       "seam",
-      "paste_onto"
+      "paste_onto",
+      "follow_changes"
     ],
     "outputs": [
       [

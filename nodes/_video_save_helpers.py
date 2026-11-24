@@ -13,6 +13,7 @@ import numpy as np
 import torch
 from av.video.reformatter import ColorRange, Colorspace
 
+from ._route_errors import error_detail
 from ._execution_helpers import advance_progress, frame_progress, raise_if_interrupted
 
 AAC_FRAME_SIZE = 1024
@@ -363,9 +364,9 @@ def _encoder_start_error(codec: str, exc: Exception) -> RuntimeError:
         return RuntimeError(
             "Save Video: the nvenc formats need an NVIDIA GPU with a working "
             "driver. Pick a software format such as 'mp4 h264' instead. "
-            f"(The '{codec}' encoder said: {exc})"
+            f"(The '{codec}' encoder said: {error_detail(exc)})"
         )
-    return RuntimeError(f"Save Video could not start the '{codec}' encoder: {exc}.")
+    return RuntimeError(f"Save Video could not start the '{codec}' encoder: {error_detail(exc)}.")
 
 
 def _add_video_stream(container, spec: VideoFormat, rate, width: int, height: int, crf: int):
