@@ -2,12 +2,18 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## 2.28.0 - 2026-11-24
+## 2.28.1 - 2026-11-25
 
 - **Image Resize 🆎 shows Fit only when it is used.** Fit, and Fill under
   pad, now show only for a Width × height target. The other targets take
   their shape from the picture and always fit it, so those rows did
   nothing there.
+- **Photo Camera 🆎's More fold opens.** Crop margin and 360 width sat in
+  a fold with no header, so nothing could open them. The card now has a
+  More row that shows them.
+
+## 2.28.0 - 2026-11-24
+
 - **New node: Photo Camera 🆎.** It works out the camera your photo was
   taken with, so a 3D model of the person lines up with the photo. Wire in
   the photo, the person's mask and the photo's lens width (MoGe measures
