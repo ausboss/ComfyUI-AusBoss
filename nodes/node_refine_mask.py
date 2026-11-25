@@ -15,6 +15,7 @@ class AusBossRefineMask:
         "without feathering), feather with a gaussian blur, edge-refine "
         "against the optional guide_image (guided filter or alpha matting), "
         "then remap levels with black_point/white_point to clear gray haze. "
+        "detail_range and fix_threshold (under More) tune the edge-refine pass. "
         "Returns the refined mask and its inverse."
     )
     # "refine mask" first: the node shipped under that display name, so the
@@ -139,6 +140,30 @@ class AusBossRefineMask:
                         ),
                     },
                 ),
+                "detail_range": (
+                    "INT",
+                    {
+                        "default": 12,
+                        "min": 1,
+                        "max": 256,
+                        "step": 1,
+                        "tooltip": "Edge-refine reach. Sets the guided-filter window "
+                        "and the matting unknown-band width; higher snaps a wider, "
+                        "softer edge. Only used when edge_refine is on.",
+                    },
+                ),
+                "fix_threshold": (
+                    "FLOAT",
+                    {
+                        "default": 0.75,
+                        "min": 0.01,
+                        "max": 0.99,
+                        "step": 0.01,
+                        "tooltip": "Matting lower trimap threshold. Lower widens the "
+                        "unknown band the solver refines; higher keeps the band tight. "
+                        "Only used when edge_refine is 'matting'.",
+                    },
+                ),
             },
         }
 
@@ -168,6 +193,8 @@ class AusBossRefineMask:
         guide_image=None,
         preview=True,
         max_hole_size=0.0,
+        detail_range=12,
+        fix_threshold=0.75,
     ):
         refined, inverted = refine_mask(
             mask,
@@ -180,6 +207,8 @@ class AusBossRefineMask:
             edge_refine=str(edge_refine),
             guide_image=guide_image,
             max_hole_size=float(max_hole_size),
+            detail_range=int(detail_range),
+            fix_threshold=float(fix_threshold),
         )
         # The refined mask itself is the preview. Before this the panel showed
         # whatever fed the mask input, and a segmentation node upstream has no

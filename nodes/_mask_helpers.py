@@ -334,14 +334,10 @@ def _load_alpha_matting():
     except ImportError as exc:
         raise RuntimeError(_MATTING_HINT) from exc
     estimate = getattr(pymatting, "estimate_alpha_cf", None)
-    if estimate is None:
+    fix_trimap = getattr(pymatting, "fix_trimap", None)
+    if estimate is None or fix_trimap is None:
         raise RuntimeError(_MATTING_HINT)
-    return estimate
-
-
-def _edge_radius(expand: int) -> int:
-    """Working radius at the edge, scaled with how far the mask was moved."""
-    return max(4, 2 * abs(int(expand)))
+    return estimate, fix_trimap
 
 
 def _guide_frames(
@@ -372,68 +368,91 @@ def _guide_frames(
     return frames
 
 
+def _odd(value: int) -> int:
+    """Force a positive odd kernel size, the way cv2 and pymatting expect."""
+    value = int(value)
+    if value < 1:
+        value = 1
+    return value if value % 2 else value + 1
+
+
 def guided_filter_refine(
-    mask: torch.Tensor, guide_image: torch.Tensor, expand: int
+    mask: torch.Tensor, guide_image: torch.Tensor, detail_range: int
 ) -> torch.Tensor:
-    """Snap soft mask edges to guide-image edges with an edge-aware filter."""
+    """Snap soft mask edges to guide-image edges with an edge-aware filter.
+
+    radius and eps mirror LayerStyle's MaskEdgeUltraDetail: a wide window with
+    a firm eps (0.015) is what pulls a feathered mask onto the image edge
+    instead of leaving the gray ramp the tiny default eps kept.
+    """
     guided_filter = _load_guided_filter()
     count, height, width = mask.shape
     guides = _guide_frames(guide_image, count, height, width)
-    radius = _edge_radius(expand)
+    radius = _odd(detail_range + 1)
     frames = []
     for index in range(count):
         raise_if_interrupted()
         guide = guides[index].detach().float().clamp(0.0, 1.0).contiguous().cpu().numpy()
         source = mask[index].detach().float().contiguous().cpu().numpy()
-        frames.append(torch.from_numpy(guided_filter(guide, source, radius, 1e-4)))
+        frames.append(torch.from_numpy(guided_filter(guide, source, radius, 0.015)))
     return torch.stack(frames).to(device=mask.device, dtype=mask.dtype).clamp(0.0, 1.0)
 
 
 def matting_refine(
-    mask: torch.Tensor, guide_image: torch.Tensor, expand: int
+    mask: torch.Tensor,
+    guide_image: torch.Tensor,
+    detail_range: int,
+    fix_threshold: float,
+    white_point: float,
 ) -> torch.Tensor:
     """Closed-form alpha matting around the mask edge.
 
-    The binarized mask eroded by the edge radius is definite foreground, the
-    dilation marks where definite background begins, and the band between is
-    solved by pymatting's estimate_alpha_cf against the guide image.
+    The mask alpha is blurred with a wide kernel (detail_range*5+1) to open a
+    broad unknown band, fix_trimap carves that band into definite foreground,
+    definite background and unknown, and pymatting's estimate_alpha_cf solves
+    the unknown against the guide image. The wide blur is what lets the solve
+    reach the edge; a narrow morphological band left the result ragged.
     """
-    estimate_alpha_cf = _load_alpha_matting()
+    estimate_alpha_cf, fix_trimap = _load_alpha_matting()
+    cv2 = _optional_import("cv2")
     count, height, width = mask.shape
     guides = _guide_frames(guide_image, count, height, width)
-    band = _edge_radius(expand)
-    # Morphology once for the whole batch, not per frame: pooling is
-    # per-sample, so the batched call is bit-identical, and rebuilding the
-    # trimap inside the loop was paying the erode/dilate `count` times over.
+    kernel = _odd(detail_range * 5 + 1)
     alpha_all = mask.detach().float().cpu()
-    solid_all = (alpha_all >= 0.5).float()
-    eroded_all = grow_shrink_mask(solid_all, -band) >= 0.5
-    dilated_all = grow_shrink_mask(solid_all, band) >= 0.5
     frames = []
     for index in range(count):
         raise_if_interrupted()
         alpha_in = alpha_all[index]
-        # Definite foreground has to be opaque in the mask we were handed, and
-        # anything carrying any alpha at all is at least possible foreground.
-        # On a binary mask those reduce to exactly the eroded and dilated
-        # shapes; on a feathered one the soft ramp widens the unknown band,
-        # which is what lets the blur control reach the solve instead of being
-        # thresholded straight back out of it.
-        sure_fg = eroded_all[index] & (alpha_in >= 1.0 - _SOFT_EPSILON)
-        possible = dilated_all[index] | (alpha_in > _SOFT_EPSILON)
-        unknown = possible & ~sure_fg
-        if not bool(unknown.any()) or not bool(sure_fg.any()) or bool(possible.all()):
-            # Degenerate trimap (empty mask, mask everywhere, or a shape the
-            # band swallows whole): keep this frame's mask as it arrived.
+        # Nothing to solve on an empty or fully solid frame.
+        if not bool((alpha_in > _SOFT_EPSILON).any()) or bool(
+            (alpha_in >= 1.0 - _SOFT_EPSILON).all()
+        ):
             frames.append(alpha_in)
             continue
-        trimap = torch.full((height, width), 0.5, dtype=torch.float64)
-        trimap[~possible] = 0.0
-        trimap[sure_fg] = 1.0
+        blurred = cv2.GaussianBlur(alpha_in.numpy().astype("float64"), (kernel, kernel), 0)
+        # The node shows black_point/white_point as 0 and 1, but a trimap
+        # threshold of exactly 0 or 1 leaves pymatting with no background or
+        # foreground to anchor on (a blurred alpha never exceeds 1), so the
+        # solve uses LayerStyle's 0.01/0.99 bounds instead.
+        lower = min(max(float(fix_threshold), 0.01), 0.99)
+        upper = min(max(float(white_point), 0.01), 0.99)
+        trimap = fix_trimap(blurred, lower, upper)
+        if not (
+            bool((trimap >= 0.9).any())
+            and bool((trimap <= 0.1).any())
+            and bool((trimap == 0.5).any())
+        ):
+            # Thresholds left no usable foreground/background/unknown band
+            # (e.g. a soft mask whose core never nears 1); keep the mask as it
+            # arrived instead of letting pymatting raise.
+            frames.append(alpha_in)
+            continue
         guide = (
             guides[index].detach().float().clamp(0.0, 1.0).contiguous().cpu().numpy().astype("float64")
         )
-        alpha = estimate_alpha_cf(guide, trimap.numpy())
+        alpha = estimate_alpha_cf(
+            guide, trimap, laplacian_kwargs={"epsilon": 1e-6}, cg_kwargs={"maxiter": 500}
+        )
         frames.append(torch.from_numpy(alpha).float())
     return torch.stack(frames).to(device=mask.device, dtype=mask.dtype).clamp(0.0, 1.0)
 
@@ -463,11 +482,16 @@ def refine_mask(
     edge_refine: str = "off",
     guide_image: torch.Tensor | None = None,
     max_hole_size: float = 0.0,
+    detail_range: int = 12,
+    fix_threshold: float = 0.75,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Expand, fill holes, smooth, feather, edge-refine, then remap levels.
 
     max_hole_size limits fill holes to holes up to that percent of the
     frame's area; 0 (the default) fills every hole, as before it existed.
+    detail_range and fix_threshold tune the edge_refine pass: detail_range sets
+    the guided-filter window and the matting unknown-band width, fix_threshold
+    is the lower trimap threshold for matting.
     """
     if edge_refine not in EDGE_REFINE_MODES:
         raise ValueError(
@@ -494,9 +518,9 @@ def refine_mask(
     refined = smooth_mask(refined, int(smooth))
     refined = blur_mask(refined, blur).clamp(0.0, 1.0)
     if edge_refine == "guided filter":
-        refined = guided_filter_refine(refined, guide_image, expand)
+        refined = guided_filter_refine(refined, guide_image, detail_range)
     elif edge_refine == "matting":
-        refined = matting_refine(refined, guide_image, expand)
+        refined = matting_refine(refined, guide_image, detail_range, fix_threshold, white_point)
     refined = remap_mask(refined, black_point, white_point)
     return refined, 1.0 - refined
 

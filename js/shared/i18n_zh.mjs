@@ -21,6 +21,7 @@ export const ZH = {
   "Target size, extend": "目标尺寸与外扩", "Extra context": "额外上下文", "Target width": "目标宽度", "Target height": "目标高度",
   "Rescale": "重新缩放", "Extend left": "向左外扩", "Extend right": "向右外扩", "Extend up": "向上外扩", "Extend down": "向下外扩",
   "Expand": "扩张", "Fill holes": "填补孔洞", "Max hole size": "最大孔洞", "Smooth": "平滑", "Black point": "黑场", "White point": "白场",
+  "Detail range": "细节范围", "Fix threshold": "修正阈值",
   "From": "来源", "Folder": "文件夹", "Subfolders": "子文件夹", "Order": "排序", "Run": "运行", "Picture": "图片",
   "After a run": "运行之后", "At the end": "到末尾时", "Soften": "柔化", "Fine edges": "精细边缘", "Fill small holes": "填补小孔",
   "Invert": "反转", "If nothing": "没选中时", "New picture": "换新图时", "Free VRAM": "释放显存", "Canvas": "画布",
@@ -214,6 +215,8 @@ export const ZH = {
   // ---- card tooltips and placeholders
   "Size of the finished picture. 0 keeps the picture's own size.": "成品图片的大小。0 表示保持图片原有大小。",
   "Used only while Fill holes is on.": "仅在“填补孔洞”开启时使用。",
+  "Used only while Edge is on.": "仅在“边缘”开启时使用。",
+  "Used only while Edge is matting.": "仅在“边缘”为抠图（matting）时使用。",
   "the folder itself": "文件夹本身",
   "Choose a folder inside ComfyUI's input or output folder.": "选择 ComfyUI 的 input 或 output 文件夹里的一个文件夹。",
   "Prompt, caption, or shared text": "提示词、字幕或共用文字",

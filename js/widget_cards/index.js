@@ -258,8 +258,9 @@ const CARDS = {
     // A workflow saved by a 1.x release holds the preview panel's own empty
     // value where preview now sits; it loads on, the node's default. One
     // saved by 2.x before Max hole size existed holds the card's there; it
-    // loads 0, no limit, as the node ran then.
-    resetUnknown: { preview: true, max_hole_size: 0 },
+    // loads 0, no limit, as the node ran then. detail_range and fix_threshold
+    // came later still; older saves hold the card's value there.
+    resetUnknown: { preview: true, max_hole_size: 0, detail_range: 12, fix_threshold: 0.75 },
     rows: [
       { widget: "expand", label: "Expand", suffix: "px" },
       { widget: "blur", label: "Blur" },
@@ -271,6 +272,10 @@ const CARDS = {
       { widget: "black_point", label: "Black point", group: "advanced" },
       { widget: "white_point", label: "White point", group: "advanced" },
       { widget: "edge_refine", label: "Edge", kind: "segment", labels: { "guided filter": "guided" }, group: "advanced" },
+      { widget: "detail_range", label: "Detail range", group: "advanced",
+        mute: (values) => values.edge_refine === "off", muteTitle: "Used only while Edge is on." },
+      { widget: "fix_threshold", label: "Fix threshold", group: "advanced",
+        mute: (values) => values.edge_refine !== "matting", muteTitle: "Used only while Edge is matting." },
     ],
   },
   // The settings of Image Folder. Its gallery (js/image_folder) sits under
