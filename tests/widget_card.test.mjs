@@ -441,3 +441,24 @@ test("a lifted socket loses the row position the frontend stamped on it", () => 
   assert.equal("pos" in loose, false);
   assert.equal(loose.widget, undefined);
 });
+
+// A row folded into a group shows only while that group is open, and only a
+// header row ({ group, label }) opens it. A card that folds rows away without
+// one leaves them out of reach (Photo Camera's Crop margin and 360 width).
+test("every group a card folds rows into has a header that opens it", () => {
+  const source = readFileSync(join(ROOT, "js", "widget_cards", "index.js"), "utf-8");
+  const ids = [...source.matchAll(/\n {2}(AUSBOSS_NODES_\w+): \{/g)].map((match) => match[1]);
+  assert.ok(ids.length > 10, "no card entries found");
+  for (const id of ids) {
+    const lines = cardEntry(id).split("\n");
+    const headers = new Set();
+    const folded = new Set();
+    for (const line of lines) {
+      const group = line.match(/\bgroup: "([^"]+)"/)?.[1];
+      if (!group) continue;
+      if (/\b(widget|pair): /.test(line)) folded.add(group);
+      else headers.add(group);
+    }
+    for (const group of folded) assert.ok(headers.has(group), `${id} folds rows into "${group}" with no header row to open it`);
+  }
+});
