@@ -15,7 +15,9 @@ class AusBossRefineMask:
         "without feathering), feather with a gaussian blur, edge-refine "
         "against the optional guide_image (guided filter or alpha matting), "
         "then remap levels with black_point/white_point to clear gray haze. "
-        "Returns the refined mask and its inverse."
+        "detail_range and fix_threshold (under More) tune the edge-refine pass. "
+        "Returns the refined mask and its inverse. An output node, so it can run "
+        "on its own to check the mask before anything downstream."
     )
     # "refine mask" first: the node shipped under that display name, so the
     # phrase people already know has to keep finding it. The name itself now
@@ -27,6 +29,8 @@ class AusBossRefineMask:
         "fill holes", "smooth", "levels", "guided filter", "alpha matting",
         "mask blur", "mask fix", "ausboss",
     ]
+    # An output node, so the node can run on its own.
+    OUTPUT_NODE = True
 
     @classmethod
     def INPUT_TYPES(cls):
