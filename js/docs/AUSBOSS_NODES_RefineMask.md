@@ -6,6 +6,9 @@ quick brush before the mask goes to an inpainter. It can also snap the edge
 to a guide image and adjust the mask's levels. Both the refined mask and its
 inverse are returned, so no separate invert node is needed.
 
+It is an output node, so you can run it on its own — with nothing wired
+downstream — to check the mask before the rest of the graph runs.
+
 The panel shows the refined mask itself once the node has run, so the effect
 of a setting is visible without wiring a preview node beside it. With a batch
 or a video it shows the first mask. The small

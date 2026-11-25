@@ -186,6 +186,9 @@ class FillHolesLimitTests(unittest.TestCase):
         everything, _ = node.refine(kept_subject_mask(), **settings)
         self.assertTrue(torch.all(everything == 1.0))
 
+    def test_mask_refine_is_an_output_node_so_it_can_run_on_its_own(self):
+        self.assertIs(node_refine_mask.AusBossRefineMask.OUTPUT_NODE, True)
+
 
 class SmoothTests(unittest.TestCase):
     def test_zero_smooth_is_identity(self):
