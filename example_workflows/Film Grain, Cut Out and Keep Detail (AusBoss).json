@@ -24,10 +24,10 @@
         "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
       },
       "widgets_values": [
-        "{\"v\":1,\"title\":\"Film Grain, Cut Out and Keep Detail\",\"subtitle\":\"Finish a picture: add film grain, cut it out, or put back detail an edit smoothed away.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"\",\"body\":\"[▶ AusBoss on YouTube](https://www.youtube.com/@ausbossdev) · videos on these nodes and workflows\\n\\n---\\n\\n1. Load your picture.\\n2. Press **Run**. Each node shows its result, and Save Image keeps it.\\n\\n### Good to know\\n\\n- **Film Grain** works on video too: new grain on every frame, or the same grain with **Video grain** on *still*.\\n- **Cut Out** gets its mask from two core nodes, Convert Image to Mask and Threshold Mask, so it needs no model. Wire Mask by Name or Mask by Touch for a real subject. The PNG keeps the transparency.\\n- **Keep Detail** needs the two pictures to line up. Image Blur here stands in for an edit; wire your own edit and the original.\\n\\nRuns on the CPU, with nothing to download. Needs AusBoss nodes newer than 2.28.0.\",\"models\":[],\"packs\":[{\"name\":\"ComfyUI-AusBoss\",\"url\":\"https://github.com/ausboss/ComfyUI-AusBoss\",\"node\":\"AUSBOSS_NODES_KeepDetail\"}],\"links\":[{\"label\":\"YouTube · ausbossdev\",\"url\":\"https://www.youtube.com/@ausbossdev\"},{\"label\":\"GitHub · ausboss\",\"url\":\"https://github.com/ausboss\"},{\"label\":\"Civitai · AusBoss\",\"url\":\"https://civitai.com/user/AusBoss\"},{\"label\":\"X · Zanzibased\",\"url\":\"https://x.com/Zanzibased\"}]}"
+        "{\"v\":1,\"title\":\"Film Grain, Cut Out and Keep Detail\",\"subtitle\":\"Finish a picture: add film grain, cut it out, or put back detail an edit smoothed away.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"\",\"body\":\"[▶ AusBoss on YouTube](https://www.youtube.com/@ausbossdev) · videos on these nodes and workflows\\n\\n---\\n\\n1. Load your picture.\\n2. Press **Run**. Each node shows its result, and Save Image keeps it.\\n\\n### Good to know\\n\\n- **Film Grain** works on video too: new grain on every frame, or the same grain with **Video grain** on *still*.\\n- **Cut Out** gets its mask from two core nodes, Convert Image to Mask and Threshold Mask, so it needs no model. Wire Mask by Name or Mask by Touch for a real subject. The PNG keeps the transparency.\\n- **Keep Detail** needs the two pictures to line up. Image Blur here stands in for an edit; wire your own edit and the original.\\n\\nRuns on the CPU, with nothing to download. Needs AusBoss nodes newer than 2.28.1.\",\"models\":[],\"packs\":[{\"name\":\"ComfyUI-AusBoss\",\"url\":\"https://github.com/ausboss/ComfyUI-AusBoss\",\"node\":\"AUSBOSS_NODES_KeepDetail\"}],\"links\":[{\"label\":\"YouTube · ausbossdev\",\"url\":\"https://www.youtube.com/@ausbossdev\"},{\"label\":\"GitHub · ausboss\",\"url\":\"https://github.com/ausboss\"},{\"label\":\"Civitai · AusBoss\",\"url\":\"https://civitai.com/user/AusBoss\"},{\"label\":\"X · Zanzibased\",\"url\":\"https://x.com/Zanzibased\"}]}"
       ],
       "widgets_values_named": {
-        "note": "{\"v\":1,\"title\":\"Film Grain, Cut Out and Keep Detail\",\"subtitle\":\"Finish a picture: add film grain, cut it out, or put back detail an edit smoothed away.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"\",\"body\":\"[▶ AusBoss on YouTube](https://www.youtube.com/@ausbossdev) · videos on these nodes and workflows\\n\\n---\\n\\n1. Load your picture.\\n2. Press **Run**. Each node shows its result, and Save Image keeps it.\\n\\n### Good to know\\n\\n- **Film Grain** works on video too: new grain on every frame, or the same grain with **Video grain** on *still*.\\n- **Cut Out** gets its mask from two core nodes, Convert Image to Mask and Threshold Mask, so it needs no model. Wire Mask by Name or Mask by Touch for a real subject. The PNG keeps the transparency.\\n- **Keep Detail** needs the two pictures to line up. Image Blur here stands in for an edit; wire your own edit and the original.\\n\\nRuns on the CPU, with nothing to download. Needs AusBoss nodes newer than 2.28.0.\",\"models\":[],\"packs\":[{\"name\":\"ComfyUI-AusBoss\",\"url\":\"https://github.com/ausboss/ComfyUI-AusBoss\",\"node\":\"AUSBOSS_NODES_KeepDetail\"}],\"links\":[{\"label\":\"YouTube · ausbossdev\",\"url\":\"https://www.youtube.com/@ausbossdev\"},{\"label\":\"GitHub · ausboss\",\"url\":\"https://github.com/ausboss\"},{\"label\":\"Civitai · AusBoss\",\"url\":\"https://civitai.com/user/AusBoss\"},{\"label\":\"X · Zanzibased\",\"url\":\"https://x.com/Zanzibased\"}]}"
+        "note": "{\"v\":1,\"title\":\"Film Grain, Cut Out and Keep Detail\",\"subtitle\":\"Finish a picture: add film grain, cut it out, or put back detail an edit smoothed away.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"\",\"body\":\"[▶ AusBoss on YouTube](https://www.youtube.com/@ausbossdev) · videos on these nodes and workflows\\n\\n---\\n\\n1. Load your picture.\\n2. Press **Run**. Each node shows its result, and Save Image keeps it.\\n\\n### Good to know\\n\\n- **Film Grain** works on video too: new grain on every frame, or the same grain with **Video grain** on *still*.\\n- **Cut Out** gets its mask from two core nodes, Convert Image to Mask and Threshold Mask, so it needs no model. Wire Mask by Name or Mask by Touch for a real subject. The PNG keeps the transparency.\\n- **Keep Detail** needs the two pictures to line up. Image Blur here stands in for an edit; wire your own edit and the original.\\n\\nRuns on the CPU, with nothing to download. Needs AusBoss nodes newer than 2.28.1.\",\"models\":[],\"packs\":[{\"name\":\"ComfyUI-AusBoss\",\"url\":\"https://github.com/ausboss/ComfyUI-AusBoss\",\"node\":\"AUSBOSS_NODES_KeepDetail\"}],\"links\":[{\"label\":\"YouTube · ausbossdev\",\"url\":\"https://www.youtube.com/@ausbossdev\"},{\"label\":\"GitHub · ausboss\",\"url\":\"https://github.com/ausboss\"},{\"label\":\"Civitai · AusBoss\",\"url\":\"https://civitai.com/user/AusBoss\"},{\"label\":\"X · Zanzibased\",\"url\":\"https://x.com/Zanzibased\"}]}"
       },
       "color": "#14424d",
       "bgcolor": "#161f21"
@@ -928,7 +928,66 @@
         60
       ]
     },
-    "frontendVersion": "1.58.5"
+    "frontendVersion": "1.58.5",
+    "reroutes": [
+      {
+        "id": 1,
+        "pos": [
+          954,
+          222
+        ],
+        "linkIds": [
+          3,
+          5,
+          8,
+          10
+        ]
+      },
+      {
+        "id": 2,
+        "parentId": 1,
+        "pos": [
+          1438,
+          222
+        ],
+        "linkIds": [
+          3,
+          5,
+          8,
+          10
+        ]
+      },
+      {
+        "id": 3,
+        "parentId": 2,
+        "pos": [
+          1922,
+          222
+        ],
+        "linkIds": [
+          8,
+          10
+        ]
+      }
+    ],
+    "linkExtensions": [
+      {
+        "id": 3,
+        "parentId": 2
+      },
+      {
+        "id": 5,
+        "parentId": 2
+      },
+      {
+        "id": 8,
+        "parentId": 3
+      },
+      {
+        "id": 10,
+        "parentId": 3
+      }
+    ]
   },
   "version": 0.4
 }
