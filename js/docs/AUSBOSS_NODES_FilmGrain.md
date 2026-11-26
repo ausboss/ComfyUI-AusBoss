@@ -13,8 +13,26 @@ The panel under the card shows the result once the node has run (the first
 frame for a video). The small **preview** switch at the right of the bar
 turns it off, which also skips writing the preview file.
 
+## Auto
+
+Switch **Auto** on and the node picks the grain for the picture. The grain
+looks the same on a small picture and on a big one, and it matches the grain
+the picture already has. A clean render, with no grain of its own, starts at
+the normal amount of `0.25`.
+
+With Auto on, **Amount** and **Size** become multipliers. `1 ×` is Auto's
+pick, `1.5 ×` is half as much again, `2 ×` is twice as big. The small number
+beside each box is what you get ("= 0.27", "= 1.0 px"). It shows once the
+node knows the picture: right away from a Load Image, or after one run when
+the picture comes from another node. Until then it shows a dash.
+
+Auto on and Auto off each keep their own numbers, so switching back loses
+nothing. Auto starts off, so workflows saved before it behave as they did.
+
 ## Controls
 
+- **Auto** (`auto`): off uses the Amount and Size you set. On, the node
+  picks them for the picture.
 - **Amount** (`amount`): how strong the grain is. `0` adds none, `0.25` is a
   clearly visible film look, `1` is very heavy.
 - **Size** (`size`): how big each grain is, in pixels of this picture. `1` is
@@ -49,6 +67,21 @@ turns it off, which also skips writing the preview file.
   picture with a transparent background keeps its transparency.
 
 ## Technical details
+
+- Auto's size is `1` pixel at 1 megapixel and follows the square root of the
+  picture's megapixels, so a 4 MP picture gets `2` px (kept between 0.5 and
+  16 px). Its amount is `0.25` plus the picture's own grain divided by
+  `0.15`, kept between `0.05` and `1`.
+- The picture's own grain is measured in its flat areas: a Laplacian-
+  difference filter (Immerkaer, 1996) removes shapes and leaves fine noise,
+  and the median of what is left, read from a histogram, gives the noise as
+  one standard deviation. Edges and texture are a small part of a picture, so
+  the median ignores them. Below `0.0015` (what 8-bit rounding alone
+  measures) counts as no grain. A clip is measured on up to four frames.
+  The browser measures a Load Image's picture with the same filter, so the
+  note beside the boxes agrees with the node's result.
+- `auto_amount` and `auto_size` are separate inputs from `amount` and
+  `size`, which is why each mode keeps its own numbers.
 
 - Grain is random noise drawn on a grid `size` pixels apart and smoothed up
   to the picture with a bicubic filter, then scaled back to the same

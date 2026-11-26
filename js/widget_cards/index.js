@@ -29,6 +29,18 @@ import { valueToTake, wiredLimits } from "../shared/wired_limits.mjs";
 // The Source lists preview the hovered file straight from ComfyUI's /view.
 const viewUrl = (value) => api.apiURL(`/view?${mediaViewQuery(value)}`);
 
+// Film Grain's Auto: what the multiplier comes to for the picture on hand.
+// The node's live stage (js/shared/live_stage.mjs) keeps Auto's own picks
+// on node.__ausbossAuto once it knows the picture; until then a plain dash.
+function autoNote(node, which) {
+  const picked = node.__ausbossAuto;
+  const widget = node.widgets?.find((item) => item.name === (which === "amount" ? "auto_amount" : "auto_size"));
+  const times = Number(widget?.value);
+  if (!picked || !Number.isFinite(times)) return "= -";
+  if (which === "amount") return `= ${Math.min(1, Math.max(0, picked.amount * times)).toFixed(2)}`;
+  return `= ${Math.min(16, Math.max(0.5, picked.size * times)).toFixed(1)} px`;
+}
+
 const isMode = (name, ...modes) => (values) => modes.includes(values[name]);
 // Load Image: the choices that read the width and height boxes.
 const loadImageUsesBox = (values) => ["fit inside", "crop to fill", "crop"].includes(values.size)
@@ -561,11 +573,19 @@ const CARDS = {
   // Film Grain, Cut Out and Keep Detail show their result: the card sits
   // above the preview panel (js/input_preview), which owns the hidden
   // preview switch.
+  // Auto picks the amount and size from the picture (js/shared/live_stage.mjs
+  // measures it); Amount and Size then read as multipliers in their own
+  // boxes (auto_amount, auto_size), so each mode keeps its own numbers.
   AUSBOSS_NODES_FilmGrain: {
     minWidth: 300, first: true,
+    resetUnknown: { auto: false, auto_amount: 1, auto_size: 1 },
     rows: [
-      { widget: "amount", label: "Amount" },
-      { widget: "size", label: "Size", suffix: "px" },
+      { widget: "auto", label: "Auto", onText: "on", offText: "off" },
+      { section: "1 \u00d7 = Auto's pick", when: (v) => Boolean(v.auto) },
+      { widget: "amount", label: "Amount", when: (v) => !v.auto },
+      { widget: "size", label: "Size", suffix: "px", when: (v) => !v.auto },
+      { widget: "auto_amount", label: "Amount", suffix: "\u00d7", when: (v) => Boolean(v.auto), note: (node) => autoNote(node, "amount") },
+      { widget: "auto_size", label: "Size", suffix: "\u00d7", when: (v) => Boolean(v.auto), note: (node) => autoNote(node, "size") },
       { widget: "roughness", label: "Roughness" },
       { widget: "color", label: "Color" },
       { widget: "moving", label: "Video grain", onText: "moving", offText: "still" },

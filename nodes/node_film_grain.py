@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ._grain_helpers import add_film_grain
+from ._grain_helpers import add_film_grain, auto_film_grain_values
 from ._preview_helpers import preview_payload, temp_prefix
 
 PREVIEW_TOOLTIP = "Show this node's result on its face. Off skips writing the preview file to ComfyUI's temp folder."
@@ -87,6 +87,33 @@ class AusBossFilmGrain:
             "optional": {
                 "mask": ("MASK", {"tooltip": "Optional. Grain goes only where the mask is white."}),
                 "preview": ("BOOLEAN", {"default": True, "tooltip": PREVIEW_TOOLTIP}),
+                "auto": (
+                    "BOOLEAN",
+                    {
+                        "default": False,
+                        "tooltip": "On: the node picks Amount and Size for this picture, so the grain looks the same on a small or a big one and matches the grain it already has. Amount and Size then become multipliers of its pick.",
+                    },
+                ),
+                "auto_amount": (
+                    "FLOAT",
+                    {
+                        "default": 1.0,
+                        "min": 0.0,
+                        "max": 4.0,
+                        "step": 0.05,
+                        "tooltip": "Used while Auto is on. 1 is Auto's pick; 1.5 is half as strong again.",
+                    },
+                ),
+                "auto_size": (
+                    "FLOAT",
+                    {
+                        "default": 1.0,
+                        "min": 0.25,
+                        "max": 4.0,
+                        "step": 0.05,
+                        "tooltip": "Used while Auto is on. 1 is Auto's pick; 2 is grain twice as big.",
+                    },
+                ),
             },
         }
 
@@ -98,11 +125,23 @@ class AusBossFilmGrain:
     def __init__(self):
         self._prefix = temp_prefix("film_grain")
 
-    def grain(self, image, amount, size, roughness, color, moving, seed, mask=None, preview=True):
+    def grain(
+        self, image, amount, size, roughness, color, moving, seed, mask=None, preview=True,
+        auto=False, auto_amount=1.0, auto_size=1.0,
+    ):
+        picked = None
+        if auto:
+            picked = auto_film_grain_values(image, float(auto_amount), float(auto_size))
+            amount, size = picked["amount"], picked["size"]
+            picked = {key: round(value, 5) for key, value in picked.items()}
         result = add_film_grain(image, float(amount), float(size), float(roughness), float(color), bool(moving), int(seed), mask)
         if not preview:
             return (result,)
-        return preview_payload(result, self._prefix, "Film Grain", (result,))
+        return preview_payload(
+            result, self._prefix, "Film Grain", (result,),
+            extra_ui={"ausboss_grain_auto": [picked]} if picked else None,
+            live_sources={"image": image, "mask": mask},
+        )
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_FilmGrain": AusBossFilmGrain}

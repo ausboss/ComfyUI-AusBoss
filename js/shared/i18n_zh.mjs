@@ -325,6 +325,7 @@ export const ZH = {
   "Choose or upload an image": "选择或上传图片",
   "Preview could not load this image": "预览无法加载这张图片",
   // ---- image finishing nodes
+  "Auto": "自动", "1 \u00d7 = Auto's pick": "1 \u00d7 = 自动的选择",
   "Amount": "颗粒量", "Roughness": "粗糙度", "Video grain": "视频颗粒", "moving": "逐帧变化",
   "Clean edges": "清理边缘", "Clear haze": "清除薄雾", "Solid above": "高于此值为实", "Smooth video": "视频平滑",
   "white part": "白色部分", "black part": "黑色部分",

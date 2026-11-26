@@ -11,7 +11,9 @@ sys.path.insert(0, str(ROOT))
 if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
     del sys.modules["nodes"]
 
-from nodes._grain_helpers import add_film_grain, frame_seed, grain_frame, tone_weight
+from nodes._grain_helpers import (
+    add_film_grain, auto_film_grain_values, auto_grain, frame_seed, grain_frame, measure_noise, tone_weight,
+)
 from nodes.node_film_grain import AusBossFilmGrain
 
 
@@ -88,6 +90,45 @@ class FilmGrainTests(unittest.TestCase):
     def test_node_returns_the_image_with_preview_off(self):
         (out,) = AusBossFilmGrain().grain(grey(), 0.25, 1.0, 0.5, 0.0, True, 0, preview=False)
         self.assertEqual(tuple(out.shape), (1, 48, 64, 3))
+
+    def test_auto_grain_size_follows_the_square_root_of_the_megapixels(self):
+        _, small = auto_grain(1000, 1000, 0.0)
+        _, big = auto_grain(2000, 2000, 0.0)
+        self.assertAlmostEqual(small, 1.0)
+        self.assertAlmostEqual(big, 2.0)
+
+    def test_a_clean_picture_gets_the_normal_amount_and_a_grainy_one_more(self):
+        gradient = torch.linspace(0.1, 0.9, 128).view(1, 1, 128, 1).expand(1, 128, 128, 3).contiguous()
+        self.assertLess(measure_noise(gradient), 0.0015)
+        self.assertAlmostEqual(auto_grain(128, 128, measure_noise(gradient))[0], 0.25)
+        generator = torch.Generator().manual_seed(1)
+        noisy = (gradient + 0.03 * torch.randn(gradient.shape, generator=generator)).clamp(0, 1)
+        self.assertGreater(auto_grain(128, 128, measure_noise(noisy))[0], 0.35)
+
+    def test_the_noise_measure_reads_the_noise_level(self):
+        generator = torch.Generator().manual_seed(2)
+        flat = torch.full((1, 200, 200, 3), 0.5)
+        noisy = flat + 0.02 * torch.randn((1, 200, 200, 1), generator=generator)
+        self.assertAlmostEqual(measure_noise(noisy), 0.02, delta=0.002)
+
+    def test_the_multipliers_scale_autos_picks(self):
+        image = grey(1, 100, 100)
+        base = auto_film_grain_values(image, 1.0, 1.0)
+        twice = auto_film_grain_values(image, 2.0, 2.0)
+        self.assertAlmostEqual(twice["amount"], base["amount"] * 2)
+        self.assertAlmostEqual(twice["size"], base["size"] * 2)
+        self.assertAlmostEqual(twice["base_amount"], base["base_amount"])
+
+    def test_auto_off_is_the_plain_node_and_auto_on_ignores_amount_and_size(self):
+        image = torch.rand(1, 40, 40, 3)
+        node = AusBossFilmGrain()
+        (plain,) = node.grain(image, 0.25, 1.0, 0.5, 0.0, True, 0, preview=False)
+        (off,) = node.grain(image, 0.25, 1.0, 0.5, 0.0, True, 0, preview=False, auto=False, auto_amount=3.0, auto_size=3.0)
+        self.assertTrue(torch.equal(plain, off))
+        (one,) = node.grain(image, 0.9, 3.0, 0.5, 0.0, True, 0, preview=False, auto=True)
+        picked = auto_film_grain_values(image, 1.0, 1.0)
+        expected = add_film_grain(image, picked["amount"], picked["size"], 0.5, 0.0, True, 0)
+        self.assertTrue(torch.equal(one, expected))
 
 
 if __name__ == "__main__":

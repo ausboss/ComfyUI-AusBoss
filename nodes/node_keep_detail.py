@@ -98,7 +98,10 @@ class AusBossKeepDetail:
             print("[AusBoss] Keep Detail: detail_from was resized to the image's size.")
         if not preview:
             return (result,)
-        return preview_payload(result, self._prefix, "Keep Detail", (result,))
+        return preview_payload(
+            result, self._prefix, "Keep Detail", (result,),
+            live_sources={"image": image, "detail_from": detail_from, "mask": mask},
+        )
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_KeepDetail": AusBossKeepDetail}

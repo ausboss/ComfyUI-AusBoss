@@ -15,6 +15,13 @@ digital sensor:
 - Grain is strongest in the midtones and gentler in deep shadows and bright
   highlights, where film has little density left to vary.
 
+Auto mode picks the amount and size from the picture itself. The grain size
+follows the picture's size (a 4 MP picture gets twice the size a 1 MP one
+does: the square root of the megapixels), and the amount starts at the normal
+0.25 and goes up by the grain the picture already has, measured in its flat
+areas (`measure_noise`). The Film Grain card's Amount and Size then count as
+multipliers of those picks.
+
 Every frame's grain comes from its own seed, worked out from the node's seed
 and the frame number, so the same seed always gives the same result however
 the batch is split up. Frames go through a few at a time, which keeps a long
@@ -48,6 +55,24 @@ CHUNK = 8
 FRAME_STEP = 0x9E3779B97F4A7C15
 SEED_RANGE = 1 << 64
 LUMA = (0.2126, 0.7152, 0.0722)
+# Auto: the normal amount, the picture size that gets size 1, and the limits
+# of what Auto may pick.
+AUTO_AMOUNT = 0.25
+AUTO_SIZE_MEGAPIXELS = 1.0
+AUTO_AMOUNT_RANGE = (0.05, 1.0)
+AUTO_SIZE_RANGE = (0.5, 16.0)
+# Grain a picture counts as having of its own, in 0-1 picture values: an
+# 8-bit picture's rounding alone measures about this much and is not grain.
+OWN_GRAIN_FLOOR = 0.0015
+# Noise is read from this many frames of a clip at most.
+MEASURED_FRAMES = 4
+# The noise measure sorts |detail| into this many steps up to this value.
+NOISE_BINS = 4096
+NOISE_TOP = 0.25
+# The Laplacian-difference mask's gain on white noise (Immerkaer 1996) and the
+# median of |x| for a normal x: sigma = median(|mask * picture|) / (gain * median).
+NOISE_GAIN = 6.0
+HALF_NORMAL_MEDIAN = 0.6744897501960817
 
 
 def frame_seed(seed: int, frame: int, moving: bool) -> int:
@@ -151,4 +176,72 @@ def add_film_grain(
     return result
 
 
-__all__ = ["add_film_grain", "frame_seed", "grain_frame", "tone_weight"]
+def measure_noise(image: torch.Tensor) -> float:
+    """How much fine noise the picture has in its flat areas, as one standard
+    deviation in 0-1 values (0 for a clean render).
+
+    A Laplacian-difference filter removes the picture's shapes and leaves the
+    fine noise; edges and texture are a small part of any picture, so the
+    median of what is left is the noise of the flat areas (Immerkaer, "Fast
+    Noise Variance Estimation", 1996, with a median in place of the mean).
+    The median is read from a histogram, so the browser's copy of this
+    (js/shared/live_grain.mjs) gives the same number. A clip is read from up
+    to four frames spread over it, and the middle value of those is used.
+    """
+    if not isinstance(image, torch.Tensor) or image.ndim != 4:
+        raise ValueError("Film Grain expected an IMAGE batch.")
+    count = int(image.shape[0])
+    picks = sorted({round(i * (count - 1) / max(MEASURED_FRAMES - 1, 1)) for i in range(min(count, MEASURED_FRAMES))})
+    sigmas = sorted(_frame_noise(image[index]) for index in picks)
+    return sigmas[len(sigmas) // 2]
+
+
+def _frame_noise(frame: torch.Tensor) -> float:
+    height, width = int(frame.shape[0]), int(frame.shape[1])
+    if height < 3 or width < 3:
+        return 0.0
+    rgb = frame[..., :3].detach().float().clamp(0.0, 1.0)
+    luma = (rgb * rgb.new_tensor(LUMA[: rgb.shape[-1]])).sum(-1)
+    kernel = luma.new_tensor([[1.0, -2.0, 1.0], [-2.0, 4.0, -2.0], [1.0, -2.0, 1.0]]).view(1, 1, 3, 3)
+    detail = F.conv2d(luma.view(1, 1, height, width), kernel).abs().flatten().clamp(max=NOISE_TOP * (1.0 - 1e-6))
+    bins = torch.bincount((detail / NOISE_TOP * NOISE_BINS).long(), minlength=NOISE_BINS)
+    reached = torch.cumsum(bins, 0)
+    middle = int(torch.searchsorted(reached, torch.tensor([detail.numel() / 2.0], dtype=reached.dtype)).item())
+    centre = (min(middle, NOISE_BINS - 1) + 0.5) / NOISE_BINS * NOISE_TOP
+    return centre / (NOISE_GAIN * HALF_NORMAL_MEDIAN)
+
+
+def auto_grain(height: int, width: int, noise: float) -> tuple[float, float]:
+    """The amount and size Auto picks for a picture: size follows the
+    picture's size (square root of its megapixels), amount is the normal
+    0.25 plus the picture's own grain."""
+    megapixels = max(float(height) * float(width) / 1e6, 1e-6)
+    size = (megapixels / AUTO_SIZE_MEGAPIXELS) ** 0.5
+    amount = AUTO_AMOUNT + max(0.0, float(noise) - OWN_GRAIN_FLOOR) / FULL_STRENGTH
+    low, high = AUTO_AMOUNT_RANGE
+    amount = min(max(amount, low), high)
+    low, high = AUTO_SIZE_RANGE
+    return amount, min(max(size, low), high)
+
+
+def auto_film_grain_values(image: torch.Tensor, amount_times: float, size_times: float) -> dict:
+    """What Auto does for `image`: Auto's own picks ("base_amount",
+    "base_size"), the measured noise, and the amount and size to use, which
+    are the picks times the card's two multipliers, kept inside sensible
+    limits."""
+    noise = measure_noise(image)
+    base_amount, base_size = auto_grain(int(image.shape[1]), int(image.shape[2]), noise)
+    amount = min(max(base_amount * float(amount_times), 0.0), 1.0)
+    size = min(max(base_size * float(size_times), AUTO_SIZE_RANGE[0]), AUTO_SIZE_RANGE[1])
+    return {"amount": amount, "size": size, "base_amount": base_amount, "base_size": base_size, "noise": noise}
+
+
+__all__ = [
+    "add_film_grain",
+    "auto_film_grain_values",
+    "auto_grain",
+    "frame_seed",
+    "grain_frame",
+    "measure_noise",
+    "tone_weight",
+]

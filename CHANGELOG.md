@@ -9,6 +9,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
   highlights, as on film. Size, roughness and colour set its look, it moves
   from frame to frame on a video (or stays put), an optional mask limits
   where, and the same seed gives the same grain.
+- **Film Grain has an Auto switch.** With Auto on, the node picks the grain
+  for the picture: the same look on a small or a big one (the size follows the
+  picture's size), and an amount that matches the grain the picture already
+  has. A clean render starts at the normal 0.25. Amount and Size then count as
+  multipliers ("1 × = Auto's pick"), with the real value in small type beside
+  each box. Auto on and Auto off keep their own numbers, and Auto starts off,
+  so saved workflows behave as before.
 - **New node: Cut Out 🆎.** Turns a picture and a mask into a cut-out with a
   see-through background, ready to save as a PNG. Clean edges takes the old
   background's colour out of hair and soft edges so there is no halo, and

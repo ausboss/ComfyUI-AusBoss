@@ -134,7 +134,10 @@ class AusBossCutOut:
         )
         if not preview:
             return (result, alpha)
-        return preview_payload(result, self._prefix, "Cut Out", (result, alpha), keep_alpha=True)
+        return preview_payload(
+            result, self._prefix, "Cut Out", (result, alpha), keep_alpha=True,
+            live_sources={"image": image, "mask": mask},
+        )
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_CutOut": AusBossCutOut}

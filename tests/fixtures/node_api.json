@@ -200,7 +200,10 @@
     ],
     "optional": [
       "mask",
-      "preview"
+      "preview",
+      "auto",
+      "auto_amount",
+      "auto_size"
     ],
     "outputs": [
       [
