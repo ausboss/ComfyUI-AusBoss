@@ -71,6 +71,8 @@ def parse_lora_stack(raw: str | None) -> list[dict[str, Any]]:
                 "strength_clip": clamp_strength(entry.get("strength_clip", strength), strength),
                 "enabled": enabled,
                 "triggers": str(entry.get("triggers") or "").strip(),
+                # The row follows the node's strength curve when one is linked.
+                "curve": entry.get("curve") is True,
             }
         )
     return rows
@@ -390,16 +392,101 @@ def unreadable_lora_message(name: str, reason: str, detail: str = "") -> str:
     return f"{message} Technical details: {detail}" if detail else message
 
 
+CURVE_NEEDS_CLIP = (
+    "LoRA Loader: a row follows the strength curve, but the clip input is not "
+    "wired. The curve rides on the prompts, so wire your CLIP through this node "
+    "and encode the prompts with its clip output."
+)
+
+
+def _curve_hook(lora_sd: Any, strength: float, keyframes: Any):
+    """A core weight hook that applies the LoRA to the model at strength x the curve."""
+    import comfy.hooks
+    import comfy.lora_convert
+
+    group = comfy.hooks.create_hook_lora(
+        lora=comfy.lora_convert.convert_lora(lora_sd), strength_model=strength, strength_clip=0.0
+    )
+    group.set_keyframes_on_hooks(keyframes)
+    return group
+
+
+def _patch_clip_only(clip, lora_sd: Any, strength_clip: float):
+    """The CLIP half of a LoRA, applied as usual: the prompt is encoded once."""
+    import comfy.lora
+    import comfy.lora_convert
+
+    key_map = comfy.lora.model_lora_keys_clip(clip.cond_stage_model, {})
+    loaded = comfy.lora.load_lora(comfy.lora_convert.convert_lora(lora_sd), key_map, log_missing=False)
+    clip = clip.clone()
+    clip.add_patches(loaded, strength_clip)
+    return clip
+
+
+def _warn_when_unhooked(hook_refs: set):
+    """Warn when a sampler runs this model with prompts that do not carry the curve rows.
+
+    Then those rows are not applied at all, which looks like a LoRA that
+    does nothing. It happens when the prompts were encoded with another CLIP.
+    """
+    def check(patcher, hooks, target_dict, model_options, registered):
+        import comfy.hooks
+
+        if target_dict.get("target") != comfy.hooks.EnumWeightTarget.Model:
+            return
+        present = {hook.hook_ref for hook in (hooks.hooks if hooks is not None else [])}
+        if not hook_refs & present:
+            print(
+                "[AusBoss] LoRA Loader: the rows that follow the strength curve were not "
+                "applied in this run. Encode the prompts with the LoRA Loader's clip output."
+            )
+    return check
+
+
+def attach_curve_hooks(model, clip, hooks):
+    """Hand the curve rows to the prompts (core's Set CLIP Hooks way) and watch for misses."""
+    from comfy.patcher_extension import CallbacksMP
+
+    clip = clip.clone()
+    current = clip.apply_hooks_to_conds
+    clip.apply_hooks_to_conds = current.clone_and_combine(hooks) if current is not None else hooks
+    model = model.clone()
+    model.add_callback(CallbacksMP.ON_REGISTER_ALL_HOOK_PATCHES,
+                       _warn_when_unhooked({hook.hook_ref for hook in hooks.hooks}))
+    return model, clip
+
+
 def apply_lora_stack(
-    model, clip, rows: list[dict[str, Any]], on_missing: str = "error", missing: list | None = None
+    model, clip, rows: list[dict[str, Any]], on_missing: str = "error", missing: list | None = None,
+    curve: list[float] | None = None,
 ):
     """Apply the enabled, non-zero rows in order and return (model, clip).
 
     In skip mode a row whose file cannot be found is warned about and left
     out; pass a list as ``missing`` to collect those rows, which is how the
     node keeps a LoRA that never loaded from adding its trigger words.
+
+    With a ``curve`` (a schedule from _curve_helpers), a row marked to follow
+    it reaches the model through a core weight hook whose strength moves with
+    the curve step by step. The hook travels on the prompts: the returned CLIP
+    puts it on every prompt it encodes. The row's CLIP half is applied as usual.
     """
     import comfy.sd
+
+    keyframes = None
+    hooks = None
+    if curve is not None and any(row.get("curve") and row["enabled"] for row in rows):
+        from ._curve_helpers import hook_keyframes, keyframe_plan
+
+        plan = keyframe_plan(curve)
+        if len(plan) == 1:
+            # A flat curve is a plain strength: no hook, nothing to schedule.
+            rows = [{**row, "strength": clamp_strength(row["strength"] * plan[0][1])}
+                    if row.get("curve") else row for row in rows]
+        else:
+            if clip is None:
+                raise ValueError(CURVE_NEEDS_CLIP)
+            keyframes = hook_keyframes(curve)
 
     for row in rows:
         if not row["enabled"]:
@@ -435,6 +522,15 @@ def apply_lora_stack(
             raise ValueError(
                 unreadable_lora_message(row["name"], unreadable_lora_reason(path), detail)
             ) from exc
+        if keyframes is not None and row.get("curve"):
+            # Measured by core when it registers the hook, so the no-effect
+            # check below does not apply to these rows.
+            if row["strength"] != 0:
+                hook = _curve_hook(lora_sd, row["strength"], keyframes)
+                hooks = hook if hooks is None else hooks.clone_and_combine(hook)
+            if strength_clip != 0:
+                clip = _patch_clip_only(clip, lora_sd, strength_clip)
+            continue
         before = patch_total(model, clip)
         model, clip = comfy.sd.load_lora_for_models(
             model, clip, lora_sd, row["strength"], strength_clip
@@ -444,6 +540,8 @@ def apply_lora_stack(
         # and future, and never fires on a LoRA that actually did something.
         if before is not None and after is not None and after == before:
             _warn_no_effect(row["name"], base_model_family(read_safetensors_metadata(path)))
+    if hooks is not None:
+        model, clip = attach_curve_hooks(model, clip, hooks)
     return model, clip
 
 
@@ -458,6 +556,7 @@ def stack_fingerprint(rows: list[dict[str, Any]]) -> str:
             identity = "missing"
         parts.append(
             f"{row['name']}|{row['strength']}|{row['strength_clip']}|{row['enabled']}|{identity}"
+            + ("|curve" if row.get("curve") else "")
         )
     return ";".join(parts)
 
