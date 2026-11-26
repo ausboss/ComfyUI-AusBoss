@@ -136,7 +136,8 @@ function ensureSettingsCss() {
   .ausboss-set-dl .term { color: ${BRAND}; font-weight: 600; }
   .ausboss-set-dl .detail { color: #9ba2aa; line-height: 1.4; }
   .ausboss-set-btn { height: 24px; border: 1px solid #3a4047; border-radius: 5px;
-    background: #23272c; color: #d7dde2; cursor: pointer; padding: 0 12px; font: inherit; }
+    background: #23272c; color: #d7dde2; cursor: pointer; padding: 0 12px; font: inherit;
+    white-space: nowrap; flex: none; }
   .ausboss-set-btn:hover { border-color: ${BRAND}; }
   .ausboss-set-btn.primary { margin-left: auto; border-color: ${BRAND}; color: ${BRAND}; }
   .ausboss-set-btn.primary:hover { background: ${BRAND}; color: #08211f; }
