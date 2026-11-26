@@ -130,3 +130,31 @@ export function removePoint(points, index) {
 
 // The strength a value of the box (0..1) stands for.
 export const strengthOf = (value, low, high) => Number(low) + (Number(high) - Number(low)) * value;
+
+// Where the hover readout goes: beside the spot under the pointer, on the
+// first side that covers no point (above right, above left, below right,
+// below left), kept inside the box. With every side covered, the one that
+// covers the fewest points. All in the stage's pixels; `box` is
+// { left, top, right, bottom } and each point is [x, y].
+export function tagPlace({ x, y, width, height, box, points = [], radius = 7, gap = 6 }) {
+  const fit = (left, top) => ({
+    left: Math.min(box.right - width, Math.max(box.left, left)),
+    top: Math.min(box.bottom - height, Math.max(box.top, top)),
+  });
+  const covers = ({ left, top }) => points.filter(([px, py]) =>
+    px + radius > left && px - radius < left + width && py + radius > top && py - radius < top + height).length;
+  const sides = [
+    fit(x + gap, y - height - gap),
+    fit(x - gap - width, y - height - gap),
+    fit(x + gap, y + gap),
+    fit(x - gap - width, y + gap),
+  ];
+  let best = sides[0];
+  let fewest = Infinity;
+  for (const side of sides) {
+    const count = covers(side);
+    if (count === 0) return side;
+    if (count < fewest) { best = side; fewest = count; }
+  }
+  return best;
+}

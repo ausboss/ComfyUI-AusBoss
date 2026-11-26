@@ -35,12 +35,9 @@ any point.
 
 - On a LoRA row, the curve multiplies the row's own strength. A row at 0.8
   with a fade out goes from 0.8 to 0.
-- On LoRA Loader, encode your prompts with the loader's `clip` output. The
-  curve rides on the prompts; prompts encoded with another CLIP leave those
-  rows out, and the console says so.
-- A flat curve costs nothing extra. A moving one makes each step a little
-  slower on LoRA rows, because ComfyUI rebuilds the LoRA's weights whenever
-  the strength changes.
+- It works with every model file: full size, fp8, fp8 scaled and int8.
+- A curve that moves makes each step a little slower (about 5% on Krea 2)
+  and needs no extra memory. A flat line costs nothing.
 
 ## Technical details
 
@@ -52,12 +49,13 @@ any point.
   It is the same reading ComfyUI's own **Create Hook Keyframes From
   Floats** gives a list, so the curve also feeds ComfyUI's hook nodes, and a
   list of numbers from another node feeds our inputs.
-- Both nodes turn the curve into ComfyUI hook keyframes. "Where in the run"
-  is therefore ComfyUI's percent of the run, measured by noise level. With
+- Both nodes read "where in the run" the way ComfyUI's hook keyframes do:
+  ComfyUI's percent of the run, measured by noise level. With
   the `simple` and `normal` schedulers that matches the step count; other
   schedulers spend more steps at some noise levels. A second sampler that
   carries on from the first (a refiner pass, a denoise below 1) reads only
   the part of the curve it covers.
-- Hooks switch ComfyUI's dynamic VRAM loading off for that run, which is
-  ComfyUI's own rule for any hooked prompt. The first such run loads the
-  model a second time the plain way.
+- LoRA Loader adds a following row to each layer's result as the layer
+  runs (ComfyUI's bypass mode), so the model's weights are never rewritten
+  and no second copy of them is kept. Krea 2 Encode scales the reference
+  inside attention.

@@ -4,9 +4,9 @@ The curve is a few points from the start of a run (0) to its end (1), joined
 by a smooth line that never overshoots them (a monotone cubic, Fritsch and
 Carlson 1980). It leaves the node as core's FLOATS type: CURVE_SAMPLES values
 spread evenly from start to end, the same reading core's own Create Hook
-Keyframes From Floats gives a list. Nodes that take a schedule turn it into
-core hook keyframes, so every one of them reads "where in the run" the way
-core does: by the noise level of the step, not by its number.
+Keyframes From Floats gives a list. Nodes that take a schedule read "where in
+the run" the way core's hook keyframes do: by the noise level of the step,
+not by its number (`keyframe_plan`, then core keyframes or `strength_at_noise`).
 
 Everything above `hook_keyframes` is plain Python, testable without torch.
 """
@@ -178,6 +178,31 @@ def keyframe_plan(values: list[float], count: int = CURVE_SAMPLES) -> list[tuple
             continue
         plan.append((percent, strength))
     return plan
+
+
+def noise_plan(plan: list[tuple[float, float]], percent_to_sigma) -> list[tuple[float, float]]:
+    """The keyframe plan with each start place turned into the model's noise level for it."""
+    return [(float(percent_to_sigma(percent)), strength) for percent, strength in plan]
+
+
+def strength_at_noise(starts: list[tuple[float, float]], sigma: float, first: bool = False) -> float:
+    """The curve's strength for the step at noise level ``sigma``, read the way core reads hook keyframes.
+
+    ``starts`` is ``noise_plan``'s list, earliest first. The run's first step
+    takes the first keyframe; a later step takes the last keyframe whose
+    start the run has reached (noise levels fall as the run goes on).
+    """
+    if not starts:
+        return 1.0
+    strength = starts[0][1]
+    if first:
+        return strength
+    for start, value in starts[1:]:
+        if start >= sigma:
+            strength = value
+        else:
+            break
+    return strength
 
 
 def hook_keyframes(values: list[float]):

@@ -392,23 +392,94 @@ def unreadable_lora_message(name: str, reason: str, detail: str = "") -> str:
     return f"{message} Technical details: {detail}" if detail else message
 
 
-CURVE_NEEDS_CLIP = (
-    "LoRA Loader: a row follows the strength curve, but the clip input is not "
-    "wired. The curve rides on the prompts, so wire your CLIP through this node "
-    "and encode the prompts with its clip output."
-)
+CURVE_WRAPPER_KEY = "ausboss_lora_curve"
 
 
-def _curve_hook(lora_sd: Any, strength: float, keyframes: Any):
-    """A core weight hook that applies the LoRA to the model at strength x the curve."""
-    import comfy.hooks
+class LoraCurve:
+    """Moves the curve rows' strength from step to step.
+
+    The rows are loaded the way core's bypass LoRA loads them: the LoRA is
+    added to each layer's output as the layer runs, and the model's weights
+    are never rewritten. That works on every model file (full size, fp8, fp8
+    scaled, int8) and costs no extra memory. Core reads each adapter's
+    ``multiplier`` while the layer runs, so this wrapper, called before the
+    model at every step, sets it to the row's strength times the curve.
+    "Where in the run" is the step's noise level, read the way core reads hook
+    keyframes, so the LoRA curve and Krea 2's reference curve line up.
+    """
+
+    def __init__(self, curve: list[float]):
+        from ._curve_helpers import keyframe_plan
+
+        self.plan = keyframe_plan(curve)
+        self.rows: list[tuple[float, list]] = []
+        self._starts = None
+        self._sampling = None
+
+    def add_row(self, strength: float, adapters: list):
+        self.rows.append((strength, adapters))
+
+    def set_strength(self, value: float):
+        for strength, adapters in self.rows:
+            for adapter in adapters:
+                adapter.multiplier = strength * value
+
+    def strength_for(self, model_sampling, sigma, first: bool) -> float:
+        """The curve at this step. ``sigma`` is the step's noise level as the model gets it (a tensor)."""
+        import torch
+
+        from ._curve_helpers import noise_plan, strength_at_noise
+
+        dtype = getattr(sigma, "dtype", torch.float64)
+        if self._starts is None or self._sampling != (model_sampling, dtype):
+            # Core compares keyframe starts with the step's noise level in the
+            # step's own number type; rounding the starts to it reads every
+            # step the same way, keyframe edges included.
+            self._starts = [(torch.tensor(start, dtype=dtype).item(), value)
+                            for start, value in noise_plan(self.plan, model_sampling.percent_to_sigma)]
+            self._sampling = (model_sampling, dtype)
+        level = float(sigma.flatten()[0]) if hasattr(sigma, "flatten") else float(sigma)
+        return strength_at_noise(self._starts, level, first)
+
+    def __call__(self, executor, x, t, c_concat, c_crossattn, control, transformer_options, **kwargs):
+        level = float(t.flatten()[0]) if hasattr(t, "flatten") else float(t)
+        sigmas = (transformer_options or {}).get("sample_sigmas")
+        first = sigmas is not None and len(sigmas) > 0 and level >= float(sigmas.max())
+        self.set_strength(self.strength_for(executor.class_obj.model_sampling, t, first))
+        return executor(x, t, c_concat, c_crossattn, control, transformer_options, **kwargs)
+
+
+def _curve_row(model, lora_sd: Any, strength: float, curve: LoraCurve, index: int):
+    """Load a row that follows the curve onto the model in core's bypass mode.
+
+    Returns (model, parts): how many of the LoRA's parts reached the model.
+    The few parts that are not low-rank adapters (a plain weight or bias
+    difference) cannot change per step; they stay at the row's strength.
+    """
+    import comfy.lora
     import comfy.lora_convert
+    import comfy.weight_adapter
 
-    group = comfy.hooks.create_hook_lora(
-        lora=comfy.lora_convert.convert_lora(lora_sd), strength_model=strength, strength_clip=0.0
-    )
-    group.set_keyframes_on_hooks(keyframes)
-    return group
+    key_map = comfy.lora.model_lora_keys_unet(model.model, {})
+    loaded = comfy.lora.load_lora(comfy.lora_convert.convert_lora(lora_sd), key_map, log_missing=False)
+    model = model.clone()
+    model_keys = set(model.model.state_dict().keys())
+    manager = comfy.weight_adapter.BypassInjectionManager()
+    adapters = []
+    steady = {}
+    for key, part in loaded.items():
+        if isinstance(part, comfy.weight_adapter.WeightAdapterBase) and isinstance(key, str) and key in model_keys:
+            manager.add_adapter(key, part, strength=strength)
+            adapters.append(part)
+        else:
+            steady[key] = part
+    parts = len(model.add_patches(steady, strength)) if steady else 0
+    injections = manager.create_injections(model.model)
+    if manager.get_hook_count() > 0:
+        model.set_injections(f"{CURVE_WRAPPER_KEY}_{index}", injections)
+        curve.add_row(strength, adapters)
+        parts += manager.get_hook_count()
+    return model, parts
 
 
 def _patch_clip_only(clip, lora_sd: Any, strength_clip: float):
@@ -423,39 +494,6 @@ def _patch_clip_only(clip, lora_sd: Any, strength_clip: float):
     return clip
 
 
-def _warn_when_unhooked(hook_refs: set):
-    """Warn when a sampler runs this model with prompts that do not carry the curve rows.
-
-    Then those rows are not applied at all, which looks like a LoRA that
-    does nothing. It happens when the prompts were encoded with another CLIP.
-    """
-    def check(patcher, hooks, target_dict, model_options, registered):
-        import comfy.hooks
-
-        if target_dict.get("target") != comfy.hooks.EnumWeightTarget.Model:
-            return
-        present = {hook.hook_ref for hook in (hooks.hooks if hooks is not None else [])}
-        if not hook_refs & present:
-            print(
-                "[AusBoss] LoRA Loader: the rows that follow the strength curve were not "
-                "applied in this run. Encode the prompts with the LoRA Loader's clip output."
-            )
-    return check
-
-
-def attach_curve_hooks(model, clip, hooks):
-    """Hand the curve rows to the prompts (core's Set CLIP Hooks way) and watch for misses."""
-    from comfy.patcher_extension import CallbacksMP
-
-    clip = clip.clone()
-    current = clip.apply_hooks_to_conds
-    clip.apply_hooks_to_conds = current.clone_and_combine(hooks) if current is not None else hooks
-    model = model.clone()
-    model.add_callback(CallbacksMP.ON_REGISTER_ALL_HOOK_PATCHES,
-                       _warn_when_unhooked({hook.hook_ref for hook in hooks.hooks}))
-    return model, clip
-
-
 def apply_lora_stack(
     model, clip, rows: list[dict[str, Any]], on_missing: str = "error", missing: list | None = None,
     curve: list[float] | None = None,
@@ -467,26 +505,22 @@ def apply_lora_stack(
     node keeps a LoRA that never loaded from adding its trigger words.
 
     With a ``curve`` (a schedule from _curve_helpers), a row marked to follow
-    it reaches the model through a core weight hook whose strength moves with
-    the curve step by step. The hook travels on the prompts: the returned CLIP
-    puts it on every prompt it encodes. The row's CLIP half is applied as usual.
+    it is loaded in core's bypass mode and its strength moves with the curve
+    step by step (``LoraCurve``). The row's CLIP half is applied as usual.
     """
     import comfy.sd
 
-    keyframes = None
-    hooks = None
+    follower = None
     if curve is not None and any(row.get("curve") and row["enabled"] for row in rows):
-        from ._curve_helpers import hook_keyframes, keyframe_plan
+        from ._curve_helpers import keyframe_plan
 
         plan = keyframe_plan(curve)
         if len(plan) == 1:
-            # A flat curve is a plain strength: no hook, nothing to schedule.
+            # A flat curve is a plain strength: nothing to schedule.
             rows = [{**row, "strength": clamp_strength(row["strength"] * plan[0][1])}
                     if row.get("curve") else row for row in rows]
         else:
-            if clip is None:
-                raise ValueError(CURVE_NEEDS_CLIP)
-            keyframes = hook_keyframes(curve)
+            follower = LoraCurve(curve)
 
     for row in rows:
         if not row["enabled"]:
@@ -522,14 +556,20 @@ def apply_lora_stack(
             raise ValueError(
                 unreadable_lora_message(row["name"], unreadable_lora_reason(path), detail)
             ) from exc
-        if keyframes is not None and row.get("curve"):
-            # Measured by core when it registers the hook, so the no-effect
-            # check below does not apply to these rows.
+        if follower is not None and row.get("curve"):
+            parts, known = 0, True
             if row["strength"] != 0:
-                hook = _curve_hook(lora_sd, row["strength"], keyframes)
-                hooks = hook if hooks is None else hooks.clone_and_combine(hook)
+                model, parts = _curve_row(model, lora_sd, row["strength"], follower, len(follower.rows))
             if strength_clip != 0:
+                before = patch_total(None, clip)
                 clip = _patch_clip_only(clip, lora_sd, strength_clip)
+                after = patch_total(None, clip)
+                if before is None or after is None:
+                    known = False
+                else:
+                    parts += after - before
+            if known and parts == 0:
+                _warn_no_effect(row["name"], base_model_family(read_safetensors_metadata(path)))
             continue
         before = patch_total(model, clip)
         model, clip = comfy.sd.load_lora_for_models(
@@ -540,8 +580,11 @@ def apply_lora_stack(
         # and future, and never fires on a LoRA that actually did something.
         if before is not None and after is not None and after == before:
             _warn_no_effect(row["name"], base_model_family(read_safetensors_metadata(path)))
-    if hooks is not None:
-        model, clip = attach_curve_hooks(model, clip, hooks)
+    if follower is not None and follower.rows:
+        from comfy.patcher_extension import WrappersMP
+
+        model = model.clone()
+        model.add_wrapper_with_key(WrappersMP.APPLY_MODEL, CURVE_WRAPPER_KEY, follower)
     return model, clip
 
 

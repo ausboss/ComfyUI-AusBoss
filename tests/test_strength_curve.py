@@ -8,10 +8,8 @@ hook keyframes and a tiny Krea 2 model on the CPU, and skip without
 
 from __future__ import annotations
 
-import io
 import json
 import os
-from contextlib import redirect_stdout
 from pathlib import Path
 import random
 import sys
@@ -30,8 +28,10 @@ from nodes._curve_helpers import (  # noqa: E402
     build_schedule,
     curve_values,
     keyframe_plan,
+    noise_plan,
     parse_points,
     schedule_at,
+    strength_at_noise,
 )
 from nodes._lora_helpers import parse_lora_stack, stack_fingerprint  # noqa: E402
 from nodes.node_strength_curve import AusBossStrengthCurve  # noqa: E402
@@ -119,6 +119,15 @@ class ScheduleTests(unittest.TestCase):
         fade = keyframe_plan(build_schedule(FADE_OUT))
         self.assertEqual(len(fade), CURVE_SAMPLES)
         self.assertEqual([p for p, _ in fade], sorted(p for p, _ in fade))
+
+    def test_the_step_takes_the_last_keyframe_its_noise_level_has_reached(self):
+        starts = noise_plan([(0.0, 1.0), (0.5, 0.5), (0.75, 0.2)], lambda percent: 1.0 - percent)
+        self.assertEqual(starts, [(1.0, 1.0), (0.5, 0.5), (0.25, 0.2)])
+        self.assertEqual([strength_at_noise(starts, sigma) for sigma in (1.0, 0.7, 0.5, 0.3, 0.25, 0.0)],
+                         [1.0, 1.0, 0.5, 0.5, 0.2, 0.2])
+        # The first step of a run always takes the first keyframe, as core's do.
+        self.assertEqual(strength_at_noise(starts, 0.4, first=True), 1.0)
+        self.assertEqual(strength_at_noise([], 0.4), 1.0)
 
     def test_a_short_list_from_another_node_is_read_smoothly(self):
         plan = dict(keyframe_plan([1.0, 0.0]))
@@ -219,18 +228,35 @@ class CoreHookTests(unittest.TestCase):
         return self.comfy.sample.sample(model, self.noise, steps, cfg, "euler", "simple", positive, negative,
                                         self.torch.zeros(1, 16, 8, 8), disable_pbar=True, seed=1)
 
-    def lora_strength_per_step(self, model, hooks):
-        """The LoRA's strength in the weight at every model call, as a multiple of the full delta."""
+    def lora_strength_per_step(self, model, hooks=None):
+        """The LoRA's strength in the layer's output at every model call, as a multiple of the full change.
+
+        Curve rows reach the model in core's bypass mode, so the change shows in
+        what the layer returns, not in its weight.
+        """
         delta = self.up @ self.down
         seen = []
-        handle = self.layer.register_forward_pre_hook(lambda module, args: seen.append(
-            round(float(((module.weight - self.base) * delta).sum() / (delta * delta).sum()), 4)))
+
+        def measure(module, args, output):
+            x = args[0]
+            plain = self.torch.nn.functional.linear(x, self.base, module.bias)
+            change = self.torch.nn.functional.linear(x, delta)
+            seen.append(round(float(((output - plain) * change).sum() / (change * change).sum()), 4))
+
+        handle = self.layer.register_forward_hook(measure)
         try:
             cond = {"hooks": hooks} if hooks is not None else {}
             self.sample(model, [[self.context, dict(cond)]], [[self.context, dict(cond)]])
         finally:
             handle.remove()
         return seen
+
+    def stack(self, rows, curve, clip=None):
+        from nodes import _lora_helpers as lora
+
+        with patch.object(lora, "resolve_lora_path", lambda name: Path(name)), \
+             patch.object(lora, "_load_lora_file", lambda path: self.lora):
+            return lora.apply_lora_stack(self.patcher, clip, rows, curve=curve)
 
     def test_core_keyframes_follow_the_schedule_step_by_step(self):
         from nodes._curve_helpers import hook_keyframes
@@ -248,42 +274,63 @@ class CoreHookTests(unittest.TestCase):
         for got, want in zip(seen, [1.0, 0.75, 0.5, 0.25], strict=True):
             self.assertAlmostEqual(got, want, delta=0.0101)
 
+    def test_the_lora_curve_reads_the_run_the_way_core_keyframes_do(self):
+        from nodes._curve_helpers import hook_keyframes, noise_plan, strength_at_noise
+
+        for points in (FADE_OUT, "[[0, 1], [0.25, 0.92], [0.75, 0.08], [1, 0]]", "[[0, 0], [0.5, 1], [1, 0.2]]"):
+            for steps in (4, 8, 13):
+                schedule = build_schedule(points)
+                keyframes = hook_keyframes(schedule)
+                keyframes.initialize_timesteps(self.model)
+                starts = noise_plan(keyframe_plan(schedule), self.model.model_sampling.percent_to_sigma)
+                sigmas = self.comfy.samplers.calculate_sigmas(self.model.model_sampling, "simple", steps)
+                options = {"sample_sigmas": sigmas}
+                for index, sigma in enumerate(sigmas[:-1]):
+                    keyframes.prepare_current_keyframe(float(sigma), options)
+                    self.assertEqual(strength_at_noise(starts, float(sigma), first=index == 0), keyframes.strength,
+                                     f"{points}, {steps} steps, step {index}")
+
     def test_a_curve_row_moves_with_the_step_and_leaves_the_weights_as_they_were(self):
-        from nodes import _lora_helpers as lora
-        from nodes._curve_helpers import hook_keyframes
-
-        hooks = lora._curve_hook(self.lora, 0.8, hook_keyframes(build_schedule(FADE_OUT)))
-        model, clip = lora.attach_curve_hooks(self.patcher, StubClip(), hooks)
-        self.assertEqual(self.lora_strength_per_step(model, clip.apply_hooks_to_conds), [0.8, 0.6, 0.4, 0.2])
+        rows = parse_lora_stack(json.dumps([{"id": "a", "name": "a.safetensors", "strength": 0.8,
+                                             "strength_clip": 0, "curve": True}]))
+        model, _ = self.stack(rows, build_schedule(FADE_OUT))
+        self.assertEqual(self.lora_strength_per_step(model), [0.8, 0.6, 0.4, 0.2])
         self.assertTrue(self.torch.equal(self.layer.weight, self.base))
+        self.assertEqual(self.lora_strength_per_step(self.patcher), [0.0] * 4, "the model it came from is untouched")
 
-    def test_prompts_without_the_curve_rows_get_a_warning(self):
-        from nodes import _lora_helpers as lora
-        from nodes._curve_helpers import hook_keyframes
+    def test_the_curve_needs_no_clip_and_works_with_prompts_from_any_clip(self):
+        rows = parse_lora_stack(json.dumps([{"id": "a", "name": "a.safetensors", "strength": 1.0,
+                                             "strength_clip": 1.0, "curve": True}]))
+        model, clip = self.stack(rows, build_schedule(FADE_OUT), clip=None)
+        self.assertIsNone(clip)
+        self.assertEqual(self.lora_strength_per_step(model), [1.0, 0.75, 0.5, 0.25])
 
-        hooks = lora._curve_hook(self.lora, 1.0, hook_keyframes(build_schedule(FADE_OUT)))
-        model, _ = lora.attach_curve_hooks(self.patcher, StubClip(), hooks)
-        printed = io.StringIO()
-        with redirect_stdout(printed):
-            self.assertEqual(self.lora_strength_per_step(model, None), [0.0] * 4)
-        self.assertIn("were not applied", printed.getvalue())
+    def test_the_stack_follows_marked_rows_and_patches_the_rest_as_before(self):
+        rows = parse_lora_stack(json.dumps([{"id": "a", "name": "a.safetensors", "strength": 0.5,
+                                             "strength_clip": 0, "curve": True}]))
+        model, clip = self.stack(rows, build_schedule(FADE_OUT), clip=StubClip())
+        self.assertIsNone(clip.apply_hooks_to_conds, "nothing rides on the prompts")
+        self.assertEqual(self.lora_strength_per_step(model), [0.5, 0.375, 0.25, 0.125])
+        flat_model, _ = self.stack(rows, build_schedule("[[0, 1], [1, 1]]", high=0.5), clip=StubClip())
+        self.assertEqual(self.lora_strength_per_step(flat_model), [0.25] * 4)
+        unmarked = parse_lora_stack(json.dumps([{"id": "a", "name": "a.safetensors", "strength": 0.5,
+                                                 "strength_clip": 0}]))
+        steady, _ = self.stack(unmarked, build_schedule(FADE_OUT), clip=StubClip())
+        self.assertEqual(self.lora_strength_per_step(steady), [0.5] * 4, "an unmarked row stays steady")
 
-    def test_the_stack_hooks_marked_rows_and_patches_the_rest_as_before(self):
+    def test_a_lora_that_matches_nothing_is_reported(self):
         from nodes import _lora_helpers as lora
 
         rows = parse_lora_stack(json.dumps([{"id": "a", "name": "a.safetensors", "strength": 0.5,
                                              "strength_clip": 0, "curve": True}]))
+        warned = []
         with patch.object(lora, "resolve_lora_path", lambda name: Path(name)), \
-             patch.object(lora, "_load_lora_file", lambda path: self.lora):
-            model, clip = lora.apply_lora_stack(self.patcher, StubClip(), rows, curve=build_schedule(FADE_OUT))
-            self.assertEqual(self.lora_strength_per_step(model, clip.apply_hooks_to_conds), [0.5, 0.375, 0.25, 0.125])
-            flat_model, flat_clip = lora.apply_lora_stack(self.patcher, StubClip(), rows,
-                                                          curve=build_schedule("[[0, 1], [1, 1]]", high=0.5))
-            self.assertIsNone(flat_clip.apply_hooks_to_conds)
-            self.assertEqual(self.lora_strength_per_step(flat_model, None), [0.25] * 4)
-            with self.assertRaises(ValueError) as caught:
-                lora.apply_lora_stack(self.patcher, None, rows, curve=build_schedule(FADE_OUT))
-            self.assertIn("clip input is not wired", str(caught.exception))
+             patch.object(lora, "_load_lora_file", lambda path: {"nothing.lora_up.weight": self.up,
+                                                                 "nothing.lora_down.weight": self.down}), \
+             patch.object(lora, "read_safetensors_metadata", lambda path: {}), \
+             patch.object(lora, "_warn_no_effect", lambda name, family: warned.append(name)):
+            lora.apply_lora_stack(self.patcher, StubClip(), rows, curve=build_schedule(FADE_OUT))
+        self.assertEqual(warned, ["a.safetensors"])
 
 
 if __name__ == "__main__":

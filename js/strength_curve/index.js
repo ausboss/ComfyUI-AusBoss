@@ -13,7 +13,7 @@ import { compactAction, CAPTION_TYPE, HINT_TYPE } from "../shared/panel_controls
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { makeScrubInput } from "../shared/scrub_input.mjs";
 import {
-  MIN_GAP, PRESETS, addPoint, curveValues, movePoint, parsePoints, pointsText, presetOf, removePoint, strengthOf,
+  MIN_GAP, PRESETS, addPoint, curveValues, movePoint, parsePoints, pointsText, presetOf, removePoint, strengthOf, tagPlace,
 } from "../shared/strength_curve_math.mjs";
 import { FONT_UI, RADIUS_CONTROL, THEME as T } from "../shared/theme.mjs";
 import { commitWidgetValue } from "../shared/widget_card_math.mjs";
@@ -211,8 +211,12 @@ function build(node) {
       svg.append(svgEl("line", { x1: geo.x(place), y1: geo.y(1), x2: geo.x(place), y2: geo.y(0), stroke: T.faint, "stroke-dasharray": "3 3" }));
       const label = `${Math.round(place * 100)}% · ${strengthOf(level, low, high).toFixed(2)}`;
       const width = label.length * 6 + 12;
-      const left = Math.min(geo.x(1) - width, Math.max(geo.x(0), geo.x(place) + 6));
-      const top = Math.max(geo.y(1), Math.min(geo.y(0) - 17, geo.y(level) - 22));
+      // Beside the spot, on a side that leaves every point and its value in view.
+      const { left, top } = tagPlace({
+        x: geo.x(place), y: geo.y(level), width, height: 17,
+        box: { left: geo.x(0), top: geo.y(1), right: geo.x(1), bottom: geo.y(0) },
+        points: face.points.map(([px, py]) => [geo.x(px), geo.y(py)]),
+      });
       svg.append(svgEl("rect", { x: left, y: top, width, height: 17, rx: 4, fill: T.fill }));
       text(label, { x: left + width / 2, y: top + 12, "text-anchor": "middle", class: "readout" });
     }

@@ -11,8 +11,8 @@ All notable changes to ComfyUI-AusBoss are documented here.
 - **LoRA Loader 🆎 rows can follow a strength curve.** A new `curve` input
   takes a Strength Curve, and each row gets a curve mark: rows you mark run
   at their strength times the curve at every step, so a style LoRA can fade
-  out before the last steps. Encode the prompts with the loader's `clip`
-  output, since the curve travels with them.
+  out before the last steps. It works with every model file, fp8 and int8
+  included.
 - **Krea 2 Encode 🆎 can change the reference's strength over the run.** A
   new `reference_curve` input takes a Strength Curve: 1 follows the
   reference as before, 0 ignores it. It also works with Krea 2 Outpaint

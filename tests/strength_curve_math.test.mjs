@@ -6,7 +6,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  MAX_POINTS, PRESETS, addPoint, curveValues, movePoint, parsePoints, pointsText, presetOf, removePoint, strengthOf,
+  MAX_POINTS, PRESETS, addPoint, curveValues, movePoint, parsePoints, pointsText, presetOf, removePoint, strengthOf, tagPlace,
 } from "../js/shared/strength_curve_math.mjs";
 
 const close = (actual, expected) => actual.forEach((value, i) => assert.ok(Math.abs(value - expected[i]) < 1e-6, `${value} vs ${expected[i]}`));
@@ -50,4 +50,23 @@ test("presets are recognised, the saved text reads back the same, and a value ma
   assert.equal(pointsText([[0, 1], [1 / 3, 0.123456789], [1, 0]]), "[[0,1],[0.3333,0.1235],[1,0]]");
   assert.equal(strengthOf(0.5, 0.2, 0.8), 0.5);
   assert.equal(strengthOf(1, 0, 1.5), 1.5);
+});
+
+test("the hover readout never covers a point", () => {
+  const box = { left: 30, top: 10, right: 330, bottom: 150 };
+  const covers = ({ left, top }, [px, py], w, h) => px + 7 > left && px - 7 < left + w && py + 7 > top && py - 7 < top + h;
+  // The bug: a point just above and right of the spot sat under the tag.
+  const point = [120, 70];
+  const spot = { x: 100, y: 95 };
+  const tag = tagPlace({ ...spot, width: 70, height: 17, box, points: [point] });
+  assert.equal(covers(tag, point, 70, 17), false);
+  // Free above right: that is where it goes, as before.
+  assert.deepEqual(tagPlace({ ...spot, width: 70, height: 17, box, points: [[300, 140]] }), { left: 106, top: 72 });
+  // Always inside the box, even in a corner.
+  const corner = tagPlace({ x: 325, y: 12, width: 70, height: 17, box, points: [] });
+  assert.ok(corner.left >= box.left && corner.left + 70 <= box.right && corner.top >= box.top && corner.top + 17 <= box.bottom);
+  // Every side covered: the one that covers the fewest.
+  const crowd = [[110, 80], [90, 80], [110, 110]];
+  const placed = tagPlace({ ...spot, width: 20, height: 10, box, points: crowd });
+  assert.equal(crowd.filter((p) => covers(placed, p, 20, 10)).length, 0);
 });

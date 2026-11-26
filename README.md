@@ -320,7 +320,7 @@ In the **+ LoRA** list, tick several files to add them at once. Rows can be gath
 
 When a file has moved, the node finds it by name if only one file matches. A missing LoRA that is switched on stops the run by default. Turn off **Stop on missing LoRA** to warn and skip it instead. A LoRA that changes nothing in the model gets a warning with its file name.
 
-Wire a [Strength Curve](#strength-curve) into the `curve` input and click the curve mark on a row, and that row's strength changes over the run: fade a style LoRA out so the last steps come out clean. Encode the prompts with the loader's `clip` output, because the curve travels with them.
+Wire a [Strength Curve](#strength-curve) into the `curve` input and click the curve mark on a row, and that row's strength changes over the run: fade a style LoRA out so the last steps come out clean. It works with every model file, fp8 and int8 included.
 
 ### Krea 2 Encode
 

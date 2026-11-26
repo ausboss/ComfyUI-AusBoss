@@ -172,27 +172,25 @@ at the end comes out clean.
    menu turns it back on.
 
 A row that follows the curve runs at its own strength times the curve: a row
-at 0.8 with a fade out goes from 0.8 down to 0. Encode your prompts with
-this loader's `clip` output, because the curve travels with them. Prompts
-encoded with another CLIP leave those rows out, and the console says so.
-Without a CLIP wired into the loader, the run stops and says why.
+at 0.8 with a fade out goes from 0.8 down to 0. It works with every model
+file: full size, fp8, fp8 scaled and int8.
 
 ### Technical details
 
 The CLIP half of a row is applied as always, since a prompt is encoded once.
-The model half becomes a ComfyUI weight hook (the mechanism behind
-ComfyUI's own Create Hook LoRA) whose strength follows the curve as hook
-keyframes. The loader's `clip` output puts the hooks on every prompt it
-encodes, the way ComfyUI's Set CLIP Hooks does. In the `loras` text a
-following row has `"curve": true`; in an API prompt, link `curve` and set
-that on the rows.
+The model half is loaded in ComfyUI's bypass mode: the LoRA is added to each
+layer's result as the layer runs, and the model's weights are never
+rewritten. Before every step the loader sets each following row to its
+strength times the curve at that step. "Where in the run" is read by the
+step's noise level, the way ComfyUI reads hook keyframes, so it lines up
+with Krea 2 Encode's `reference_curve`. In the `loras` text a following row
+has `"curve": true`; in an API prompt, link `curve` and set that on the rows.
 
-ComfyUI's hooks have costs of their own. A run with hooked prompts turns
-dynamic VRAM loading off; the first one loads the model a second time. And
-ComfyUI rebuilds the LoRA's weights on each step where the strength
-changes, so a moving curve makes those steps slower; a flat stretch costs
-nothing. A flat curve skips the hooks altogether: the rows just run at their
-strength times its value.
+A moving curve costs a little speed and no memory: on Krea 2 each step ran
+3 to 8% slower, the same on every model file we tried. A flat curve
+skips all of this: the rows just run at their strength times its value. The
+rare parts of a LoRA that are not low-rank (a plain weight or bias
+difference) cannot change from step to step and stay at the row's strength.
 
 ## Strength bars
 

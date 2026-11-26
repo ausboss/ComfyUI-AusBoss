@@ -114,8 +114,7 @@ class AusBossLoraLoader:
                         "tooltip": (
                             "A strength curve, from Strength Curve 🆎. Rows marked to "
                             "follow it change strength step by step: the row's strength "
-                            "times the curve. Encode your prompts with this node's clip "
-                            "output, because the curve travels with them."
+                            "times the curve."
                         ),
                     },
                 ),
