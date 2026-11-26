@@ -517,7 +517,8 @@
       "reference",
       "extra_image",
       "vlm_reference",
-      "mask"
+      "mask",
+      "reference_curve"
     ],
     "outputs": [
       [
@@ -765,7 +766,8 @@
     "optional": [
       "clip",
       "trigger_separator",
-      "on_missing"
+      "on_missing",
+      "curve"
     ],
     "outputs": [
       [
@@ -1208,6 +1210,20 @@
       [
         "MASK",
         "blend_mask"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_StrengthCurve": {
+    "required": [
+      "points",
+      "high",
+      "low"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "FLOATS",
+        "curve"
       ]
     ]
   },

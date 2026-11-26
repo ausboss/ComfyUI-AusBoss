@@ -158,6 +158,40 @@ while something is linked to that row. It takes FLOAT or INT. In an API
 prompt, give a row's input the row's `id` from the `loras` text, for example
 `"strength_ra1": 0.6`. A name that matches no row is ignored.
 
+## Strength over the run
+
+A row can change strength while the picture is made: strong at the start
+and gone by the end, say, so a style LoRA sets the look and the fine detail
+at the end comes out clean.
+
+1. Wire a Strength Curve 🆎 into the loader's `curve` input.
+2. Each row now shows a small curve mark beside its strength. Click it on
+   the rows that should follow the curve; it turns teal. Rows left gray
+   stay steady.
+
+A row that follows the curve runs at its own strength times the curve: a row
+at 0.8 with a fade out goes from 0.8 down to 0. Encode your prompts with
+this loader's `clip` output, because the curve travels with them. Prompts
+encoded with another CLIP leave those rows out, and the console says so.
+Without a CLIP wired into the loader, the run stops and says why.
+
+### Technical details
+
+The CLIP half of a row is applied as always, since a prompt is encoded once.
+The model half becomes a ComfyUI weight hook (the mechanism behind
+ComfyUI's own Create Hook LoRA) whose strength follows the curve as hook
+keyframes. The loader's `clip` output puts the hooks on every prompt it
+encodes, the way ComfyUI's Set CLIP Hooks does. In the `loras` text a
+following row has `"curve": true`; in an API prompt, link `curve` and set
+that on the rows.
+
+ComfyUI's hooks have costs of their own. A run with hooked prompts turns
+dynamic VRAM loading off; the first one loads the model a second time. And
+ComfyUI rebuilds the LoRA's weights on each step where the strength
+changes, so a moving curve makes those steps slower; a flat stretch costs
+nothing. A flat curve skips the hooks altogether: the rows just run at their
+strength times its value.
+
 ## Strength bars
 
 Every named row paints a center-zero bar behind its name: teal grows right

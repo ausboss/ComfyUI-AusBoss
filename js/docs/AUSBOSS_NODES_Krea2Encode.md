@@ -39,6 +39,11 @@ come back with the new area still gray, like a gray frame or a gray corner.
   Pad 🆎 or Load Image + Pad 🆎, or the painted mask of an inpaint. Wire it
   for AnyPaint. The reference then shows that area in your picture's own
   colour instead of the gray fill, and the model paints it.
+- **reference_curve**: How strongly the picture follows the references over
+  the run, from Strength Curve 🆎. 1 is the normal strength and 0 ignores
+  them. Hold the layout early and let go late (a fade out), or let the
+  model find its own shapes first and pull the reference in for the details
+  (a fade in). Leave it unwired for today's behaviour.
 
 ## Outputs
 
@@ -69,3 +74,23 @@ above 0.5) is refilled with the median colour of everything else before the
 reference goes to the VAE and to the vision tower. The canvas the rest of
 the graph uses keeps its gray, so the prompt writer and the stitch are
 unchanged. Only `reference` is refilled; `extra_image` is left as it is.
+
+## Technical details: the reference curve
+
+The references reach Krea 2 as extra tokens that the prompt and the canvas
+attend to. At each step the curve's value `s` is added as `log(s)` to
+the attention scores of the reference keys, which multiplies the attention
+weight they get by `s` before the weights are shared out again. At 1
+nothing changes, at 0 the reference gets no attention at all and the result
+is the same as without a reference, and values in between fade it. The
+reference's own tokens see the same scale. It works the same with Krea 2
+Outpaint Model Patch 🆎, which scales its cached reference keys.
+
+The curve travels on the positive output as a ComfyUI hook, read at each
+step by ComfyUI's own hook keyframes (see Strength Curve 🆎 for how "where
+in the run" is measured). Two costs come with ComfyUI's hooks: a run with a
+hooked prompt turns dynamic VRAM loading off (the first one loads the model
+a second time), and at a CFG above 1 the positive and negative are run one
+after the other instead of together. While the strength is not 1, attention
+also runs with a mask, which some fast attention kernels hand to PyTorch's
+own.

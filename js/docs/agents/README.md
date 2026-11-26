@@ -33,6 +33,7 @@ help panel.
 | Save pictures (PNG, lossless WebP or JPEG XL) | Save Image (`AUSBOSS_NODES_SaveImage`) |
 | Run a workflow on each picture in a folder | Image Folder (`AUSBOSS_NODES_ImageFolder`) |
 | Apply a stack of LoRAs | LoRA Loader (`AUSBOSS_NODES_LoraLoader`) |
+| Change a LoRA row's or a Krea 2 reference's strength over the steps of a run | Strength Curve (`AUSBOSS_NODES_StrengthCurve`) into LoRA Loader's `curve` or Krea 2 Encode's `reference_curve` |
 | Write a MiniMax H3 or Pika H3 Flex prompt from plain words | H3 Prompt Writer (`AUSBOSS_NODES_H3PromptWriter`): [node help](../AUSBOSS_NODES_H3PromptWriter.md) |
 | Krea 2 prompt, and Krea 2 outpainting | Krea 2 Encode (`AUSBOSS_NODES_Krea2Encode`), Krea 2 Outpaint Model Patch (`AUSBOSS_NODES_Krea2OutpaintModelPatch`) |
 | Load or save a video | Load Video (`AUSBOSS_NODES_LoadVideo`), Save Video (`AUSBOSS_NODES_SaveVideo`) |
