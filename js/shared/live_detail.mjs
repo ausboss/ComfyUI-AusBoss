@@ -6,6 +6,7 @@
 import { boxBlur, gaussianBlur, makeImage, pyRound } from "./live_image.mjs";
 
 export const LIGHT_FLOOR = 2e-3;
+const HUE_KEEP = 1e-6;
 export const EDGE_STEP = 0.15;
 const LUMA = [0.2126, 0.7152, 0.0722];
 
@@ -98,11 +99,15 @@ export function keepDetail(edit, original, { detailSize = 4, strength = 1, color
       factor[k] = target / (editLight.data[at] + LIGHT_FLOOR);
     }
     const gate = mask ? mask[i] : 1;
+    const linears = [0, 1, 2].map((k) => srgbToLinear(edit.data[i * c + k]));
+    // Light only: the floor's light goes to each channel in proportion, so hue holds.
+    const luma = linears[0] * LUMA[0] + linears[1] * LUMA[1] + linears[2] * LUMA[2];
     for (let k = 0; k < 3; k += 1) {
       const f = lc === 1 ? factor[0] : factor[k];
       const rgb = edit.data[i * c + k];
-      const linear = srgbToLinear(rgb);
-      const lit = linear * f + LIGHT_FLOOR * (f - 1);
+      const linear = linears[k];
+      const share = lc === 1 ? (linear + HUE_KEEP) / (luma + HUE_KEEP) : 1;
+      const lit = linear * f + LIGHT_FLOOR * (f - 1) * share;
       const change = (linearToSrgb(lit) - linearToSrgb(linear)) * gate;
       const next = rgb + change;
       out[i * c + k] = next < 0 ? 0 : next > 1 ? 1 : next;

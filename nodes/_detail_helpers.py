@@ -38,6 +38,8 @@ from ._fit_helpers import batch_size, checked_mask, frames_at, mask_at, resized_
 # Added to light before a ratio is taken, so a black pixel has no detail to
 # give or take instead of dividing by nothing.
 LIGHT_FLOOR = 2e-3
+# Below this, a channel counts as black when sharing out light (keeps hue).
+HUE_KEEP = 1e-6
 # What the edge-safe base counts as an edge, on the sRGB-curved values: a
 # step that varies the values around it by more than about this much stays in
 # the base. Skin, fabric and wood grain vary them less and go to the detail;
@@ -159,7 +161,11 @@ def keep_detail(
         target = edit_base * original_detail.pow(strength) * edit_detail.pow(own)
         factor = (target / (edit_light + LIGHT_FLOOR)).movedim(1, -1)
         linear = srgb_to_linear(rgb)
-        lit = linear * factor + LIGHT_FLOOR * (factor - 1.0)
+        # The floor's share of light goes to each channel in proportion to it
+        # when only light is kept, so a saturated colour keeps its hue (black
+        # gets it evenly); the brightness reached is the same.
+        share = 1.0 if color_detail else (linear + HUE_KEEP) / ((linear * linear.new_tensor(LUMA)).sum(-1, keepdim=True) + HUE_KEEP)
+        lit = linear * factor + LIGHT_FLOOR * (factor - 1.0) * share
         change = linear_to_srgb(lit) - linear_to_srgb(linear)
         if mask is not None:
             change = change * mask_at(mask, start, end, height, width, edit.device).unsqueeze(-1)

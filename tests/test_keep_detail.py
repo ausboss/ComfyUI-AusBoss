@@ -67,6 +67,18 @@ class KeepDetailTests(unittest.TestCase):
             return linear / linear.sum(-1, keepdim=True).clamp_min(1e-6)
         self.assertLess(float((chroma(out) - chroma(edit)).abs().max()), 2e-3)
 
+    def test_light_only_keeps_a_saturated_colour_saturated(self):
+        """A pure red edit stays pure red where the original's detail brightens it."""
+        edit = torch.zeros((1, 64, 64, 3))
+        edit[..., 0] = 0.6
+        out, _ = keep_detail(edit, textured(seed=2), 4.0, 1.5, False, False)
+        self.assertGreater(float((out[..., 0] - edit[..., 0]).abs().max()), 0.02)
+        self.assertLess(float(out[..., 1:].abs().max()), 1e-4)
+        # Black still takes the detail, as grey.
+        black, _ = keep_detail(torch.zeros((1, 64, 64, 3)), textured(seed=2), 4.0, 1.0, False, False)
+        self.assertGreater(float(black.max()), 0.0)
+        self.assertLess(float((black[..., 0] - black[..., 2]).abs().max()), 1e-5)
+
     def test_detail_carries_over_as_a_ratio_onto_a_darker_edit(self):
         original = textured(seed=2)
         dark_edit = srgb_to_linear(blurred(original)) * 0.25
