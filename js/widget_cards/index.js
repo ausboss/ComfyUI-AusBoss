@@ -558,6 +558,21 @@ const CARDS = {
       { widget: "save_metadata", label: PANEL_LABELS.embed, onText: PANEL_LABELS.on, offText: PANEL_LABELS.off, when: formatReads("save_metadata"), title: "On embeds the workflow in the video file, so dropping the file back on the canvas restores the graph that made it." },
     ],
   },
+  // Film Grain shows its result: the card sits
+  // above the preview panel (js/input_preview), which owns the hidden
+  // preview switch.
+  AUSBOSS_NODES_FilmGrain: {
+    minWidth: 300, first: true,
+    rows: [
+      { widget: "amount", label: "Amount" },
+      { widget: "size", label: "Size", suffix: "px" },
+      { widget: "roughness", label: "Roughness" },
+      { widget: "color", label: "Color" },
+      { widget: "moving", label: "Video grain", onText: "moving", offText: "still" },
+      { group: "advanced", label: "More" },
+      { widget: "seed", label: "Seed", group: "advanced" },
+    ],
+  },
 };
 
 function cardWidgetNames(config) {

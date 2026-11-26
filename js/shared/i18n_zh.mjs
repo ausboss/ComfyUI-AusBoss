@@ -324,6 +324,8 @@ export const ZH = {
   "Your own ratios from ausboss_presets.json. Picking one works like a ratio button.": "来自 ausboss_presets.json 的自定义比例。选中它的效果和点比例按钮一样。",
   "Choose or upload an image": "选择或上传图片",
   "Preview could not load this image": "预览无法加载这张图片",
+  // ---- image finishing nodes
+  "Amount": "颗粒量", "Roughness": "粗糙度", "Video grain": "视频颗粒", "moving": "逐帧变化",
 };
 
 // Strings that deliberately stay English on a Chinese face: names, symbols

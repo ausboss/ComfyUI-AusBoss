@@ -144,6 +144,10 @@ Small picture jobs in one node, picked from a list. **split sheet at gaps** cuts
 
 Matches a picture's colors to a reference, with LAB, RGB, MKL or histogram transfer. Strength sets how much, and an optional mask (with invert) limits where. With `reference_mode` set to first frame, every frame of a batch matches the batch's first frame. That can cut down color drift in a clip, but it does not steady motion.
 
+### Film Grain
+
+Adds film grain to a picture or a video. The grain is strongest in the midtones and gentler in deep shadows and bright highlights, as on film. **Size** is the grain's size in pixels, **Roughness** mixes in finer grain that bunches up unevenly, and **Color** goes from black-and-white grain to colour film's. On a video the grain moves from frame to frame, or stays put with **Video grain** on *still*. An optional mask adds grain only where it is white, and the same seed always gives the same grain. The preview shows the result.
+
 ### Realign to Source (EXPERIMENTAL 🧪)
 
 Lines an edited picture back up with the original. Qwen Image 2.1 often draws an edit, especially a style change, a little bigger or shifted: up to about 12% taller, by a different amount every seed. Wire in the edit and the picture it was made from. The node measures how far the edit moved and moves it back, at the original's size. It fixes the zoom and shift of the whole picture, not shapes the edit redrew in a new place, so the result lines up closely rather than pixel for pixel.

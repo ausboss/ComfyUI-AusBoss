@@ -2,6 +2,14 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **New node: Film Grain 🆎.** Adds film grain to a picture or a video.
+  The grain is strongest in the midtones and gentler in deep shadows and
+  highlights, as on film. Size, roughness and colour set its look, it moves
+  from frame to frame on a video (or stays put), an optional mask limits
+  where, and the same seed gives the same grain.
+
 ## 2.28.1 - 2026-11-25
 
 - **Image Resize 🆎 shows Fit only when it is used.** Fit, and Fill under

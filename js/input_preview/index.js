@@ -1,5 +1,5 @@
 // The in-node preview panel for LaMa Inpaint, Mask Refine, Mask by Name,
-// Select Frame and Save Image.
+// Select Frame, Save Image and Film Grain.
 //
 // It shows this node's own result once it has one, and falls back to a
 // thumbnail of whatever feeds its IMAGE/MASK input before the graph has run.
@@ -123,6 +123,7 @@ const NODE_CONFIG = {
       : null),
   },
   AUSBOSS_NODES_SelectFrame: { inputName: "frames", noun: "frames" },
+  AUSBOSS_NODES_FilmGrain: { inputName: "image", noun: "an image" },
   // Its result is the file it just saved; the card sits above the panel.
   // SAVE shows only for a run made with Auto save off, which holds its
   // pictures until this button keeps them.

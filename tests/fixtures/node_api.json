@@ -162,6 +162,27 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_FilmGrain": {
+    "required": [
+      "image",
+      "amount",
+      "size",
+      "roughness",
+      "color",
+      "moving",
+      "seed"
+    ],
+    "optional": [
+      "mask",
+      "preview"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_FlashVSRUpscale": {
     "required": [
       "frames",
