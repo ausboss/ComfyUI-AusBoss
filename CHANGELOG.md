@@ -13,6 +13,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
 - **The example workflows are tidied so Check layout finds nothing.** Only
   node and group positions and sizes, and reroute spots, changed. What each
   workflow does is the same.
+- **Edit Lock 🆎 says what is wrong when the VAE and model don't match.**
+  The readout used to blame the VAE alone. It now says either file can be
+  the wrong one, gives the two channel counts it compared, and points to
+  the model and VAE in the workflow's notes. A GGUF or other converted
+  model is a common cause.
 
 ## 2.28.1 - 2026-11-25
 
