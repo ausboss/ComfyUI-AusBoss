@@ -449,7 +449,51 @@ class LoraCurve:
         return executor(x, t, c_concat, c_crossattn, control, transformer_options, **kwargs)
 
 
-def _curve_row(model, lora_sd: Any, strength: float, curve: LoraCurve, index: int):
+def _curve_hook_class():
+    """Core's bypass layer wrapper, made safe to take off in any order.
+
+    Core wraps a layer by replacing its ``forward`` and takes it off by putting
+    back the ``forward`` it found. Two rows on one layer (two marked rows, or
+    two LoRA Loaders in a chain) stack two wrappers, and core takes them off
+    in the order it put them on, so the first row's wrapper used to stay
+    behind with nothing under it and broke the next run. Taken off, a wrapper
+    here only passes the layer through, and every wrapper that is no longer on
+    top of another is removed for good.
+    """
+    global _CURVE_HOOK
+    if _CURVE_HOOK is None:
+        import comfy.weight_adapter.bypass as bypass
+
+        class CurveHook(bypass.BypassForwardHook):
+            active = False
+
+            def _bypass_forward(self, x, *args, **kwargs):
+                if not self.active:
+                    return self.original_forward(x, *args, **kwargs)
+                return super()._bypass_forward(x, *args, **kwargs)
+
+            def put_on(self):
+                if self.original_forward is None:
+                    self.inject()
+                self.active = True
+
+            def take_off(self):
+                self.active = False
+                module = self.module
+                while True:
+                    top = getattr(module.forward, "__self__", None)
+                    if not isinstance(top, CurveHook) or top.active or top.original_forward is None:
+                        return
+                    top.eject()
+
+        _CURVE_HOOK = CurveHook
+    return _CURVE_HOOK
+
+
+_CURVE_HOOK = None
+
+
+def _curve_row(model, lora_sd: Any, strength: float, curve: LoraCurve):
     """Load a row that follows the curve onto the model in core's bypass mode.
 
     Returns (model, parts): how many of the LoRA's parts reached the model.
@@ -458,27 +502,46 @@ def _curve_row(model, lora_sd: Any, strength: float, curve: LoraCurve, index: in
     """
     import comfy.lora
     import comfy.lora_convert
+    import comfy.patcher_extension
     import comfy.weight_adapter
 
     key_map = comfy.lora.model_lora_keys_unet(model.model, {})
     loaded = comfy.lora.load_lora(comfy.lora_convert.convert_lora(lora_sd), key_map, log_missing=False)
     model = model.clone()
     model_keys = set(model.model.state_dict().keys())
-    manager = comfy.weight_adapter.BypassInjectionManager()
+    hook_class = _curve_hook_class()
+    hooks = []
     adapters = []
     steady = {}
     for key, part in loaded.items():
         if isinstance(part, comfy.weight_adapter.WeightAdapterBase) and isinstance(key, str) and key in model_keys:
-            manager.add_adapter(key, part, strength=strength)
-            adapters.append(part)
-        else:
-            steady[key] = part
+            layer = key[:-len(".weight")] if key.endswith(".weight") else key
+            try:
+                module = model.model.get_submodule(layer)
+            except AttributeError:
+                module = None
+            if module is not None and getattr(module, "weight", None) is not None:
+                hooks.append(hook_class(module, part, multiplier=strength))
+                adapters.append(part)
+                continue
+        steady[key] = part
     parts = len(model.add_patches(steady, strength)) if steady else 0
-    injections = manager.create_injections(model.model)
-    if manager.get_hook_count() > 0:
-        model.set_injections(f"{CURVE_WRAPPER_KEY}_{index}", injections)
+    if hooks:
+        def put_on(patcher, hooks=hooks):
+            for hook in hooks:
+                hook.put_on()
+
+        def take_off(patcher, hooks=hooks):
+            for hook in hooks:
+                hook.take_off()
+
+        # One key per row across the whole chain: a second LoRA Loader with a
+        # curve must not replace the first one's rows.
+        taken = sum(1 for key in getattr(model, "injections", {}) if key.startswith(f"{CURVE_WRAPPER_KEY}_"))
+        model.set_injections(f"{CURVE_WRAPPER_KEY}_{taken}",
+                             [comfy.patcher_extension.PatcherInjection(inject=put_on, eject=take_off)])
         curve.add_row(strength, adapters)
-        parts += manager.get_hook_count()
+        parts += len(hooks)
     return model, parts
 
 
@@ -559,7 +622,7 @@ def apply_lora_stack(
         if follower is not None and row.get("curve"):
             parts, known = 0, True
             if row["strength"] != 0:
-                model, parts = _curve_row(model, lora_sd, row["strength"], follower, len(follower.rows))
+                model, parts = _curve_row(model, lora_sd, row["strength"], follower)
             if strength_clip != 0:
                 before = patch_total(None, clip)
                 clip = _patch_clip_only(clip, lora_sd, strength_clip)

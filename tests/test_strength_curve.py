@@ -318,6 +318,39 @@ class CoreHookTests(unittest.TestCase):
         steady, _ = self.stack(unmarked, build_schedule(FADE_OUT), clip=StubClip())
         self.assertEqual(self.lora_strength_per_step(steady), [0.5] * 4, "an unmarked row stays steady")
 
+    def test_two_curve_rows_on_one_layer_add_up_and_leave_the_plain_model_clean(self):
+        # Both rows load the same LoRA, so they wrap the same layer. Core takes
+        # its bypass layers off in the order it put them on, which on one layer
+        # used to leave the first row's wrapper behind for the next run.
+        rows = parse_lora_stack(json.dumps([
+            {"id": "a", "name": "a.safetensors", "strength": 0.5, "strength_clip": 0, "curve": True},
+            {"id": "b", "name": "b.safetensors", "strength": 0.3, "strength_clip": 0, "curve": True}]))
+        model, _ = self.stack(rows, build_schedule(FADE_OUT))
+        self.assertEqual(self.lora_strength_per_step(model), [0.8, 0.6, 0.4, 0.2])
+        self.assertEqual(self.lora_strength_per_step(self.patcher), [0.0] * 4, "the plain model runs clean after")
+        self.assertEqual(self.lora_strength_per_step(model), [0.8, 0.6, 0.4, 0.2], "and the curve model runs again")
+        self.assertEqual(self.lora_strength_per_step(self.patcher), [0.0] * 4)
+
+    def test_two_chained_loaders_with_curves_both_apply_and_clean_up(self):
+        from nodes import _lora_helpers as lora
+
+        first = parse_lora_stack(json.dumps([{"id": "a", "name": "a.safetensors", "strength": 0.5,
+                                              "strength_clip": 0, "curve": True}]))
+        second = parse_lora_stack(json.dumps([{"id": "b", "name": "b.safetensors", "strength": 0.25,
+                                               "strength_clip": 0, "curve": True}]))
+        model, _ = self.stack(first, build_schedule(FADE_OUT))
+        with patch.object(lora, "resolve_lora_path", lambda name: Path(name)), \
+             patch.object(lora, "_load_lora_file", lambda path: self.lora):
+            chained, _ = lora.apply_lora_stack(model, None, second, curve=build_schedule("[[0, 1], [1, 1]]"))
+        # The second loader's curve is flat, so its row is a steady 0.25 on top.
+        self.assertEqual(self.lora_strength_per_step(chained), [0.75, 0.625, 0.5, 0.375])
+        with patch.object(lora, "resolve_lora_path", lambda name: Path(name)), \
+             patch.object(lora, "_load_lora_file", lambda path: self.lora):
+            both, _ = lora.apply_lora_stack(model, None, second, curve=build_schedule("[[0, 0], [1, 1]]"))
+        # Both loaders follow their own curve: 0.5 fading out plus 0.25 fading in.
+        self.assertEqual(self.lora_strength_per_step(both), [0.5, 0.4375, 0.375, 0.3125])
+        self.assertEqual(self.lora_strength_per_step(self.patcher), [0.0] * 4, "the plain model runs clean after")
+
     def test_a_lora_that_matches_nothing_is_reported(self):
         from nodes import _lora_helpers as lora
 
