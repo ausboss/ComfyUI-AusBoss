@@ -13,7 +13,7 @@ import { compactAction } from "../shared/panel_controls.mjs";
 import { CALLOUT_TYPES, NOTE_TYPES } from "../shared/note_identity.mjs";
 import { normalizeNote } from "../shared/workflow_note.mjs";
 import { frameBounds } from "../shared/workflow_switches.mjs";
-import { KINDS, MIN_ZOOM, checkLayout, countByKind } from "../shared/layout_check_math.mjs";
+import { KINDS, MIN_ZOOM, checkLayout, countByKind, jumpViewport } from "../shared/layout_check_math.mjs";
 
 const CSS_ID = "ausboss-layout-check-css";
 const LABEL = "Check layout";
@@ -229,11 +229,14 @@ function jump(issue) {
   const focus = issue.focus;
   if (focus) {
     const view = canvas.canvas?.getBoundingClientRect?.();
-    // Leave room for the panel on the right, so what it names is not under it.
-    const width = (focus[2] - focus[0]) * (view?.width && panel ? view.width / Math.max(200, view.width - 380) : 1);
-    const rect = frameBounds([focus[0], focus[1], width, focus[3] - focus[1]], [view?.width, view?.height], FRAME_FILL);
-    if (typeof canvas.animateToBounds === "function") canvas.animateToBounds(rect, { zoom: FRAME_FILL });
-    else canvas.ds?.fitToBounds?.(rect, { zoom: FRAME_FILL });
+    // Frame it in the part of the canvas left of the panel, so what the
+    // panel names is never under it.
+    const viewport = jumpViewport(view, panel?.getBoundingClientRect?.());
+    const size = viewport ? [viewport[2], viewport[3]] : [view?.width, view?.height];
+    const rect = frameBounds([focus[0], focus[1], focus[2] - focus[0], focus[3] - focus[1]], size, FRAME_FILL);
+    const options = viewport ? { zoom: FRAME_FILL, viewport } : { zoom: FRAME_FILL };
+    if (typeof canvas.animateToBounds === "function") canvas.animateToBounds(rect, options);
+    else canvas.ds?.fitToBounds?.(rect, options);
   }
   canvas.setDirty?.(true, true);
 }

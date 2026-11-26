@@ -238,3 +238,15 @@ export function countByKind(issues) {
   for (const issue of issues ?? []) counts.set(issue.kind, (counts.get(issue.kind) ?? 0) + 1);
   return KINDS.filter((kind) => counts.has(kind)).map((kind) => [kind, counts.get(kind)]);
 }
+
+// The part of the canvas a jump frames its target in: everything left of the
+// Check layout panel, so what it names never lands under it. `view` and
+// `panel` are screen boxes ({ left, top, width, height }); the result is
+// [x, y, width, height] in the canvas's own pixels, or null for the whole
+// canvas (no panel, or too little room beside it).
+export function jumpViewport(view, panel, margin = 16, least = 320) {
+  if (!(view?.width > 0) || !(view?.height > 0) || !panel) return null;
+  const room = Math.min(view.width, panel.left - view.left - margin);
+  if (!(room >= least)) return null;
+  return [0, 0, room, view.height];
+}

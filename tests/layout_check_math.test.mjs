@@ -14,6 +14,7 @@ import {
   checkAll,
   checkLayout,
   countByKind,
+  jumpViewport,
   nodeBox,
   wirePoints,
 } from "../js/shared/layout_check_math.mjs";
@@ -214,3 +215,15 @@ test("two wires between the same nodes behind the same node are one entry", () =
   assert.deepEqual(back.map((issue) => [issue.kind, issue.wires]), [["backward-wire", 2]]);
 });
 
+
+test("a jump frames its target left of the panel, so the panel never covers it", () => {
+  const view = { left: 0, top: 40, width: 1600, height: 900 };
+  // The panel on the right: the jump uses the canvas left of it, less a margin.
+  assert.deepEqual(jumpViewport(view, { left: 1220, top: 60, width: 360, height: 500 }), [0, 0, 1204, 900]);
+  // A canvas that does not start at the screen's left edge.
+  assert.deepEqual(jumpViewport({ ...view, left: 300 }, { left: 1520 }), [0, 0, 1204, 900]);
+  // No panel, or too little room beside it: the whole canvas.
+  assert.equal(jumpViewport(view, null), null);
+  assert.equal(jumpViewport(view, { left: 200 }), null);
+  assert.equal(jumpViewport(null, { left: 1220 }), null);
+});
