@@ -921,8 +921,8 @@
    "id": 11,
    "type": "AUSBOSS_NODES_LoraLoader",
    "pos": [
-    1808,
-    608
+    1468,
+    1072
    ],
    "size": [
     400,
@@ -2021,7 +2021,7 @@
       "type": "Reroute",
       "pos": [
        560,
-       394
+       410
       ],
       "size": [
        75,
@@ -2058,8 +2058,8 @@
       "id": 19,
       "type": "Reroute",
       "pos": [
-       560,
-       460
+       580,
+       380
       ],
       "size": [
        75,
@@ -2607,7 +2607,8 @@
       "type": "IMAGE"
      }
     ],
-    "extra": {}
+    "extra": {},
+    "reroutes": []
    }
   ]
  },
@@ -2620,7 +2621,64 @@
     60
    ]
   },
-  "frontendVersion": "1.53.6"
+  "frontendVersion": "1.53.6",
+  "reroutes": [
+   {
+    "id": 1,
+    "pos": [
+     1428,
+     210
+    ],
+    "linkIds": [
+     21
+    ]
+   },
+   {
+    "id": 2,
+    "parentId": 1,
+    "pos": [
+     2248,
+     210
+    ],
+    "linkIds": [
+     21
+    ]
+   },
+   {
+    "id": 3,
+    "pos": [
+     1820,
+     400
+    ],
+    "linkIds": [
+     27
+    ]
+   },
+   {
+    "id": 4,
+    "pos": [
+     1860,
+     450
+    ],
+    "linkIds": [
+     28
+    ]
+   }
+  ],
+  "linkExtensions": [
+   {
+    "id": 21,
+    "parentId": 2
+   },
+   {
+    "id": 27,
+    "parentId": 3
+   },
+   {
+    "id": 28,
+    "parentId": 4
+   }
+  ]
  },
  "version": 0.4
 }
