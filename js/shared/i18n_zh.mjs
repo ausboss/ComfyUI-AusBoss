@@ -324,6 +324,18 @@ export const ZH = {
   "Your own ratios from ausboss_presets.json. Picking one works like a ratio button.": "来自 ausboss_presets.json 的自定义比例。选中它的效果和点比例按钮一样。",
   "Choose or upload an image": "选择或上传图片",
   "Preview could not load this image": "预览无法加载这张图片",
+  "The strength at the top of the curve box. 1 is full strength.": "曲线框顶部对应的强度。1 为满强度。",
+  "The strength at the bottom of the curve box. 0 is off.": "曲线框底部对应的强度。0 为关闭。",
+  "flat": "平直", "fade out": "渐弱", "fade in": "渐强", "ease out": "缓出", "ease in": "缓入",
+  "The same strength all the way": "全程同一强度",
+  "Full at the start, gone at the end": "开头满强度，结尾消失",
+  "Off at the start, full at the end": "开头关闭，结尾满强度",
+  "Holds, fades out smoothly through the middle, then stays low": "先保持，中段平滑减弱，之后保持低位",
+  "Stays low, comes in smoothly through the middle, then holds": "先保持低位，中段平滑增强，之后保持",
+  "Point at": "点位置", "value": "数值", "start": "开始", "end": "结束",
+  "Drag a point. Double-click adds one, right-click removes it.": "拖动点。双击添加点，右键删除点。",
+  "Where the picked point sits in the run, from the start (0%) to the end (100%).": "选中的点在运行中的位置，从开始（0%）到结束（100%）。",
+  "The strength at the picked point.": "选中点的强度。",
 };
 
 // Strings that deliberately stay English on a Chinese face: names, symbols
