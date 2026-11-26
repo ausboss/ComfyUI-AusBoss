@@ -279,6 +279,18 @@ class EditLockTests(unittest.TestCase):
             lock.status = status
             self.assertIn("did nothing", describe(lock))
 
+    def test_a_vae_and_model_that_do_not_match_say_both_counts(self):
+        source, other, redraw = latents()
+        pred = local_prediction(source, other, redraw)
+        lock = lock_for(source[:, :16].clone())
+        self.assertTrue(torch.equal(run(lock, pred), pred))
+        self.assertEqual(lock.status, "vae")
+        text = describe(lock)
+        self.assertIn("the VAE and the diffusion model don't match", text)
+        self.assertIn(f"your VAE makes 16-channel pictures, the model expects {pred.shape[1]}", text)
+        self.assertIn("workflow's notes", text)
+        self.assertIn("GGUF", text)
+
     def test_a_grid_one_cell_off_still_locks(self):
         source, other, redraw = latents(video=False)
         lock = lock_for(torch.nn.functional.interpolate(source, size=(H + 2, W + 1), mode="bilinear"))
