@@ -4,6 +4,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Frame Interpolate 🆎 holds cuts between two shots of the same place.**
+  It used to count a cut only when the frame changed more than **Scene
+  cut**, and two shots of one place in the same light can change less
+  than fast movement inside one shot, so it mixed those shots together
+  for a frame or two. A change that jumps out from the frames around it
+  now counts as a cut too. **Scene cut** still works as before, and `0`
+  still turns cut finding off.
 - **Edit Lock 🆎 says what is wrong when the VAE and model don't match.**
   The readout used to blame the VAE alone. It now says either file can be
   the wrong one, gives the two channel counts it compared, and points to
