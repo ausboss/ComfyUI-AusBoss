@@ -169,10 +169,10 @@ const APPENDED_SINCE = {
   AUSBOSS_NODES_LaMaInpaint: { preview: "toggle" },
   AUSBOSS_NODES_RefineMask: { preview: "toggle", max_hole_size: "number" },
   AUSBOSS_NODES_SelectFrame: { preview: "toggle" },
-  AUSBOSS_NODES_LoraLoader: { on_missing: "combo" },
+  AUSBOSS_NODES_LoraLoader: { on_missing: "combo", curve: "socket" },
   // Sockets, which hold no saved value.
   AUSBOSS_NODES_Compare: { filename: "socket" },
-  AUSBOSS_NODES_Krea2Encode: { mask: "socket" },
+  AUSBOSS_NODES_Krea2Encode: { mask: "socket", reference_curve: "socket" },
   AUSBOSS_NODES_LoadImagePad: { source_image: "socket" },
   AUSBOSS_NODES_SelectEveryNth: { fps: "socket" },
 };
