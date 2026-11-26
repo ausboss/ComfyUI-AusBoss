@@ -29,6 +29,18 @@ the picture comes from another node. Until then it shows a dash.
 Auto on and Auto off each keep their own numbers, so switching back loses
 nothing. Auto starts off, so workflows saved before it behave as they did.
 
+## Live preview
+
+Once the node has a picture, the picture on the node redraws while you drag a
+value, before you queue anything. Run the graph once to give the node its
+picture (an image connected is enough once it has run; a Load Image shows at once); after that it changes as you drag. A small "not run yet" tag
+shows while the picture is a preview and not a real result.
+
+The **Fit | 100%** switch sits on the bar above the picture, left of Preview.
+Fit shows the whole picture. 100% shows real pixels, and dragging on the
+picture moves around it instead of moving the node. At 100% you see the grain at the size it will have in the saved picture.
+
+
 ## Controls
 
 - **Auto** (`auto`): off uses the Amount and Size you set. On, the node
@@ -99,3 +111,12 @@ nothing. Auto starts off, so workflows saved before it behave as they did.
   is. Frames are worked on eight at a time: 81 frames at 1920 x 1080 take
   about 12 seconds on a desktop CPU, with only a few frames' worth of extra
   memory.
+
+### Live preview
+
+The preview runs the node's own maths in the browser: on a copy shrunk to the
+size it is shown at in Fit, and on a real-pixel crop of the picture in 100%.
+It is checked against the Python node on recorded values (`tests/test_live_parity.py`);
+results agree to within 5e-5 on a 0 to 1 scale. The picture is the one the
+last run kept, or a Load Image read through ComfyUI's own view route. When
+the values match the last run, the real result is drawn instead.

@@ -16,6 +16,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
   multipliers ("1 × = Auto's pick"), with the real value in small type beside
   each box. Auto on and Auto off keep their own numbers, and Auto starts off,
   so saved workflows behave as before.
+- **Film Grain, Keep Detail and Cut Out show a live preview.** After one run,
+  the picture on the node redraws while you drag a value, with a "not run yet"
+  tag until you queue. A Fit | 100% switch left of Preview shows the whole
+  picture or real pixels; at 100% dragging the picture moves around it.
 - **New node: Cut Out 🆎.** Turns a picture and a mask into a cut-out with a
   see-through background, ready to save as a PNG. Clean edges takes the old
   background's colour out of hair and soft edges so there is no halo, and

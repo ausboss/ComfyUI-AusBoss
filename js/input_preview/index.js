@@ -28,6 +28,7 @@ import { CHECKER } from "../shared/compare_erase.mjs";
 import { hideInputsInDef, hideWidget, setWidgetVisible } from "../shared/widget_visibility.mjs";
 import { makePictureStepper } from "../shared/picture_stepper.mjs";
 import { ALL, allLabel, gridShape, heldPlaces, keepIndex, keepWords, stepIndex, stepWithAll } from "../shared/picture_steps.mjs";
+import { mountLive, takeStage } from "../shared/live_stage.mjs";
 import { addStepConsumer, mountStepOverlay, showsStepsOn, stepRun, stopStepRun, watchSteps } from "../shared/step_preview.mjs";
 import {
   describeNodePreview,
@@ -124,9 +125,11 @@ const NODE_CONFIG = {
       : null),
   },
   AUSBOSS_NODES_SelectFrame: { inputName: "frames", noun: "frames" },
-  AUSBOSS_NODES_FilmGrain: { inputName: "image", noun: "an image" },
-  AUSBOSS_NODES_CutOut: { inputName: "image", noun: "an image", checker: true },
-  AUSBOSS_NODES_KeepDetail: { inputName: "image", noun: "an image" },
+  // These three redraw their picture while a value is dragged, before any
+  // run (shared/live_stage.mjs), with a Fit | 100% switch on the bar.
+  AUSBOSS_NODES_FilmGrain: { inputName: "image", noun: "an image", live: "grain" },
+  AUSBOSS_NODES_CutOut: { inputName: "image", noun: "an image", checker: true, live: "cutout" },
+  AUSBOSS_NODES_KeepDetail: { inputName: "image", noun: "an image", live: "detail" },
   // Its result is the file it just saved; the card sits above the panel.
   // SAVE shows only for a run made with Auto save off, which holds its
   // pictures until this button keeps them.
@@ -853,6 +856,9 @@ function refresh(state) {
   }
   const source = upstreamNode(state.node, state.inputName);
   rewatchSource(state, source);
+  // Film Grain, Keep Detail and Cut Out draw their own picture while a value
+  // is dragged; the stage is theirs for as long as they can.
+  if (state.live && takeStage(state)) return;
   const count = resultCount(state);
   const hidden = state.stepper.root.hidden;
   state.index = keepIndex(state.index, count);
@@ -1054,6 +1060,16 @@ function buildPanel(node, config) {
   syncAdvanced(state);
   installPreviewSwitch(state, abort.signal);
   if (config.steps) installStepsSwitch(state, abort.signal);
+  if (config.live) {
+    state.live = mountLive(state, config.live, {
+      refresh: () => refresh(state),
+      // A run that came while the preview was off left an older picture.
+      record: () => (state.stale ? null : outputRecord(node) ?? null),
+      hasResult: () => resultCount(state) > 0,
+      resultUrl: () => storedResultUrl(node),
+      viewUrl: (query) => api.apiURL(`/view?${query}`),
+    });
+  }
 
   // The grid is laid out for the stage's shape, so a resized node lays it out again.
   if (typeof ResizeObserver === "function") {
@@ -1169,6 +1185,7 @@ app.registerExtension({
       clearTimeout(state.toastTimer);
       state.timer = 0;
       state.abort?.abort();
+      state.live?.dispose();
       unwatchSource(state);
       clearMedia(state);
       for (const forget of state.forgetSteps ?? []) forget();

@@ -17,6 +17,18 @@ size; the pictures still have to line up.
 The panel under the card shows the result once the node has run. The small
 **preview** switch at the right of the bar turns it off.
 
+## Live preview
+
+Once the node has a picture, the picture on the node redraws while you drag a
+value, before you queue anything. Run the graph once to give the node its
+picture (run once to get the picture); after that it changes as you drag. A small "not run yet" tag
+shows while the picture is a preview and not a real result.
+
+The **Fit | 100%** switch sits on the bar above the picture, left of Preview.
+Fit shows the whole picture. 100% shows real pixels, and dragging on the
+picture moves around it instead of moving the node. Fine detail is easiest to judge at 100%.
+
+
 ## Controls
 
 - **Detail size** (`detail_size`): detail smaller than this many pixels
@@ -76,3 +88,12 @@ frame of the other.
   (for `s` up to `1`) times the original's to the power `s`. At `0` the
   result is the edit, unchanged.
 - Frames are worked on four at a time.
+
+### Live preview
+
+The preview runs the node's own maths in the browser: on a copy shrunk to the
+size it is shown at in Fit, and on a real-pixel crop of the picture in 100%.
+It is checked against the Python node on recorded values (`tests/test_live_parity.py`);
+results agree to within 5e-5 on a 0 to 1 scale. The picture is the one the
+last run kept, or a Load Image read through ComfyUI's own view route. When
+the values match the last run, the real result is drawn instead.

@@ -2,10 +2,13 @@
 // against what the Python nodes return, on the small picture in
 // tests/fixtures/live_parity.json (made by tests/test_live_parity.py).
 //
-// Tolerances: the pictures and masks are 0-1 values and both sides work in
-// 32-bit floats, so the same maths lands within a few millionths. A bound of
-// 1e-4 on every value is the stated parity for grain and Keep Detail; Cut
-// Out's colour clean-up is a chain of blurs and gets 5e-4.
+// Tolerance: the pictures and masks are 0-1 values and both sides work in
+// 32-bit floats, so the same maths lands within a few millionths (the
+// fixture is rounded to five digits). Every value must agree within 5e-5
+// for grain, Keep Detail and Cut Out alike. The grain's random cells are the
+// one thing not shared: the browser draws its own (see live_grain.mjs), so
+// they are tested for the node's strength and grain size instead.
+
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
@@ -16,6 +19,10 @@ import { makeImage } from "../js/shared/live_image.mjs";
 import { autoGrain, autoValues, cellNormal, filmGrain, grainFrame, hashedCells, layGrain, measureNoise } from "../js/shared/live_grain.mjs";
 import { keepDetail } from "../js/shared/live_detail.mjs";
 import { cutOut } from "../js/shared/live_cutout.mjs";
+import { areaResize } from "../js/shared/live_image.mjs";
+import { cropGeometry, fitGeometry, insideOf, paddedWindow, valuesSignature } from "../js/shared/live_view_math.mjs";
+import { connectionKey, keptQuery, pixelsLookBlocked, planInput, scaledImage, windowImage } from "../js/shared/live_sources.mjs";
+import { KINDS, drawKind, reachOf } from "../js/shared/live_kinds.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIX = JSON.parse(readFileSync(join(HERE, "fixtures", "live_parity.json"), "utf-8"));
@@ -135,4 +142,115 @@ test("cut out: the same alpha and cut-out as the node", () => {
     const diff = maxDiff(out.data, item.result);
     assert.ok(diff < 5e-5, `${item.name}: cut-out differs by ${diff}`);
   }
+});
+
+test("grain: far-below-a-pixel grain (a big picture shrunk to fit) keeps the node's strength", () => {
+  // 2000 px shrunk to 100 is a scale of 0.05: 1 px grain averages 400 cells
+  // per pixel, so the picture's grain falls to 1/20 of its spread.
+  const flat = makeImage(100, 100, 3, new Float32Array(100 * 100 * 3).fill(0.5));
+  const out = filmGrain(flat, { amount: 0.5, size: 1 * 0.05, roughness: 0, color: 0, cellsAt: hashedCells(8), height: 100, width: 100 });
+  let sum = 0;
+  for (const v of out.data) sum += (v - 0.5) ** 2;
+  const spread = Math.sqrt(sum / out.data.length);
+  assert.ok(Math.abs(spread - 0.5 * 0.15 * 0.05) < 0.0008, `spread ${spread}`);
+});
+
+test("area shrinking from 8-bit pixels is the same as shrinking floats", () => {
+  const w = 17; const h = 11;
+  const rgba = new Uint8ClampedArray(w * h * 4).map((_, i) => (i * 37) % 256);
+  const px = { w, h, data: rgba };
+  const floats = makeImage(w, h, 3, Float32Array.from({ length: w * h * 3 }, (_, at) => rgba[Math.floor(at / 3) * 4 + (at % 3)] / 255));
+  const a = scaledImage(px, 6, 5, 3);
+  const b = areaResize(floats, 5, 6);
+  assert.ok(maxDiff(a.data, b.data) < 1e-6);
+  const win = windowImage(px, { x: -2, y: 3, w: 5, h: 4 }, 3);
+  assert.ok(Math.abs(win.data[0] - rgba[(3 * w) * 4] / 255) < 1e-6, "the first pixel is the picture's own");
+  assert.ok(Math.abs(win.data[0] - win.data[3]) < 1e-9 && Math.abs(win.data[3] - win.data[6]) < 1e-9, "the edge is repeated past the picture's side");
+});
+
+test("views: Fit shrinks to what is shown, 100% is a window of real pixels", () => {
+  const fit = fitGeometry(300, 200, 4000, 3000, 2);
+  assert.equal(fit.displayW, 267);
+  assert.equal(fit.displayH, 200);
+  assert.equal(fit.workW, 534, "the copy is as sharp as it is shown (device pixels)");
+  assert.equal(fitGeometry(300, 200, 100, 80, 1).scale, 1, "a small picture is never enlarged");
+  assert.equal(fitGeometry(0, 200, 100, 80), null, "no stage yet");
+  assert.deepEqual(cropGeometry(300, 200, 4000, 3000), { w: 300, h: 200, x: 1850, y: 1400 });
+  assert.deepEqual(cropGeometry(300, 200, 4000, 3000, { x: -50, y: 9999 }), { w: 300, h: 200, x: 0, y: 2800 });
+  assert.deepEqual(cropGeometry(300, 200, 120, 80), { w: 120, h: 80, x: 0, y: 0 });
+  const padded = paddedWindow({ x: 10, y: 10, w: 100, h: 50 }, 30, 120, 90);
+  assert.deepEqual(padded, { x: 0, y: 0, w: 120, h: 90 });
+  assert.deepEqual(insideOf({ x: 10, y: 10, w: 100, h: 50 }, padded), { x: 10, y: 10, w: 100, h: 50 });
+});
+
+test("a window of Keep Detail and Cut Out at 100% matches the whole picture's pixels", () => {
+  // The filters read past the window by `reach`; padded by that, the window's
+  // own pixels are the whole picture's.
+  const w = 96; const h = 80;
+  const image = makeImage(w, h, 3, Float32Array.from({ length: w * h * 3 }, (_, i) => 0.5 + 0.3 * Math.sin(i * 0.37) * Math.cos(i * 0.011)));
+  const original = makeImage(w, h, 3, Float32Array.from({ length: w * h * 3 }, (_, i) => 0.5 + 0.3 * Math.sin(i * 0.41) * Math.cos(i * 0.017)));
+  const mask = Float32Array.from({ length: w * h }, (_, i) => ((i % w) > 20 && (i % w) < 70 && Math.floor(i / w) > 15 && Math.floor(i / w) < 60 ? 1 : 0));
+  const win = { x: 30, y: 25, w: 30, h: 24 };
+  const params = { detail_size: 3, strength: 1, color_detail: false, edge_safe: true };
+  const whole = drawKind("detail", params, { image, detail_from: original }, { scale: 1, fullW: w, fullH: h, win: null }, null);
+  const padded = paddedWindow(win, reachOf("detail", params, 96), w, h);
+  const crop = (pic) => {
+    const out = makeImage(padded.w, padded.h, pic.c);
+    for (let y = 0; y < padded.h; y += 1) for (let x = 0; x < padded.w; x += 1) for (let k = 0; k < pic.c; k += 1) out.data[(y * padded.w + x) * pic.c + k] = pic.data[((padded.y + y) * w + padded.x + x) * pic.c + k];
+    return out;
+  };
+  const part = drawKind("detail", params, { image: crop(image), detail_from: crop(original) }, { scale: 1, fullW: w, fullH: h, win: padded }, null);
+  const at = insideOf(win, padded);
+  let worst = 0;
+  for (let y = 0; y < win.h; y += 1) for (let x = 0; x < win.w; x += 1) for (let k = 0; k < 3; k += 1) {
+    worst = Math.max(worst, Math.abs(part.data[((at.y + y) * part.w + at.x + x) * 3 + k] - whole.data[((win.y + y) * w + win.x + x) * 3 + k]));
+  }
+  assert.ok(worst < 1e-4, `Keep Detail window strays ${worst}`);
+  const cparams = { keep: "white", grow: 2, feather: 2, clean_edges: true, clear_haze: 0, solid_above: 1 };
+  const wholeCut = drawKind("cutout", cparams, { image, mask: makeImage(w, h, 1, mask) }, { scale: 1, fullW: w, fullH: h, win: null }, null);
+  const paddedCut = paddedWindow(win, reachOf("cutout", cparams, 96), w, h);
+  const cropMask = Float32Array.from({ length: paddedCut.w * paddedCut.h }, (_, i) => mask[(paddedCut.y + Math.floor(i / paddedCut.w)) * w + paddedCut.x + (i % paddedCut.w)]);
+  const cutImage = (() => { const out = makeImage(paddedCut.w, paddedCut.h, 3); for (let y = 0; y < paddedCut.h; y += 1) for (let x = 0; x < paddedCut.w; x += 1) for (let k = 0; k < 3; k += 1) out.data[(y * paddedCut.w + x) * 3 + k] = image.data[((paddedCut.y + y) * w + paddedCut.x + x) * 3 + k]; return out; })();
+  const partCut = drawKind("cutout", cparams, { image: cutImage, mask: makeImage(paddedCut.w, paddedCut.h, 1, cropMask) }, { scale: 1, fullW: w, fullH: h, win: paddedCut }, null);
+  const atCut = insideOf(win, paddedCut);
+  let worstAlpha = 0;
+  for (let y = 0; y < win.h; y += 1) for (let x = 0; x < win.w; x += 1) {
+    worstAlpha = Math.max(worstAlpha, Math.abs(partCut.data[((atCut.y + y) * partCut.w + atCut.x + x) * 4 + 3] - wholeCut.data[((win.y + y) * w + win.x + x) * 4 + 3]));
+  }
+  assert.ok(worstAlpha < 1e-4, `Cut Out alpha window strays ${worstAlpha}`);
+});
+
+test("sources: a Load Image is known at once, anything else after a run", () => {
+  const links = new Map([[1, { id: 1, origin_id: 10, origin_slot: 0 }], [2, { id: 2, origin_id: 11, origin_slot: 0 }], [3, { id: 3, origin_id: 10, origin_slot: 1 }]]);
+  const nodes = {
+    10: { type: "LoadImage", widgets: [{ name: "image", value: "pier.png" }] },
+    11: { type: "VAEDecode", widgets: [] },
+  };
+  const graph = { links, getNodeById: (id) => nodes[id] };
+  const node = { graph, inputs: [{ name: "image", link: 1 }, { name: "detail_from", link: 2 }, { name: "mask", link: 3 }, { name: "free", link: null }] };
+  assert.deepEqual(planInput(node, "image"), { state: "direct", query: "filename=pier.png&subfolder=&type=input", key: "view:filename=pier.png&subfolder=&type=input" });
+  assert.equal(planInput(node, "detail_from").state, "run");
+  assert.equal(planInput(node, "mask").state, "run", "a Load Image's mask output is not its picture");
+  assert.equal(planInput(node, "free").state, "none");
+  assert.equal(planInput(node, "nothing").state, "none");
+  assert.notEqual(connectionKey(node, ["image", "detail_from"]), connectionKey({ ...node, inputs: [{ name: "image", link: 2 }, { name: "detail_from", link: 2 }] }, ["image", "detail_from"]));
+  assert.equal(keptQuery({ ausboss_live: [{ image: { filename: "a.png", subfolder: "", type: "temp" } }] }, "image"), "filename=a.png&subfolder=&type=temp");
+  assert.equal(keptQuery({ images: [] }, "image"), null);
+  assert.equal(keptQuery({ ausboss_live: [{}] }, "mask"), null);
+});
+
+test("sources: a read that returns only zeros is a blocked read", () => {
+  assert.equal(pixelsLookBlocked(new Uint8ClampedArray(4000)), true);
+  const some = new Uint8ClampedArray(4000);
+  some[40] = 9;
+  assert.equal(pixelsLookBlocked(some), false);
+  assert.equal(pixelsLookBlocked(Uint8ClampedArray.from({ length: 4000 }, (_, i) => (i % 4 === 3 ? 255 : 0))), false, "black but opaque is a picture");
+});
+
+test("the values a result depends on are what the run's picture is matched against", () => {
+  const node = { widgets: [{ name: "amount", value: 0.25 }, { name: "size", value: 1 }] };
+  const before = valuesSignature(node, KINDS.grain.values);
+  node.widgets[0].value = 0.3;
+  assert.notEqual(valuesSignature(node, KINDS.grain.values), before);
+  assert.equal(valuesSignature(node, ["amount"]), JSON.stringify([0.3]));
 });

@@ -19,6 +19,18 @@ The panel under the card shows the cut-out over a checkerboard once the
 node has run (the first frame for a video). The small **preview** switch at
 the right of the bar turns it off.
 
+## Live preview
+
+Once the node has a picture, the picture on the node redraws while you drag a
+value, before you queue anything. Run the graph once to give the node its
+picture (run once to get the picture and the mask); after that it changes as you drag. A small "not run yet" tag
+shows while the picture is a preview and not a real result.
+
+The **Fit | 100%** switch sits on the bar above the picture, left of Preview.
+Fit shows the whole picture. 100% shows real pixels, and dragging on the
+picture moves around it instead of moving the node. The cut-out shows over a checker, so see-through parts read as see-through.
+
+
 ## Controls
 
 - **Keep** (`keep`): **white part** keeps what is under the white of the
@@ -73,3 +85,12 @@ the right of the bar turns it off.
   needs no extra package. Pixels with an alpha of exactly 1 keep their
   original colours to the bit.
 - Frames are worked on eight at a time.
+
+### Live preview
+
+The preview runs the node's own maths in the browser: on a copy shrunk to the
+size it is shown at in Fit, and on a real-pixel crop of the picture in 100%.
+It is checked against the Python node on recorded values (`tests/test_live_parity.py`);
+results agree to within 5e-5 on a 0 to 1 scale. The picture is the one the
+last run kept, or a Load Image read through ComfyUI's own view route. When
+the values match the last run, the real result is drawn instead.

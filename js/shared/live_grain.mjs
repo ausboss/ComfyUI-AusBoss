@@ -53,9 +53,17 @@ export function cellNormal(seed, ch, i, j) {
 
 // The cell source for a frame's grain: the n-th field drawn gets its own
 // stream, so fields never repeat each other.
+//
+// Grain far smaller than a pixel (a big picture shrunk to fit) averages
+// hundreds of cells into each pixel. The average of n independent cells is a
+// normal with 1 / sqrt(n) of their spread, so the browser draws that
+// directly (`fast`) instead of drawing every cell: the same distribution,
+// at the cost of the pixels shown.
 export function hashedCells(seed) {
   const base = mix32((Number(BigInt(seed) & 0xffffffffn) ^ Number((BigInt(seed) >> 32n) & 0xffffffffn)) >>> 0);
-  return (index) => (ch, i, j) => cellNormal(mix32(base + index * 0x9e3779b1), ch, i, j);
+  const source = (index) => (ch, i, j) => cellNormal(mix32(base + index * 0x9e3779b1), ch, i, j);
+  source.fast = true;
+  return source;
 }
 
 // ---------- grain ----------
@@ -65,7 +73,7 @@ export function hashedCells(seed) {
 // planes. The grid is laid over the whole picture, as the node does:
 // round(height / size) rows by round(width / size) columns of random cells,
 // smoothed up (bicubic) or, finer than the picture, averaged down (area).
-export function field(cells, height, width, size, channels, win) {
+export function field(cells, height, width, size, channels, win, fast = false) {
   const rows = Math.max(1, pyRound(height / size));
   const cols = Math.max(1, pyRound(width / size));
   const { x0, y0 } = win;
@@ -79,6 +87,13 @@ export function field(cells, height, width, size, channels, win) {
     return out;
   }
   const area = rows > height || cols > width;
+  if (fast && rows > height && cols > width && rows * cols > 4 * height * width) {
+    const spread = Math.sqrt((height * width) / (rows * cols));
+    for (let k = 0; k < channels; k += 1) {
+      for (let y = 0; y < ch; y += 1) for (let x = 0; x < cw; x += 1) out[(k * ch + y) * cw + x] = cells(k, y0 + y, x0 + x) * spread;
+    }
+    return out;
+  }
   // The cells each window column and row reads, with their weights.
   const colTaps = area
     ? areaTaps(cols, width).slice(x0, x0 + cw).map(([a, b]) => ({ at: Array.from({ length: b - a }, (_, n) => a + n), weights: Array(b - a).fill(1 / (b - a)) }))
@@ -137,7 +152,7 @@ export function grainFrame(cellsAt, height, width, size, roughness, color, win =
   color = Math.min(Math.max(Number(color), 0), 1);
   const n = win.w * win.h;
   let drawn = 0;
-  const draw = (fieldSize, channels) => field(cellsAt(drawn++), height, width, fieldSize, channels, win);
+  const draw = (fieldSize, channels) => field(cellsAt(drawn++), height, width, fieldSize, channels, win, Boolean(cellsAt.fast));
   // Drawn in the node's order, so a setting that adds a layer never changes
   // the layers drawn before it.
   let layers = [{ c: 1, d: draw(size, 1) }];
