@@ -58,6 +58,7 @@ NODE_MODULES = [
     "node_select_frame",
     "node_show_text",
     "node_step_preview",
+    "node_strength_curve",
     "node_text_lines",
     "node_tiled_upscale",
     "node_video_crop_rotate_pad",
