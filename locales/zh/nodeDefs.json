@@ -721,6 +721,9 @@
       },
       "mask": {
         "name": "遮罩"
+      },
+      "reference_curve": {
+        "name": "参考强度曲线"
       }
     },
     "outputs": {
@@ -1020,6 +1023,9 @@
       },
       "on_missing": {
         "name": "缺失时"
+      },
+      "curve": {
+        "name": "强度曲线"
       }
     },
     "outputs": {
@@ -2088,6 +2094,26 @@
       },
       "4": {
         "name": "照片上边"
+      }
+    }
+  },
+  "AUSBOSS_NODES_StrengthCurve": {
+    "display_name": "强度曲线 🆎",
+    "description": "画出从一次运行开始到结束的强度变化，再把曲线接到会逐步跟随它的节点：LoRA 加载器 🆎 的某一行，或 Krea 2 编码 🆎 的参考图。让风格 LoRA 逐渐淡出，细节就更干净；或者让参考图前期稳住构图、后期放开。在节点上拖动点，或从预设开始。",
+    "inputs": {
+      "points": {
+        "name": "点"
+      },
+      "high": {
+        "name": "顶部"
+      },
+      "low": {
+        "name": "底部"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "曲线"
       }
     }
   }
