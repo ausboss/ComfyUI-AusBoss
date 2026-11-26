@@ -1,7 +1,7 @@
 import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "../shared/index.mjs";
-import { WIDGET_FRAME, fillNodeHeight, holdVueNodeMinWidth } from "../shared/panel_layout.mjs";
+import { WIDGET_FRAME, fillNodeHeight, growToNodeFloor, holdVueNodeMinWidth } from "../shared/panel_layout.mjs";
 import { hideInputsInDef, hideWidget as collapseWidget } from "../shared/widget_visibility.mjs";
 import {
   closeSettingsMenu,
@@ -30,6 +30,8 @@ import {
   STRENGTH_MIN,
   appendFolderRows,
   clampHighlight,
+  followCurve,
+  rowsForNewCurve,
   fitLoraLabel,
   formatFileSize,
   groupName,
@@ -225,6 +227,8 @@ const SETTINGS_SCHEMA = [
 // as much, and the name keeps the same room.
 const PANEL_MIN_WIDTH = 320;
 const SEPARATE_EXTRA_WIDTH = 72;
+// The curve mark and its gap, on every row while a Strength Curve is wired in.
+const CURVE_MARK_WIDTH = 28;
 // The popups' font, shared with the picker's width measurement, and the
 // picker's side paddings, from which an option's text width is worked out.
 const POP_FONT = "12px system-ui";
@@ -260,6 +264,11 @@ function installStyles() {
   .ausboss-lora-actions { pointer-events: auto; }
   .ausboss-lora-row { flex: none; display: flex; align-items: center; gap: 6px; height: ${ROW_HEIGHT}px; }
   .ausboss-lora-row:focus-visible { outline: 2px solid ${BRAND}; outline-offset: 1px; border-radius: 4px; }
+  .ausboss-lora-curve { flex: none; width: 22px; height: 22px; display: grid; place-items: center; padding: 0;
+    border: 0; border-radius: 5px; background: #2d3134; color: #62676d; cursor: pointer; }
+  .ausboss-lora-curve:hover { background: #383c40; color: #b4b9bd; }
+  .ausboss-lora-curve.on { background: rgba(0,180,170,.26); color: #45d6cb; }
+  .ausboss-lora-curve:focus-visible { outline: 2px solid ${BRAND}; outline-offset: 1px; }
   /* An off row dims its controls, not itself: the row's own opacity would
      dim the focus outline with them. A dragged row is dimmed as one piece. */
   .ausboss-lora-row.off > * { opacity: 0.45; }
@@ -796,6 +805,31 @@ function linked(state) {
   return (state.box?.loader ?? state.node).properties?.ausbossLoraLinked !== false;
 }
 
+// A Strength Curve is wired into this loader's `curve` input. Only then do
+// the rows show the mark that makes one follow it.
+function curveWired(state) {
+  if (state.box || state.readOnly) return false;
+  return Boolean(state.node.inputs?.some((input) => input?.name === "curve" && input.link != null));
+}
+
+function setFollowsCurve(state, ids, on) {
+  commitRows(state, followCurve(state.rows, ids, on), { structural: true });
+}
+
+// The curve wire came or went: the marks show or hide, and a first curve
+// marks every row. A workflow being opened keeps the marks it was saved with.
+function curveLinksChanged(state, { opening = false } = {}) {
+  const wired = curveWired(state);
+  if (wired === state.curveWired) return;
+  state.curveWired = wired;
+  if (wired && !opening && !app.configuringGraph && state.rows.length && !state.rows.some((row) => row.curve)) {
+    commitRows(state, rowsForNewCurve(state.rows), { structural: true });
+  } else {
+    renderRows(state);
+  }
+  growToNodeFloor(state.domWidget);
+}
+
 // Picker options honor only hide-extension: their folder context is the
 // disambiguator (group headers, search prefixes), so it stays.
 function displayName(state, name) {
@@ -876,7 +910,7 @@ function panelHeight(state) {
 }
 
 function panelMinWidth(state) {
-  return PANEL_MIN_WIDTH + (linked(state) ? 0 : SEPARATE_EXTRA_WIDTH);
+  return PANEL_MIN_WIDTH + (linked(state) ? 0 : SEPARATE_EXTRA_WIDTH) + (curveWired(state) ? CURVE_MARK_WIDTH : 0);
 }
 
 function fitNode(state) {
@@ -2011,6 +2045,11 @@ function openRowMenu(state, index, event) {
     });
     menu.append(el("div", "ausboss-lora-menu-rule"));
   }
+  if (curveWired(state)) {
+    const follow = !chosen.every((entry) => entry.curve);
+    item(follow ? "Follow the strength curve" : "Keep a steady strength", () => setFollowsCurve(state, ids, follow));
+    menu.append(el("div", "ausboss-lora-menu-rule"));
+  }
   item("Insert empty LoRA above", () => insertEmpty(index));
   item("Insert empty LoRA below", () => insertEmpty(index + 1));
   item("Move up", () => commitGroups(state, moveRowInStack(state.rows, index, -1)),
@@ -3141,7 +3180,20 @@ function renderRows(state) {
       showHoverThumb(state, row.name, event.clientX, event.clientY));
     name.addEventListener("pointerleave", hideHoverThumb);
 
-    rowElement.append(grip, toggle, name, strengthBox(state, index, "strength"));
+    rowElement.append(grip, toggle, name);
+    if (curveWired(state)) {
+      const mark = el("button", `ausboss-lora-curve${row.curve ? " on" : ""}`);
+      mark.type = "button";
+      mark.title = row.curve
+        ? "This LoRA follows the strength curve. Click to keep it steady."
+        : "This LoRA keeps one strength. Click to make it follow the strength curve.";
+      mark.setAttribute("role", "switch");
+      mark.setAttribute("aria-checked", String(Boolean(row.curve)));
+      mark.innerHTML = '<svg width="14" height="10" viewBox="0 0 14 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M1 2 C5 2 6 8 13 8"/></svg>';
+      mark.addEventListener("click", () => setFollowsCurve(state, [row.id], !row.curve));
+      rowElement.append(mark);
+    }
+    rowElement.append(strengthBox(state, index, "strength"));
     if (!linked(state)) rowElement.append(strengthBox(state, index, "strength_clip"));
 
     const info = el("button", "ausboss-lora-info", "i");
@@ -3461,6 +3513,7 @@ function mountCard(node, { box = null, separatorWidget = null, onMissingWidget =
   state.owner = source.owner;
   state.note = source.note;
   state.readOnly = Boolean(source.readOnly);
+  state.curveWired = curveWired(state);
   if (box) hideWidget(source.widget);
   state.rows = parseRows(state.widget.value);
   state.renderedValue = state.widget.value;
@@ -3613,9 +3666,13 @@ app.registerExtension({
       // Now, not later: ComfyUI reads its missing-models list right after
       // the workflow is restored.
       syncLoraFiles(this);
+      queueMicrotask(() => {
+        if (this.__ausbossLoraState) curveLinksChanged(this.__ausbossLoraState, { opening: true });
+      });
     });
     chainCallback(nodeType.prototype, "onConnectionsChange", function () {
       syncLoraFiles(this);
+      if (this.__ausbossLoraState) curveLinksChanged(this.__ausbossLoraState);
     });
   },
   // A box (subgraph node) shows the rows of a loader inside once they come

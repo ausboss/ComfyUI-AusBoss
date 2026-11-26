@@ -36,8 +36,10 @@ import {
   moveHighlight,
   moveRow,
   newRow,
+  followCurve,
   normalizeRows,
   parseRows,
+  rowsForNewCurve,
   pickerWidth,
   reorderRows,
   resolveLoraName,
@@ -1225,3 +1227,27 @@ test("Left moves up to the folder a file or folder sits in", () => {
   assert.equal(parentFolder("root.safetensors"), null);
   assert.equal(parentFolder(undefined), null);
 });
+
+test("a row keeps its strength-curve mark through a save, and only a true one", () => {
+  const rows = parseRows(JSON.stringify([
+    { id: "a", name: "a.safetensors", curve: true },
+    { id: "b", name: "b.safetensors", curve: "yes" },
+    { id: "c", name: "c.safetensors" },
+  ]));
+  assert.deepEqual(rows.map((row) => row.curve), [true, undefined, undefined]);
+  assert.equal(Object.hasOwn(rows[2], "curve"), false);
+});
+
+test("the curve mark is set and taken off by row id", () => {
+  const rows = [{ id: "a" }, { id: "b", curve: true }, { id: "c" }];
+  assert.deepEqual(followCurve(rows, ["a", "c"], true), [{ id: "a", curve: true }, { id: "b", curve: true }, { id: "c", curve: true }]);
+  assert.deepEqual(followCurve(rows, ["b"], false), [{ id: "a" }, { id: "b" }, { id: "c" }]);
+});
+
+test("a first curve marks every row, and a chosen mark is left alone", () => {
+  const fresh = [{ id: "a" }, { id: "b" }];
+  assert.deepEqual(rowsForNewCurve(fresh), [{ id: "a", curve: true }, { id: "b", curve: true }]);
+  const chosen = [{ id: "a" }, { id: "b", curve: true }];
+  assert.equal(rowsForNewCurve(chosen), chosen);
+});
+

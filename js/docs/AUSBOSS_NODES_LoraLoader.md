@@ -165,9 +165,11 @@ and gone by the end, say, so a style LoRA sets the look and the fine detail
 at the end comes out clean.
 
 1. Wire a Strength Curve 🆎 into the loader's `curve` input.
-2. Each row now shows a small curve mark beside its strength. Click it on
-   the rows that should follow the curve; it turns teal. Rows left gray
-   stay steady.
+2. Each row now shows a small curve mark beside its strength. The first
+   curve you wire marks every row (teal). Click a mark, or right-click the
+   row and pick **Keep a steady strength**, for a row that should stay as
+   it is; its mark turns gray. **Follow the strength curve** in the same
+   menu turns it back on.
 
 A row that follows the curve runs at its own strength times the curve: a row
 at 0.8 with a fade out goes from 0.8 down to 0. Encode your prompts with

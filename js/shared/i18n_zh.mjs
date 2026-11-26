@@ -336,6 +336,9 @@ export const ZH = {
   "Drag a point. Double-click adds one, right-click removes it.": "拖动点。双击添加点，右键删除点。",
   "Where the picked point sits in the run, from the start (0%) to the end (100%).": "选中的点在运行中的位置，从开始（0%）到结束（100%）。",
   "The strength at the picked point.": "选中点的强度。",
+  "This LoRA follows the strength curve. Click to keep it steady.": "这个 LoRA 跟随强度曲线。点击改为固定强度。",
+  "This LoRA keeps one strength. Click to make it follow the strength curve.": "这个 LoRA 保持同一强度。点击让它跟随强度曲线。",
+  "Follow the strength curve": "跟随强度曲线", "Keep a steady strength": "保持固定强度",
 };
 
 // Strings that deliberately stay English on a Chinese face: names, symbols
