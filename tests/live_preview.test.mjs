@@ -21,7 +21,7 @@ import { copiesGrain, grainFromLinked, keepMatch, keptMatch, matchFromRun, refre
 import { keepDetail } from "../js/shared/live_detail.mjs";
 import { cutOut } from "../js/shared/live_cutout.mjs";
 import { areaResize } from "../js/shared/live_image.mjs";
-import { cropGeometry, fitGeometry, insideOf, paddedWindow, valuesSignature } from "../js/shared/live_view_math.mjs";
+import { cropGeometry, fitGeometry, insideOf, paddedWindow, runIsCurrent, valuesSignature } from "../js/shared/live_view_math.mjs";
 import { connectionKey, keptQuery, pixelsLookBlocked, planInput, scaledImage, windowImage } from "../js/shared/live_sources.mjs";
 import { KINDS, drawKind, reachOf } from "../js/shared/live_kinds.mjs";
 
@@ -318,4 +318,26 @@ test("the values a result depends on are what the run's picture is matched again
   node.widgets[0].value = 0.3;
   assert.notEqual(valuesSignature(node, KINDS.grain.values), before);
   assert.equal(valuesSignature(node, ["amount"]), JSON.stringify([0.3]));
+});
+
+test("a run's result counts only for its values and its pictures", () => {
+  const run = { sig: "[0.3]", sources: "image=view:filename=a.png|mask=-" };
+  assert.equal(runIsCurrent(run, "[0.3]", "image=view:filename=a.png|mask=-"), true);
+  assert.equal(runIsCurrent(run, "[0.4]", "image=view:filename=a.png|mask=-"), false);
+  // Another file in the same Load Image: the old result is not this picture's.
+  assert.equal(runIsCurrent(run, "[0.3]", "image=view:filename=b.png|mask=-"), false);
+  assert.equal(runIsCurrent(null, "[0.3]", run.sources), false);
+});
+
+test("cut out: a see-through picture stays see-through in the live preview", () => {
+  assert.equal(KINDS.cutout.inputs.find((input) => input.name === "image").channels, 4);
+  const w = 8, h = 4;
+  const data = new Float32Array(w * h * 4).fill(1);
+  for (let i = 0; i < w * h; i += 1) data[i * 4 + 3] = i % w < 4 ? 0 : 0.5;
+  const image = makeImage(w, h, 4, data);
+  const mask = makeImage(w, h, 1, new Float32Array(w * h).fill(1));
+  const out = drawKind("cutout", { keep: "white", grow: 0, feather: 0, clean_edges: false, clear_haze: 0, solid_above: 1 }, { image, mask }, { scale: 1, fullW: w, fullH: h, win: null }, 0);
+  assert.equal(out.c, 4);
+  assert.equal(out.data[3], 0);
+  assert.ok(Math.abs(out.data[(w - 1) * 4 + 3] - 0.5) < 1e-6);
 });

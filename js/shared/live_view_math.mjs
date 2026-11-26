@@ -57,6 +57,10 @@ export function insideOf(win, padded) {
 
 // One string for the values a result depends on, to tell whether the picture
 // on the node is the one the last run made.
+// Is the last run's result what the node would give now: the same values
+// and the same pictures (each Load Image's file, or the link a run reads)?
+export const runIsCurrent = (run, sig, sources) => Boolean(run) && run.sig === sig && run.sources === sources;
+
 export function valuesSignature(node, names) {
   return JSON.stringify(names.map((name) => node?.widgets?.find((widget) => widget?.name === name)?.value ?? null));
 }

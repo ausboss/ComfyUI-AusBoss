@@ -26,7 +26,7 @@ import { chainCallback } from "./index.mjs";
 import { makeImage } from "./live_image.mjs";
 import { autoGrain, measureNoise } from "./live_grain.mjs";
 import { KINDS, drawKind, num, reachOf } from "./live_kinds.mjs";
-import { cropGeometry, fitGeometry, insideOf, paddedWindow, valuesSignature } from "./live_view_math.mjs";
+import { cropGeometry, fitGeometry, insideOf, paddedWindow, runIsCurrent, valuesSignature } from "./live_view_math.mjs";
 import { connectionKey, keptQuery, loadPixels, lumaImage, planInput, scaledImage, windowImage } from "./live_sources.mjs";
 import { copiesGrain, setAuto } from "./grain_auto.mjs";
 
@@ -215,10 +215,13 @@ function describe(live) {
   const { node, spec, hooks } = live;
   const record = hooks.record();
   const here = connectionKey(node, spec.inputs.map((input) => input.name));
-  // The pictures a run kept belong to the wiring it had. A record seen for
-  // the first time here belongs to the wiring and values as they are now (a
-  // new run, or a workflow just opened).
-  if (record && live.run?.record !== record) live.run = { record, key: here, sig: valuesSignature(node, spec.values) };
+  // Which pictures feed the node: a Load Image's file, or a link.
+  const sources = spec.inputs.map((input) => `${input.name}=${planInput(node, input.name).key ?? "-"}`).join("|");
+  // The pictures a run kept belong to the wiring it had, and its result to
+  // the files it read too. A record seen for the first time here belongs to
+  // the wiring, files and values as they are now (a new run, or a workflow
+  // just opened).
+  if (record && live.run?.record !== record) live.run = { record, key: here, sources, sig: valuesSignature(node, spec.values) };
   if (!record) live.run = null;
   const kept = live.run && live.run.key === here;
   const plans = [];
@@ -237,7 +240,7 @@ function describe(live) {
     if (!query) return { status: "run", input };
     plans.push({ input, key: `kept:${query}`, url: hooks.viewUrl(query) });
   }
-  return { status: "ready", plans, key: plans.map((plan) => `${plan.input.name}=${plan.key}`).join("|") };
+  return { status: "ready", plans, sources, key: plans.map((plan) => `${plan.input.name}=${plan.key}`).join("|") };
 }
 
 function hintFor(input) {
@@ -334,7 +337,7 @@ function paint(live, found) {
   const stageH = stage.clientHeight || bounds.height;
   const vals = currentValues(live);
   const sig = valuesSignature(node, live.spec.values);
-  const matches = Boolean(live.run) && live.run.sig === sig && hooks.hasResult();
+  const matches = runIsCurrent(live.run, sig, found.sources) && hooks.hasResult();
   const resultUrl = matches ? hooks.resultUrl() : null;
   const stamp = `${found.key}|${sig}|${JSON.stringify(vals.match ?? null)}|${viewMode}|${stageW}x${stageH}|${live.pan?.x}|${live.pan?.y}|${resultUrl}|${Boolean(resultUrl && live.resultPixels?.url === resultUrl)}`;
   if (stamp === live.drawnKey && live.drawn) return true;
