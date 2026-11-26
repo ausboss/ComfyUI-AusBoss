@@ -27,7 +27,7 @@ import { makeImage } from "./live_image.mjs";
 import { autoGrain, measureNoise } from "./live_grain.mjs";
 import { KINDS, drawKind, num, reachOf } from "./live_kinds.mjs";
 import { cropGeometry, fitGeometry, insideOf, paddedWindow, runIsCurrent, valuesSignature } from "./live_view_math.mjs";
-import { connectionKey, keptQuery, loadPixels, lumaImage, planInput, scaledImage, windowImage } from "./live_sources.mjs";
+import { channelsFor, connectionKey, keptQuery, loadPixels, lumaImage, planInput, scaledImage, windowImage } from "./live_sources.mjs";
 import { copiesGrain, setAuto } from "./grain_auto.mjs";
 
 const CSS_ID = "ausboss-live-stage-css";
@@ -233,12 +233,12 @@ function describe(live) {
     }
     if (input.channels === 1 && plan.state === "direct") plan.state = "run"; // a mask is never a Load Image's file
     if (plan.state === "direct") {
-      plans.push({ input, key: plan.key, url: hooks.viewUrl(plan.query) });
+      plans.push({ input, key: plan.key, url: hooks.viewUrl(plan.query), channels: channelsFor(input, "direct") });
       continue;
     }
     const query = kept ? keptQuery(record, input.name) : null;
     if (!query) return { status: "run", input };
-    plans.push({ input, key: `kept:${query}`, url: hooks.viewUrl(query) });
+    plans.push({ input, key: `kept:${query}`, url: hooks.viewUrl(query), channels: channelsFor(input, "run") });
   }
   return { status: "ready", plans, sources, key: plans.map((plan) => `${plan.input.name}=${plan.key}`).join("|") };
 }
@@ -261,7 +261,7 @@ async function loadAll(live, found) {
   live.loadingKey = key;
   try {
     const pix = {};
-    for (const plan of found.plans) pix[plan.input.name] = { key: plan.key, pixels: await loadPixels(plan.url) };
+    for (const plan of found.plans) pix[plan.input.name] = { key: plan.key, channels: plan.channels, pixels: await loadPixels(plan.url) };
     if (!live.alive || live.loadingKey !== key) return;
     live.pix = pix;
     live.loadedKey = key;
@@ -404,7 +404,7 @@ function paint(live, found) {
   const parts = {};
   for (const input of live.spec.inputs) {
     const source = live.pix[input.name];
-    if (source) parts[input.name === "mask" ? "mask" : input.name] = sourcePart(live, input, source.pixels, region, whole);
+    if (source) parts[input.name === "mask" ? "mask" : input.name] = sourcePart(live, { ...input, channels: source.channels ?? input.channels }, source.pixels, region, whole);
   }
   let noise = null;
   if (live.kind === "grain") noise = live.noise.get(live.pix.image.key) ?? 0;

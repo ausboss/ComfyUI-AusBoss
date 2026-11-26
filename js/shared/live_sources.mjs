@@ -36,6 +36,11 @@ export function planInput(node, name) {
   return { state: "run", key: `link:${link.id}:${link.origin_id}:${link.origin_slot}` };
 }
 
+// How many channels a source is read with. A Load Image's file is read as
+// colour only, as ComfyUI's Load Image hands its see-through part to the
+// mask and not to the picture; a picture a run kept carries its alpha.
+export const channelsFor = (input, state) => (state === "direct" ? Math.min(input.channels, 3) : input.channels);
+
 // What the wiring of these inputs is, as one string: the pictures a run kept
 // belong to this wiring, and are not used once it changes.
 export function connectionKey(node, names) {

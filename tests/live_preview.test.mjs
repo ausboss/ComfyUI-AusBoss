@@ -22,7 +22,7 @@ import { keepDetail } from "../js/shared/live_detail.mjs";
 import { cutOut } from "../js/shared/live_cutout.mjs";
 import { areaResize } from "../js/shared/live_image.mjs";
 import { cropGeometry, fitGeometry, insideOf, paddedWindow, runIsCurrent, valuesSignature } from "../js/shared/live_view_math.mjs";
-import { connectionKey, keptQuery, pixelsLookBlocked, planInput, scaledImage, windowImage } from "../js/shared/live_sources.mjs";
+import { channelsFor, connectionKey, keptQuery, pixelsLookBlocked, planInput, scaledImage, windowImage } from "../js/shared/live_sources.mjs";
 import { KINDS, drawKind, reachOf } from "../js/shared/live_kinds.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -340,4 +340,12 @@ test("cut out: a see-through picture stays see-through in the live preview", () 
   assert.equal(out.c, 4);
   assert.equal(out.data[3], 0);
   assert.ok(Math.abs(out.data[(w - 1) * 4 + 3] - 0.5) < 1e-6);
+});
+
+test("cut out: a Load Image file is read without alpha, as the node gets it; a run's picture keeps it", () => {
+  const image = KINDS.cutout.inputs.find((input) => input.name === "image");
+  assert.equal(channelsFor(image, "direct"), 3);
+  assert.equal(channelsFor(image, "run"), 4);
+  assert.equal(channelsFor(KINDS.grain.inputs[0], "direct"), 3);
+  assert.equal(channelsFor({ name: "mask", channels: 1 }, "run"), 1);
 });
