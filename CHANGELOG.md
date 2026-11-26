@@ -14,6 +14,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
   background's colour out of hair and soft edges so there is no halo, and
   fully kept pixels stay exactly as they were. Grow, feather, haze and
   solid-core levels, and smoothing over video frames, are on the card.
+- **New node: Keep Detail 🆎.** Puts the original picture's fine detail
+  back on an edit that came out too smooth. The edit keeps its shapes,
+  light and colour; Light only never shifts a colour. The two pictures must
+  line up.
 
 ## 2.28.1 - 2026-11-25
 

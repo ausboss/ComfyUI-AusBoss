@@ -553,6 +553,26 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_KeepDetail": {
+    "required": [
+      "image",
+      "detail_from",
+      "detail_size",
+      "strength",
+      "color_detail",
+      "edge_safe"
+    ],
+    "optional": [
+      "mask",
+      "preview"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_Krea2Encode": {
     "required": [
       "clip",

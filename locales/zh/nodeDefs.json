@@ -2172,5 +2172,40 @@
         "name": "透明度"
       }
     }
+  },
+  "AUSBOSS_NODES_KeepDetail": {
+    "display_name": "保留细节 🆎",
+    "description": "把原图的细节（皮肤、布料、颗粒）放回修改后的图片上。适合在编辑或重新打光后画面变得太光滑时使用。修改后的图片保留它的形状、光线和颜色，只有小于细节大小的细节来自原图。两张图片必须对齐。仅明暗只带回亮度细节，所以颜色不会变；颜色 + 明暗连细节的颜色一起带回。",
+    "inputs": {
+      "image": {
+        "name": "图像"
+      },
+      "detail_from": {
+        "name": "细节来源"
+      },
+      "detail_size": {
+        "name": "细节大小"
+      },
+      "strength": {
+        "name": "强度"
+      },
+      "color_detail": {
+        "name": "颜色细节"
+      },
+      "edge_safe": {
+        "name": "保护边缘"
+      },
+      "mask": {
+        "name": "遮罩"
+      },
+      "preview": {
+        "name": "预览"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      }
+    }
   }
 }

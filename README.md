@@ -152,6 +152,10 @@ Adds film grain to a picture or a video. The grain is strongest in the midtones 
 
 Turns a picture and a mask into a cut-out with a see-through background, ready to save as a PNG (Save Image keeps the transparency) or lay on a new background. Keep the white or the black part of the mask, grow or shrink it and soften its edge. **Clean edges** takes the old background's colour out of hair and soft edges, so the cut-out has no halo; fully kept pixels stay exactly as they were. It also returns the final mask, and works on video. The preview shows the cut-out on a checkerboard.
 
+### Keep Detail
+
+Puts the original picture's fine detail (skin, fabric, grain) back on an edited version that came out too smooth. Wire the edit and the original, which must line up (Realign to Source fixes an edit that drifted). The edit keeps its shapes, light and colour, and only detail smaller than **Detail size** comes from the original. **Light only** never shifts the edit's colours; **color + light** brings the detail's colour too. An optional mask limits where.
+
 ### Realign to Source (EXPERIMENTAL 🧪)
 
 Lines an edited picture back up with the original. Qwen Image 2.1 often draws an edit, especially a style change, a little bigger or shifted: up to about 12% taller, by a different amount every seed. Wire in the edit and the picture it was made from. The node measures how far the edit moved and moves it back, at the original's size. It fixes the zoom and shift of the whole picture, not shapes the edit redrew in a new place, so the result lines up closely rather than pixel for pixel.

@@ -328,6 +328,7 @@ export const ZH = {
   "Amount": "颗粒量", "Roughness": "粗糙度", "Video grain": "视频颗粒", "moving": "逐帧变化",
   "Clean edges": "清理边缘", "Clear haze": "清除薄雾", "Solid above": "高于此值为实", "Smooth video": "视频平滑",
   "white part": "白色部分", "black part": "黑色部分",
+  "Detail size": "细节大小", "Detail": "细节", "color + light": "颜色 + 明暗", "light only": "仅明暗", "Edge safe": "保护边缘",
 };
 
 // Strings that deliberately stay English on a Chinese face: names, symbols

@@ -558,7 +558,7 @@ const CARDS = {
       { widget: "save_metadata", label: PANEL_LABELS.embed, onText: PANEL_LABELS.on, offText: PANEL_LABELS.off, when: formatReads("save_metadata"), title: "On embeds the workflow in the video file, so dropping the file back on the canvas restores the graph that made it." },
     ],
   },
-  // Film Grain and Cut Out show their result: the card sits
+  // Film Grain, Cut Out and Keep Detail show their result: the card sits
   // above the preview panel (js/input_preview), which owns the hidden
   // preview switch.
   AUSBOSS_NODES_FilmGrain: {
@@ -584,6 +584,16 @@ const CARDS = {
       { widget: "clear_haze", label: "Clear haze", group: "advanced" },
       { widget: "solid_above", label: "Solid above", group: "advanced" },
       { widget: "smooth_frames", label: "Smooth video", suffix: "fr", group: "advanced" },
+    ],
+  },
+  AUSBOSS_NODES_KeepDetail: {
+    minWidth: 300, first: true,
+    rows: [
+      { widget: "detail_size", label: "Detail size", suffix: "px" },
+      { widget: "strength", label: "Strength" },
+      { widget: "color_detail", label: "Detail", onText: "color + light", offText: "light only" },
+      { group: "advanced", label: "More" },
+      { widget: "edge_safe", label: "Edge safe", group: "advanced" },
     ],
   },
 };

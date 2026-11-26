@@ -1,5 +1,5 @@
 // The in-node preview panel for LaMa Inpaint, Mask Refine, Mask by Name,
-// Select Frame, Save Image, Film Grain and Cut Out.
+// Select Frame, Save Image, Film Grain, Cut Out and Keep Detail.
 //
 // It shows this node's own result once it has one, and falls back to a
 // thumbnail of whatever feeds its IMAGE/MASK input before the graph has run.
@@ -126,6 +126,7 @@ const NODE_CONFIG = {
   AUSBOSS_NODES_SelectFrame: { inputName: "frames", noun: "frames" },
   AUSBOSS_NODES_FilmGrain: { inputName: "image", noun: "an image" },
   AUSBOSS_NODES_CutOut: { inputName: "image", noun: "an image", checker: true },
+  AUSBOSS_NODES_KeepDetail: { inputName: "image", noun: "an image" },
   // Its result is the file it just saved; the card sits above the panel.
   // SAVE shows only for a run made with Auto save off, which holds its
   // pictures until this button keeps them.
