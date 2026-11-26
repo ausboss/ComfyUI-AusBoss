@@ -16,6 +16,7 @@ import { cameraChoiceLabel, clipSetsDuration } from "../shared/h3_duration.mjs";
 import { loadImagePreview, loadImageStrip } from "../shared/load_image_strip.mjs";
 import { momentStrip } from "../shared/moment_strip.mjs";
 import { mountWidgetCard } from "../shared/widget_card.mjs";
+import { copiesGrain, grainFromLinked } from "../shared/grain_auto.mjs";
 import { FONT_UI, THEME } from "../shared/theme.mjs";
 import { SOCKETLESS_CHOICE, SOCKETLESS_TEXT, commitWidgetValue, markSocketless, resetUnknownValues } from "../shared/widget_card_math.mjs";
 import { mediaViewQuery } from "../shared/media_list.mjs";
@@ -32,13 +33,16 @@ const viewUrl = (value) => api.apiURL(`/view?${mediaViewQuery(value)}`);
 // Film Grain's Auto: what the multiplier comes to for the picture on hand.
 // The node's live stage (js/shared/live_stage.mjs) keeps Auto's own picks
 // on node.__ausbossAuto once it knows the picture; until then a plain dash.
+// Film Grain's Auto notes: the number each multiplier gives ("= 0.27"), from
+// Auto's pick, or from the match while a picture to copy grain from is wired
+// (js/shared/grain_auto.mjs keeps both).
 function autoNote(node, which) {
-  const picked = node.__ausbossAuto;
-  const widget = node.widgets?.find((item) => item.name === (which === "amount" ? "auto_amount" : "auto_size"));
+  const picked = copiesGrain(node) ? node.__ausbossMatch : node.__ausbossAuto;
+  const widget = node.widgets?.find((item) => item.name === `auto_${which}`);
   const times = Number(widget?.value);
   if (!picked || !Number.isFinite(times)) return "= -";
-  if (which === "amount") return `= ${Math.min(1, Math.max(0, picked.amount * times)).toFixed(2)}`;
-  return `= ${Math.min(16, Math.max(0.5, picked.size * times)).toFixed(1)} px`;
+  if (which === "size") return `= ${Math.min(16, Math.max(0.5, picked.size * times)).toFixed(1)} px`;
+  return `= ${Math.min(1, Math.max(0, picked[which] * times)).toFixed(2)}`;
 }
 
 const isMode = (name, ...modes) => (values) => modes.includes(values[name]);
@@ -574,20 +578,26 @@ const CARDS = {
   // above the preview panel (js/input_preview), which owns the hidden
   // preview switch.
   // Auto picks the amount and size from the picture (js/shared/live_stage.mjs
-  // measures it); Amount and Size then read as multipliers in their own
-  // boxes (auto_amount, auto_size), so each mode keeps its own numbers.
+  // measures it), or copies grain_from's grain (the node's run works out the
+  // match); Amount, Size and, while copying, Color then read as multipliers
+  // in their own boxes (auto_amount, auto_size, auto_color), so each mode
+  // keeps its own numbers.
   AUSBOSS_NODES_FilmGrain: {
     minWidth: 300, first: true,
-    resetUnknown: { auto: false, auto_amount: 1, auto_size: 1 },
+    resetUnknown: { auto: false, auto_amount: 1, auto_size: 1, auto_color: 1 },
     rows: [
-      { widget: "auto", label: "Auto", onText: "on", offText: "off" },
-      { section: "1 \u00d7 = Auto's pick", when: (v) => Boolean(v.auto) },
+      // With a picture on grain_from, Auto copies its grain: "on" reads
+      // "match", and Color counts from the match too.
+      { widget: "auto", label: "Auto", onText: (node) => (grainFromLinked(node) ? "match" : "on"), offText: "off" },
+      { section: "1 \u00d7 = Auto's pick", when: (v, node) => Boolean(v.auto) && !grainFromLinked(node) },
+      { section: "1 \u00d7 = the match", when: (v, node) => Boolean(v.auto) && grainFromLinked(node) },
       { widget: "amount", label: "Amount", when: (v) => !v.auto },
       { widget: "size", label: "Size", suffix: "px", when: (v) => !v.auto },
       { widget: "auto_amount", label: "Amount", suffix: "\u00d7", when: (v) => Boolean(v.auto), note: (node) => autoNote(node, "amount") },
       { widget: "auto_size", label: "Size", suffix: "\u00d7", when: (v) => Boolean(v.auto), note: (node) => autoNote(node, "size") },
       { widget: "roughness", label: "Roughness" },
-      { widget: "color", label: "Color" },
+      { widget: "color", label: "Color", when: (v, node) => !(v.auto && grainFromLinked(node)) },
+      { widget: "auto_color", label: "Color", suffix: "\u00d7", when: (v, node) => Boolean(v.auto) && grainFromLinked(node), note: (node) => autoNote(node, "color") },
       { widget: "moving", label: "Video grain", onText: "moving", offText: "still" },
       { group: "advanced", label: "More" },
       { widget: "seed", label: "Seed", group: "advanced" },

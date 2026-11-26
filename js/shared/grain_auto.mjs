@@ -6,8 +6,36 @@
 // (js/shared/live_grain.mjs). A picture that only exists after a run (a VAE
 // Decode) is known from the node's last run, which sends Auto's picks with
 // its result. Until either, the card shows a plain dash.
+//
+// With a picture on grain_from, Auto copies that picture's grain instead.
+// The match is worked out by the node when it runs, and sent with its result
+// (node.__ausbossMatch = { amount, size, color }); the card's notes and the
+// live preview use it from then on.
 import { autoGrain, measureNoise } from "./live_grain.mjs";
 import { loadPixels, pixelsToImage, planInput } from "./live_sources.mjs";
+
+// Is a picture wired into grain_from?
+export const grainFromLinked = (node) => node?.inputs?.some((input) => input?.name === "grain_from" && input.link != null) === true;
+
+// Does Auto copy grain from a picture right now?
+export const copiesGrain = (node) => Boolean(node?.widgets?.find((widget) => widget?.name === "auto")?.value) && grainFromLinked(node);
+
+// The match from the node's last run, or null.
+export function matchFromRun(record) {
+  const sent = record?.ausboss_grain_match?.[0];
+  return sent && ["base_amount", "base_size", "base_color"].every((key) => Number.isFinite(sent[key]))
+    ? { amount: sent.base_amount, size: sent.base_size, color: sent.base_color }
+    : null;
+}
+
+export function setMatch(node, match) {
+  const before = node.__ausbossMatch;
+  if (before?.amount === match?.amount && before?.size === match?.size && before?.color === match?.color) return;
+  node.__ausbossMatch = match ?? null;
+  node.__ausbossCard?.refresh?.();
+  node.__ausbossLive?.hooks?.refresh?.();
+  node.setDirtyCanvas?.(true, true);
+}
 
 // Auto's picks for the node (node.__ausbossAuto = { amount, size }: the
 // numbers before the card's multipliers), or null while they are not known.
@@ -38,6 +66,11 @@ export function autoFromRun(record) {
 // into a URL; `record` is the node's last output record, if any.
 export async function refreshAuto(node, { viewUrl, record = null }) {
   if (!node || typeof viewUrl !== "function") return;
+  // A run that matched keeps its match until the next one; a picture taken
+  // off grain_from forgets it.
+  const matched = matchFromRun(record);
+  if (matched) setMatch(node, matched);
+  else if (!grainFromLinked(node)) setMatch(node, null);
   const plan = planInput(node, "image");
   if (plan.state === "direct") {
     try {

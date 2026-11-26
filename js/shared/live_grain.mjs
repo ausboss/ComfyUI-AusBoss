@@ -289,3 +289,14 @@ export function autoValues(height, width, noise, amountTimes, sizeTimes) {
     noise,
   };
 }
+
+// The numbers used while Auto copies grain from a picture: the node's match
+// times the card's three multipliers, inside the same limits as the node
+// (nodes/_grain_match_helpers.py, matched_film_grain_values).
+export function matchValues(match, amountTimes, sizeTimes, colorTimes) {
+  return {
+    amount: Math.min(Math.max(match.amount * Number(amountTimes), 0), 1),
+    size: Math.min(Math.max(match.size * Number(sizeTimes), AUTO_SIZE_RANGE[0]), AUTO_SIZE_RANGE[1]),
+    color: Math.min(Math.max(match.color * Number(colorTimes), 0), 1),
+  };
+}

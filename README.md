@@ -146,7 +146,7 @@ Matches a picture's colors to a reference, with LAB, RGB, MKL or histogram trans
 
 ### Film Grain
 
-Adds film grain to a picture or a video. The grain is strongest in the midtones and gentler in deep shadows and bright highlights, as on film. **Size** is the grain's size in pixels, **Roughness** mixes in finer grain that bunches up unevenly, and **Color** goes from black-and-white grain to colour film's. On a video the grain moves from frame to frame, or stays put with **Video grain** on *still*. An optional mask adds grain only where it is white, and the same seed always gives the same grain. The preview shows the result.
+Adds film grain to a picture or a video. The grain is strongest in the midtones and gentler in deep shadows and bright highlights, as on film. **Size** is the grain's size in pixels, **Roughness** mixes in finer grain that bunches up unevenly, and **Color** goes from black-and-white grain to colour film's. On a video the grain moves from frame to frame, or stays put with **Video grain** on *still*. An optional mask adds grain only where it is white, and the same seed always gives the same grain. **Auto** picks the grain for the picture's size, or copies the grain of a picture wired into `grain_from`. The preview shows the result.
 
 ### Cut Out
 

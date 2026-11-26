@@ -16,6 +16,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
   multipliers ("1 × = Auto's pick"), with the real value in small type beside
   each box. Auto on and Auto off keep their own numbers, and Auto starts off,
   so saved workflows behave as before.
+- **Film Grain can copy another picture's grain.** Wire a picture whose grain
+  you like into `grain_from` and switch Auto on (it reads "match"). The node
+  reads that picture's grain, how strong, how big and how colourful, and adds
+  grain like it; Amount, Size and Color then count from the match ("1 × = the
+  match"), with the real value beside each box. The picture to copy from is
+  scaled to your picture's size first, so the grain matches at the same
+  viewing size, and only its plainest patches are read. Roughness stays yours.
 - **Film Grain, Keep Detail and Cut Out show a live preview.** After one run,
   the picture on the node redraws while you drag a value, with a "not run yet"
   tag until you queue. A Fit | 100% switch left of Preview shows the whole

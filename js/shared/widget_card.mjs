@@ -190,6 +190,7 @@ function isFloatWidget(widget) {
 
 // Mount a card on `node`. Rows:
 //   { widget, label?, kind?, labels?, suffix?, title?, when?, group?, linkedBy?, snap?, pixels?, step?, limits?, trimZeros? }
+//                                          - `when(values, node)` shows the row
 //                                          - `linkedBy` names other inputs
 //                                            whose link also dims the row
 //                                            (a wired source replacing a
@@ -405,16 +406,20 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     seg.setAttribute("role", "radiogroup");
     const label = (text, fallback) => (typeof text === "string" && text.length <= SWITCH_LABEL_MAX ? text : fallback);
     const buttons = new Map();
-    for (const [value, text] of [[false, label(row.offText, "off")], [true, label(row.onText, "on")]]) {
+    // `onText` may be a function of the node, read at every refresh (Film
+    // Grain's Auto reads "match" while a picture to copy from is wired).
+    const onText = () => label(typeof row.onText === "function" ? row.onText(node) : row.onText, "on");
+    for (const [value, text] of [[false, label(row.offText, "off")], [true, onText()]]) {
       const button = el("button", "", text);
       button.type = "button";
-      button.title = row.title ?? (widgetTooltip(node, name, widget) || (value ? row.onText ?? "" : row.offText ?? ""));
+      button.title = row.title ?? (widgetTooltip(node, name, widget) || (value ? (typeof row.onText === "string" ? row.onText : "") : row.offText ?? ""));
       button.addEventListener("click", () => setWidget(name, value));
       seg.append(button); buttons.set(value, button);
     }
     into.append(seg);
     return (vals) => {
       const on = Boolean(vals[name]);
+      if (typeof row.onText === "function") buttons.get(true).textContent = onText();
       for (const [value, button] of buttons) {
         button.classList.toggle("on", value === on);
         button.setAttribute("aria-checked", String(value === on));

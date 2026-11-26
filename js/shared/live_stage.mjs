@@ -28,12 +28,13 @@ import { autoGrain, measureNoise } from "./live_grain.mjs";
 import { KINDS, drawKind, num, reachOf } from "./live_kinds.mjs";
 import { cropGeometry, fitGeometry, insideOf, paddedWindow, valuesSignature } from "./live_view_math.mjs";
 import { connectionKey, keptQuery, loadPixels, lumaImage, planInput, scaledImage, windowImage } from "./live_sources.mjs";
-import { setAuto } from "./grain_auto.mjs";
+import { copiesGrain, setAuto } from "./grain_auto.mjs";
 
 const CSS_ID = "ausboss-live-stage-css";
 const VIEW_PROPERTY = "ausboss_live_view";
 const RUN_ONCE = "Run once to get the picture. Then it changes as you drag.";
 const RUN_ONCE_MASK = "Run once to get the mask. Then it changes as you drag.";
+const RUN_ONCE_MATCH = "Run once to match the grain. Then it changes as you drag.";
 
 function ensureCss() {
   if (document.getElementById(CSS_ID)) return;
@@ -282,10 +283,11 @@ async function loadAll(live, found) {
 function currentValues(live) {
   const vals = {};
   for (const name of live.spec.values) vals[name] = widgetValue(live.node, name);
-  for (const name of ["amount", "size", "roughness", "color", "auto_amount", "auto_size", "detail_size", "strength", "grow", "feather", "clear_haze", "solid_above"]) {
+  for (const name of ["amount", "size", "roughness", "color", "auto_amount", "auto_size", "auto_color", "detail_size", "strength", "grow", "feather", "clear_haze", "solid_above"]) {
     if (name in vals) vals[name] = num(vals[name], 0);
   }
   for (const name of ["auto", "moving", "color_detail", "edge_safe", "clean_edges"]) if (name in vals) vals[name] = Boolean(vals[name]);
+  if (live.kind === "grain" && copiesGrain(live.node)) vals.match = live.node.__ausbossMatch ?? null;
   return vals;
 }
 
@@ -334,7 +336,7 @@ function paint(live, found) {
   const sig = valuesSignature(node, live.spec.values);
   const matches = Boolean(live.run) && live.run.sig === sig && hooks.hasResult();
   const resultUrl = matches ? hooks.resultUrl() : null;
-  const stamp = `${found.key}|${sig}|${viewMode}|${stageW}x${stageH}|${live.pan?.x}|${live.pan?.y}|${resultUrl}|${Boolean(resultUrl && live.resultPixels?.url === resultUrl)}`;
+  const stamp = `${found.key}|${sig}|${JSON.stringify(vals.match ?? null)}|${viewMode}|${stageW}x${stageH}|${live.pan?.x}|${live.pan?.y}|${resultUrl}|${Boolean(resultUrl && live.resultPixels?.url === resultUrl)}`;
   if (stamp === live.drawnKey && live.drawn) return true;
 
   let geo;
@@ -432,6 +434,11 @@ export function takeStage(state) {
   }
   if (found.status === "run") {
     showHint(live, hintFor(found.input));
+    return true;
+  }
+  // Copying grain from a picture: the match comes from a run.
+  if (live.kind === "grain" && copiesGrain(live.node) && !live.node.__ausbossMatch) {
+    showHint(live, RUN_ONCE_MATCH);
     return true;
   }
   if (live.broken === found.key) {

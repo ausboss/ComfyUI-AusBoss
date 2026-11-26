@@ -29,6 +29,31 @@ the picture comes from another node. Until then it shows a dash.
 Auto on and Auto off each keep their own numbers, so switching back loses
 nothing. Auto starts off, so workflows saved before it behave as they did.
 
+## Copy the grain of another picture
+
+Wire a picture whose grain you like into **grain_from** and switch Auto on.
+Its switch now reads **match**: the node reads how strong, how big and how
+colourful that picture's grain is, and adds grain like it. A film scan, a
+still from a film or a photo you like all work.
+
+- **Amount**, **Size** and **Color** count from the match, the same way as
+  Auto's pick: `1 ×` is the match, and the small number beside each box is
+  what you get. **Roughness** stays yours; the match does not read it.
+- Grain is matched at the same viewing size. The picture to copy from is
+  scaled to your picture's size first, so grain from a big photo comes out
+  finer on a small picture, as it would look side by side on screen.
+- Only the plainest patches are read: a sky, a wall, skin. A picture that is
+  all busy texture (gravel, leaves, a tiled floor) reads stronger grain than
+  it has; turn **Amount** down, or copy from a plainer picture.
+- Grain your picture already has counts. A grainy picture gets only the
+  grain it is missing, and a reference with less grain than yours adds none.
+- The match is worked out when the node runs. Until the first run the
+  numbers show a dash and the picture asks for a run; after it, the live
+  preview uses the match while you drag. A video is read from its first
+  frame, and so is a video wired in to copy from.
+- Without a picture on grain_from, Auto picks the grain as above. Auto off
+  ignores grain_from.
+
 ## Live preview
 
 Once the node has a picture, the picture on the node redraws while you drag a
@@ -44,7 +69,8 @@ picture moves around it instead of moving the node. At 100% you see the grain at
 ## Controls
 
 - **Auto** (`auto`): off uses the Amount and Size you set. On, the node
-  picks them for the picture.
+  picks them for the picture, or reads **match** and copies the grain of the
+  picture on grain_from.
 - **Amount** (`amount`): how strong the grain is. `0` adds none, `0.25` is a
   clearly visible film look, `1` is very heavy.
 - **Size** (`size`): how big each grain is, in pixels of this picture. `1` is
@@ -54,6 +80,8 @@ picture moves around it instead of moving the node. At 100% you see the grain at
 - **Roughness** (`roughness`): `0` is soft, even grain. Higher mixes in finer
   grain that bunches up in some places and thins out in others, like real
   film.
+- **Color** while matching (`auto_color`): a multiplier of the matched
+  colour. `0` turns the copied grain black-and-white.
 - **Color** (`color`): `0` is black-and-white grain, the same in red, green
   and blue. Higher gives each colour its own grain, like the dye clouds of
   colour film. A little (`0.2` to `0.4`) looks most natural on colour
@@ -72,6 +100,8 @@ picture moves around it instead of moving the node. At 100% you see the grain at
 ### Inputs and output
 
 - **image**: the picture or video frames.
+- **grain_from** (optional): a picture whose grain to copy while Auto is
+  on. It can be any size and shape.
 - **mask** (optional): grain goes only where the mask is white, and fades
   in with a soft mask. One mask can cover every frame, or give one per
   frame. A mask of another size is stretched to the picture.
@@ -94,6 +124,22 @@ picture moves around it instead of moving the node. At 100% you see the grain at
   note beside the boxes agrees with the node's result.
 - `auto_amount` and `auto_size` are separate inputs from `amount` and
   `size`, which is why each mode keeps its own numbers.
+- The grain match (`nodes/_grain_match_helpers.py`) scales the picture to
+  copy from to the target's megapixels, its shape kept, and reads both
+  pictures' first frames. Each is shrunk by 1 to 12 times; at each size the
+  fine detail (mean absolute Laplacian, as a standard deviation) of the
+  plainest fifth of the mid-tone 16 px blocks gives the brightness grain, and
+  the same blocks of two colour-difference channels give the colour grain.
+  The target's own grain at each size is taken off (in quadrature). How the
+  grain falls off over the sizes is fitted, in log space, to a stored table
+  of Film Grain's own grain at sizes 1 to 16 px and colours 0 to 1
+  (`nodes/_grain_match_table.py`), with a mild pull toward size 1; grain
+  smaller than a pixel reads as size 1 and a lower amount, which looks the
+  same. The colour comes from the colour grain against the brightness grain,
+  and the amount is checked twice by adding the grain to the target and
+  correcting it. On Film Grain's own grain the match reads back its settings
+  (0.40 / 2.0 px / 0.3 reads 0.41 / 2.0 px / 0.3); a 1 MP pair takes about
+  a third of a second on the CPU.
 
 - Grain is random noise drawn on a grid `size` pixels apart and smoothed up
   to the picture with a bicubic filter, then scaled back to the same

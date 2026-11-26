@@ -169,7 +169,7 @@ const APPENDED_SINCE = {
   // came after 2.4.0; 2.x saves hold the card's value there.
   AUSBOSS_NODES_LaMaInpaint: { preview: "toggle" },
   // Film Grain's Auto, appended after its preview switch.
-  AUSBOSS_NODES_FilmGrain: { auto: "toggle", auto_amount: "number", auto_size: "number" },
+  AUSBOSS_NODES_FilmGrain: { auto: "toggle", auto_amount: "number", auto_size: "number", grain_from: "socket", auto_color: "number" },
   AUSBOSS_NODES_RefineMask: { preview: "toggle", max_hole_size: "number" },
   AUSBOSS_NODES_SelectFrame: { preview: "toggle" },
   AUSBOSS_NODES_LoraLoader: { on_missing: "combo" },

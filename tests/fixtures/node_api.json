@@ -203,7 +203,9 @@
       "preview",
       "auto",
       "auto_amount",
-      "auto_size"
+      "auto_size",
+      "grain_from",
+      "auto_color"
     ],
     "outputs": [
       [

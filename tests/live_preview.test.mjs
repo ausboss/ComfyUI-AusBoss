@@ -16,7 +16,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 import { makeImage } from "../js/shared/live_image.mjs";
-import { autoGrain, autoValues, cellNormal, filmGrain, grainFrame, hashedCells, layGrain, measureNoise } from "../js/shared/live_grain.mjs";
+import { autoGrain, autoValues, cellNormal, filmGrain, grainFrame, hashedCells, layGrain, matchValues, measureNoise } from "../js/shared/live_grain.mjs";
+import { copiesGrain, grainFromLinked, matchFromRun } from "../js/shared/grain_auto.mjs";
 import { keepDetail } from "../js/shared/live_detail.mjs";
 import { cutOut } from "../js/shared/live_cutout.mjs";
 import { areaResize } from "../js/shared/live_image.mjs";
@@ -119,6 +120,41 @@ test("auto: 4 MP gets twice the grain size of 1 MP, and a clean picture starts a
   assert.equal(times.amount, 0.375);
   assert.equal(times.size, 4);
   assert.ok(autoValues(1000, 1000, 0.03, 1, 1).amount > 0.4, "a grainy picture gets more");
+});
+
+test("grain match: the multipliers count from the run's match, inside the node's limits", () => {
+  const match = { amount: 0.4, size: 2, color: 0.3 };
+  assert.deepEqual(matchValues(match, 1, 1, 1), match);
+  const times = matchValues(match, 3, 10, 4);
+  assert.equal(times.amount, 1);
+  assert.equal(times.size, 16);
+  assert.equal(times.color, 1);
+  assert.equal(matchValues(match, 1, 0.1, 0).size, 0.5);
+  assert.equal(matchValues(match, 1, 1, 0).color, 0);
+});
+
+test("grain match: read from the run, used only while Auto is on and a picture is wired", () => {
+  const record = { ausboss_grain_match: [{ amount: 0.5, size: 3, color: 0.3, base_amount: 0.25, base_size: 1.5, base_color: 0.3, found: 1 }] };
+  assert.deepEqual(matchFromRun(record), { amount: 0.25, size: 1.5, color: 0.3 });
+  assert.equal(matchFromRun({ ausboss_grain_auto: [{ base_amount: 0.25, base_size: 1 }] }), null);
+  assert.equal(matchFromRun(null), null);
+  const node = (auto, link) => ({ widgets: [{ name: "auto", value: auto }], inputs: [{ name: "image", link: 1 }, { name: "grain_from", link }] });
+  assert.equal(grainFromLinked(node(false, 4)), true);
+  assert.equal(copiesGrain(node(true, 4)), true);
+  assert.equal(copiesGrain(node(false, 4)), false);
+  assert.equal(copiesGrain(node(true, null)), false);
+  assert.equal(copiesGrain({ widgets: [{ name: "auto", value: true }] }), false);
+});
+
+test("grain match: the live drawing uses the match's colour and strength", () => {
+  const w = 64, h = 48;
+  const image = makeImage(w, h, 3, new Float32Array(w * h * 3).fill(0.5));
+  const base = { amount: 0.25, size: 1, roughness: 0.5, color: 0, moving: false, seed: 3, auto: true, auto_amount: 1, auto_size: 1, auto_color: 1 };
+  const view = { scale: 1, fullW: w, fullH: h, win: null };
+  const matched = drawKind("grain", { ...base, match: { amount: 0.4, size: 1, color: 1 } }, { image }, view, 0);
+  const direct = drawKind("grain", { ...base, auto: false, amount: 0.4, size: 1, color: 1 }, { image }, view, 0);
+  assert.deepEqual(Array.from(matched.data), Array.from(direct.data));
+  assert.ok(KINDS.grain.values.includes("auto_color"));
 });
 
 test("keep detail: the same result as the node", () => {

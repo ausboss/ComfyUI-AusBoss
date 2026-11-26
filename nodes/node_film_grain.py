@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ._grain_helpers import add_film_grain, auto_film_grain_values
+from ._grain_match_helpers import matched_film_grain_values
 from ._preview_helpers import preview_payload, temp_prefix
 
 PREVIEW_TOOLTIP = "Show this node's result on its face. Off skips writing the preview file to ComfyUI's temp folder."
@@ -17,7 +18,9 @@ class AusBossFilmGrain:
         "finer and more uneven, and color turns it from black-and-white "
         "grain to colour film's. On a video it can move from frame to "
         "frame or stay put. An optional mask adds grain only where it is "
-        "white. The same seed always gives the same grain."
+        "white. The same seed always gives the same grain. With Auto on, it "
+        "picks the amount and size for the picture; wire a picture into "
+        "grain from and it copies that picture's grain instead."
     )
     SEARCH_ALIASES = ["film grain", "grain", "noise", "35mm", "film look", "analog", "ausboss"]
 
@@ -114,6 +117,22 @@ class AusBossFilmGrain:
                         "tooltip": "Used while Auto is on. 1 is Auto's pick; 2 is grain twice as big.",
                     },
                 ),
+                "grain_from": (
+                    "IMAGE",
+                    {
+                        "tooltip": "Optional. A picture whose grain you like. With Auto on, the node copies its grain: how strong, how big and how colourful. Roughness stays yours.",
+                    },
+                ),
+                "auto_color": (
+                    "FLOAT",
+                    {
+                        "default": 1.0,
+                        "min": 0.0,
+                        "max": 4.0,
+                        "step": 0.05,
+                        "tooltip": "Used while Auto copies grain from a picture. 1 is the copied colour; 0 makes it black-and-white grain.",
+                    },
+                ),
             },
         }
 
@@ -127,19 +146,26 @@ class AusBossFilmGrain:
 
     def grain(
         self, image, amount, size, roughness, color, moving, seed, mask=None, preview=True,
-        auto=False, auto_amount=1.0, auto_size=1.0,
+        auto=False, auto_amount=1.0, auto_size=1.0, grain_from=None, auto_color=1.0,
     ):
-        picked = None
-        if auto:
+        sent = None
+        if auto and grain_from is not None:
+            # The card's notes and the live preview read the match from here.
+            picked = matched_film_grain_values(
+                grain_from, image, float(roughness), int(seed), float(auto_amount), float(auto_size), float(auto_color),
+            )
+            amount, size, color = picked["amount"], picked["size"], picked["color"]
+            sent = {"ausboss_grain_match": [{key: round(float(value), 5) for key, value in picked.items()}]}
+        elif auto:
             picked = auto_film_grain_values(image, float(auto_amount), float(auto_size))
             amount, size = picked["amount"], picked["size"]
-            picked = {key: round(value, 5) for key, value in picked.items()}
+            sent = {"ausboss_grain_auto": [{key: round(value, 5) for key, value in picked.items()}]}
         result = add_film_grain(image, float(amount), float(size), float(roughness), float(color), bool(moving), int(seed), mask)
         if not preview:
             return (result,)
         return preview_payload(
             result, self._prefix, "Film Grain", (result,),
-            extra_ui={"ausboss_grain_auto": [picked]} if picked else None,
+            extra_ui=sent,
             live_sources={"image": image, "mask": mask},
         )
 
