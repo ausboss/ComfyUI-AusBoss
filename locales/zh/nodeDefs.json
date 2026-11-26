@@ -2128,5 +2128,49 @@
         "name": "图像"
       }
     }
+  },
+  "AUSBOSS_NODES_CutOut": {
+    "display_name": "抠图 🆎",
+    "description": "把图片和遮罩变成背景透明的抠图，可以直接存成 PNG，或放到新的背景上。保留遮罩的白色或黑色部分，扩大或缩小它，并柔化边缘。清理边缘会去掉头发和柔和边缘里旧背景的颜色，让抠图放到新背景上时没有光晕；完全保留的像素保持原样。也适用于视频帧。",
+    "inputs": {
+      "image": {
+        "name": "图像"
+      },
+      "mask": {
+        "name": "遮罩"
+      },
+      "keep": {
+        "name": "保留"
+      },
+      "grow": {
+        "name": "扩大"
+      },
+      "feather": {
+        "name": "羽化"
+      },
+      "clean_edges": {
+        "name": "清理边缘"
+      },
+      "clear_haze": {
+        "name": "清除薄雾"
+      },
+      "solid_above": {
+        "name": "高于此值为实"
+      },
+      "smooth_frames": {
+        "name": "视频平滑"
+      },
+      "preview": {
+        "name": "预览"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      },
+      "1": {
+        "name": "透明度"
+      }
+    }
   }
 }

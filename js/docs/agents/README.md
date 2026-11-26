@@ -29,6 +29,7 @@ help panel.
 | Line an edited picture back up with the original | Realign to Source (`AUSBOSS_NODES_RealignToSource`, experimental) |
 | Match one picture's colors to another | Color Match (`AUSBOSS_NODES_ColorMatch`) |
 | Add film grain to a picture or a video | Film Grain (`AUSBOSS_NODES_FilmGrain`) |
+| Turn a picture and a mask into a transparent cut-out with clean edges | Cut Out (`AUSBOSS_NODES_CutOut`) |
 | Upscale big pictures in tiles | Tiled Upscale (`AUSBOSS_NODES_TiledUpscale`) then Tiled Upscale Stitch (`AUSBOSS_NODES_TiledUpscaleStitch`) |
 | Compare two pictures | Image Compare A/B (`AUSBOSS_NODES_Compare`) |
 | Save pictures (PNG, lossless WebP or JPEG XL) | Save Image (`AUSBOSS_NODES_SaveImage`) |

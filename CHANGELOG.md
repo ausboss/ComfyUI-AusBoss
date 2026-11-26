@@ -9,6 +9,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
   highlights, as on film. Size, roughness and colour set its look, it moves
   from frame to frame on a video (or stays put), an optional mask limits
   where, and the same seed gives the same grain.
+- **New node: Cut Out 🆎.** Turns a picture and a mask into a cut-out with a
+  see-through background, ready to save as a PNG. Clean edges takes the old
+  background's colour out of hair and soft edges so there is no halo, and
+  fully kept pixels stay exactly as they were. Grow, feather, haze and
+  solid-core levels, and smoothing over video frames, are on the card.
 
 ## 2.28.1 - 2026-11-25
 

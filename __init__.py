@@ -21,6 +21,7 @@ NODE_MODULES = [
     "node_callout",
     "node_color_match",
     "node_compare",
+    "node_cut_out",
     "node_edit_lock",
     "node_film_grain",
     "node_flashvsr_upscale",

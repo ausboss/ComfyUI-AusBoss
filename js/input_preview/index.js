@@ -1,5 +1,5 @@
 // The in-node preview panel for LaMa Inpaint, Mask Refine, Mask by Name,
-// Select Frame, Save Image and Film Grain.
+// Select Frame, Save Image, Film Grain and Cut Out.
 //
 // It shows this node's own result once it has one, and falls back to a
 // thumbnail of whatever feeds its IMAGE/MASK input before the graph has run.
@@ -24,6 +24,7 @@ import { chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../s
 import { ensureNodeMinHeight, fillNodeHeight, growToNodeFloor } from "../shared/panel_layout.mjs";
 import { suppressCoreImagePreview } from "../shared/core_preview.mjs";
 import { autoMaskValues } from "../shared/mask_auto.mjs";
+import { CHECKER } from "../shared/compare_erase.mjs";
 import { hideInputsInDef, hideWidget, setWidgetVisible } from "../shared/widget_visibility.mjs";
 import { makePictureStepper } from "../shared/picture_stepper.mjs";
 import { ALL, allLabel, gridShape, heldPlaces, keepIndex, keepWords, stepIndex, stepWithAll } from "../shared/picture_steps.mjs";
@@ -124,6 +125,7 @@ const NODE_CONFIG = {
   },
   AUSBOSS_NODES_SelectFrame: { inputName: "frames", noun: "frames" },
   AUSBOSS_NODES_FilmGrain: { inputName: "image", noun: "an image" },
+  AUSBOSS_NODES_CutOut: { inputName: "image", noun: "an image", checker: true },
   // Its result is the file it just saved; the card sits above the panel.
   // SAVE shows only for a run made with Auto save off, which holds its
   // pictures until this button keeps them.
@@ -158,6 +160,7 @@ function ensureCss() {
 .ausboss-input-preview.preview-off .ausboss-stepper{display:none;}
 .ausboss-input-preview-stage img,.ausboss-input-preview-stage video{display:none;position:absolute;inset:0;margin:auto;max-width:100%;max-height:100%;object-fit:contain;}
 .ausboss-input-preview-stage.show-image img{display:block;}
+.ausboss-input-preview-stage.checker img{background-image:repeating-conic-gradient(${CHECKER.light} 0 25%,${CHECKER.dark} 0 50%);background-size:${CHECKER.side * 2}px ${CHECKER.side * 2}px;}
 .ausboss-input-preview-stage.loading-image img{opacity:.4;transition:opacity .3s ease 1.2s;}
 .ausboss-input-preview-stage.show-video video{display:block;}
 .ausboss-input-preview-grid{display:none;position:absolute;inset:0;box-sizing:border-box;gap:${GRID_GAP}px;padding:${GRID_GAP}px;justify-content:center;align-content:center;}
@@ -965,6 +968,8 @@ function buildPanel(node, config) {
   root.className = "ausboss-input-preview";
   const stage = document.createElement("div");
   stage.className = "ausboss-input-preview-stage";
+  // A cut-out's see-through parts show over a checkerboard.
+  if (config.checker) stage.classList.add("checker");
   const img = document.createElement("img");
   const video = document.createElement("video");
   video.muted = true;

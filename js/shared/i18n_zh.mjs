@@ -326,6 +326,8 @@ export const ZH = {
   "Preview could not load this image": "预览无法加载这张图片",
   // ---- image finishing nodes
   "Amount": "颗粒量", "Roughness": "粗糙度", "Video grain": "视频颗粒", "moving": "逐帧变化",
+  "Clean edges": "清理边缘", "Clear haze": "清除薄雾", "Solid above": "高于此值为实", "Smooth video": "视频平滑",
+  "white part": "白色部分", "black part": "黑色部分",
 };
 
 // Strings that deliberately stay English on a Chinese face: names, symbols

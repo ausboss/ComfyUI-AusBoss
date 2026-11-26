@@ -116,6 +116,32 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_CutOut": {
+    "required": [
+      "image",
+      "mask",
+      "keep",
+      "grow",
+      "feather",
+      "clean_edges",
+      "clear_haze",
+      "solid_above",
+      "smooth_frames"
+    ],
+    "optional": [
+      "preview"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
+      ],
+      [
+        "MASK",
+        "alpha"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_EditLock": {
     "required": [
       "model",

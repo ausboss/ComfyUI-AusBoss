@@ -97,15 +97,16 @@ def save_temp_preview(image: torch.Tensor, prefix: str, source: str = "Preview",
     return entry
 
 
-def preview_payload(image: torch.Tensor, prefix: str, source: str, result: tuple) -> dict:
+def preview_payload(image: torch.Tensor, prefix: str, source: str, result: tuple, keep_alpha: bool = False) -> dict:
     """The node return that carries both a preview and the real outputs.
 
     A preview is a convenience, never the job: if writing it fails - a full
     disk, a temp folder someone cleaned mid-run - the node still returns its
-    outputs and only the panel goes quiet.
+    outputs and only the panel goes quiet. ``keep_alpha`` keeps a cut-out's
+    see-through parts in the preview (save_temp_preview).
     """
     try:
-        images = [save_temp_preview(image, prefix, source)]
+        images = [save_temp_preview(image, prefix, source, keep_alpha)]
     except Exception as exc:  # noqa: BLE001 - any failure here is non-fatal
         detail = str(exc).encode("ascii", "replace").decode("ascii")
         print(f"[AusBoss] {source}: preview unavailable ({detail}).")
