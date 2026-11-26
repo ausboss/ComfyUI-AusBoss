@@ -5,7 +5,7 @@ import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
 import { chainCallback } from "../shared/index.mjs";
 import { isForeignRun } from "../shared/prompt_scope.mjs";
-import { refreshAuto } from "../shared/grain_auto.mjs";
+import { keepMatch, matchFromRun, refreshAuto } from "../shared/grain_auto.mjs";
 import { outputLocatorId, sourceFileWidget, upstreamNode } from "../shared/input_preview.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_FilmGrain";
@@ -13,23 +13,29 @@ const viewUrl = (query) => api.apiURL(`/view?${query}`);
 
 // One hook on a Load Image's file box, with every Film Grain it feeds listed
 // under it, so a picked file refreshes them all and a removed node leaves.
+// Both pictures are watched: the one getting grain, and grain_from's.
 const watched = new WeakMap();
+const WATCHED_INPUTS = ["image", "grain_from"];
+function unwatch(node) {
+  for (const entry of node.__ausbossGrainWatch ?? []) entry.nodes.delete(node);
+  node.__ausbossGrainWatch = [];
+}
 function watchFile(node) {
-  const widget = sourceFileWidget(upstreamNode(node, "image"));
-  if (node.__ausbossGrainWatch?.widget === widget) return;
-  const old = node.__ausbossGrainWatch;
-  if (old) old.nodes.delete(node);
-  node.__ausbossGrainWatch = null;
-  if (!widget) return;
-  let entry = watched.get(widget);
-  if (!entry) {
-    const nodes = new Set();
-    entry = { widget, nodes };
-    chainCallback(widget, "callback", () => { for (const item of nodes) update(item); });
-    watched.set(widget, entry);
+  const widgets = WATCHED_INPUTS.map((name) => sourceFileWidget(upstreamNode(node, name))).filter(Boolean);
+  const now = node.__ausbossGrainWatch ?? [];
+  if (now.length === widgets.length && now.every((entry, i) => entry.widget === widgets[i])) return;
+  unwatch(node);
+  for (const widget of widgets) {
+    let entry = watched.get(widget);
+    if (!entry) {
+      const nodes = new Set();
+      entry = { widget, nodes };
+      chainCallback(widget, "callback", () => { for (const item of nodes) update(item); });
+      watched.set(widget, entry);
+    }
+    entry.nodes.add(node);
+    node.__ausbossGrainWatch.push(entry);
   }
-  entry.nodes.add(node);
-  node.__ausbossGrainWatch = entry;
 }
 
 function update(node) {
@@ -48,11 +54,12 @@ app.registerExtension({
     chainCallback(nodeType.prototype, "onNodeCreated", function () { later(this); });
     chainCallback(nodeType.prototype, "onConfigure", function () { later(this); });
     chainCallback(nodeType.prototype, "onConnectionsChange", function () { later(this); });
-    chainCallback(nodeType.prototype, "onExecuted", function () {
+    chainCallback(nodeType.prototype, "onExecuted", function (output) {
       if (isForeignRun()) return;
+      keepMatch(this, matchFromRun(output));
       later(this);
     });
-    chainCallback(nodeType.prototype, "onRemoved", function () { this.__ausbossGrainWatch?.nodes.delete(this); });
+    chainCallback(nodeType.prototype, "onRemoved", function () { unwatch(this); });
   },
   // A reopened workflow restores every node's last output at once.
   onNodeOutputsUpdated() {

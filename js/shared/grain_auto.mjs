@@ -10,7 +10,10 @@
 // With a picture on grain_from, Auto copies that picture's grain instead.
 // The match is worked out by the node when it runs, and sent with its result
 // (node.__ausbossMatch = { amount, size, color }); the card's notes and the
-// live preview use it from then on.
+// live preview use it from then on. The node keeps its last few matches,
+// one per pair of pictures, in its saved properties: ComfyUI does not run a
+// node again for pictures it already ran, so a run that comes from its
+// cache sends no match, and a reopened workflow would otherwise wait for one.
 import { autoGrain, measureNoise } from "./live_grain.mjs";
 import { loadPixels, pixelsToImage, planInput } from "./live_sources.mjs";
 
@@ -27,6 +30,29 @@ export function matchFromRun(record) {
     ? { amount: sent.base_amount, size: sent.base_size, color: sent.base_color }
     : null;
 }
+
+// Which pair of pictures a match belongs to: the picture and grain_from's
+// source (a Load Image's file, or the link a run reads).
+export const matchKey = (node) => ["image", "grain_from"].map((name) => planInput(node, name).key ?? "-").join("|");
+
+const KEPT_MATCHES = 8;
+const validMatch = (match) => match && ["amount", "size", "color"].every((key) => Number.isFinite(match[key])) ? match : null;
+
+// Remember a run's match for the pictures wired now.
+export function keepMatch(node, match) {
+  if (!node || !validMatch(match)) return;
+  node.properties ??= {};
+  const kept = { ...(node.properties.ausboss_grain_matches ?? {}) };
+  const key = matchKey(node);
+  delete kept[key];
+  kept[key] = { amount: match.amount, size: match.size, color: match.color };
+  const keys = Object.keys(kept);
+  for (const old of keys.slice(0, Math.max(0, keys.length - KEPT_MATCHES))) delete kept[old];
+  node.properties.ausboss_grain_matches = kept;
+}
+
+// The kept match for the pictures wired now, or null.
+export const keptMatch = (node) => validMatch(node?.properties?.ausboss_grain_matches?.[matchKey(node)]) ?? null;
 
 export function setMatch(node, match) {
   const before = node.__ausbossMatch;
@@ -66,11 +92,8 @@ export function autoFromRun(record) {
 // into a URL; `record` is the node's last output record, if any.
 export async function refreshAuto(node, { viewUrl, record = null }) {
   if (!node || typeof viewUrl !== "function") return;
-  // A run that matched keeps its match until the next one; a picture taken
-  // off grain_from forgets it.
-  const matched = matchFromRun(record);
-  if (matched) setMatch(node, matched);
-  else if (!grainFromLinked(node)) setMatch(node, null);
+  // The match kept for these two pictures; other pictures wait for a run.
+  setMatch(node, grainFromLinked(node) ? keptMatch(node) : null);
   const plan = planInput(node, "image");
   if (plan.state === "direct") {
     try {

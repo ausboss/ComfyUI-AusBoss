@@ -51,6 +51,9 @@ still from a film or a photo you like all work.
   numbers show a dash and the picture asks for a run; after it, the live
   preview uses the match while you drag. A video is read from its first
   frame, and so is a video wired in to copy from.
+- The node remembers the match for each pair of pictures it ran, and saves
+  it with the workflow. A reopened workflow shows it at once, and so does a
+  run ComfyUI skips because nothing changed.
 - Without a picture on grain_from, Auto picks the grain as above. Auto off
   ignores grain_from.
 

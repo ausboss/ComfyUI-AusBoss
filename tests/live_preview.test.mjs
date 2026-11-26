@@ -17,7 +17,7 @@ import { dirname, join } from "node:path";
 
 import { makeImage } from "../js/shared/live_image.mjs";
 import { autoGrain, autoValues, cellNormal, filmGrain, grainFrame, hashedCells, layGrain, matchValues, measureNoise } from "../js/shared/live_grain.mjs";
-import { copiesGrain, grainFromLinked, matchFromRun } from "../js/shared/grain_auto.mjs";
+import { copiesGrain, grainFromLinked, keepMatch, keptMatch, matchFromRun, refreshAuto } from "../js/shared/grain_auto.mjs";
 import { keepDetail } from "../js/shared/live_detail.mjs";
 import { cutOut } from "../js/shared/live_cutout.mjs";
 import { areaResize } from "../js/shared/live_image.mjs";
@@ -144,6 +144,35 @@ test("grain match: read from the run, used only while Auto is on and a picture i
   assert.equal(copiesGrain(node(false, 4)), false);
   assert.equal(copiesGrain(node(true, null)), false);
   assert.equal(copiesGrain({ widgets: [{ name: "auto", value: true }] }), false);
+});
+
+test("grain match: kept per pair of pictures, so a run ComfyUI answers from its cache still shows it", async () => {
+  // Two decoded pictures (known after a run) wired into Film Grain.
+  const links = { 1: { id: 1, origin_id: 10, origin_slot: 0 }, 2: { id: 2, origin_id: 11, origin_slot: 0 }, 3: { id: 3, origin_id: 12, origin_slot: 0 } };
+  const graph = { links, getNodeById: (id) => ({ id, type: "VAEDecode", widgets: [] }) };
+  const node = { graph, properties: {}, widgets: [{ name: "auto", value: true }], inputs: [{ name: "image", link: 1 }, { name: "grain_from", link: 2 }], setDirtyCanvas() {} };
+  const first = { amount: 0.3, size: 2, color: 0.2 };
+  keepMatch(node, first);
+  node.inputs[1].link = 3;
+  assert.equal(keptMatch(node), null);
+  keepMatch(node, { amount: 0.1, size: 4, color: 0 });
+  // Back to the first picture: ComfyUI's cache answers, no match is sent.
+  node.inputs[1].link = 2;
+  await refreshAuto(node, { viewUrl: (q) => q, record: null });
+  assert.deepEqual(node.__ausbossMatch, first);
+  // The kept matches ride in the saved workflow.
+  assert.equal(Object.keys(JSON.parse(JSON.stringify(node.properties)).ausboss_grain_matches).length, 2);
+  // A picture never matched waits for a run; unwiring forgets the match.
+  links[4] = { id: 4, origin_id: 13, origin_slot: 0 };
+  node.inputs[1].link = 4;
+  await refreshAuto(node, { viewUrl: (q) => q, record: null });
+  assert.equal(node.__ausbossMatch, null);
+  node.inputs[1].link = null;
+  await refreshAuto(node, { viewUrl: (q) => q, record: null });
+  assert.equal(node.__ausbossMatch, null);
+  // Only the last few pairs are kept.
+  for (let i = 0; i < 12; i += 1) { links[20 + i] = { id: 20 + i, origin_id: 30 + i, origin_slot: 0 }; node.inputs[1].link = 20 + i; keepMatch(node, first); }
+  assert.equal(Object.keys(node.properties.ausboss_grain_matches).length, 8);
 });
 
 test("grain match: the live drawing uses the match's colour and strength", () => {
