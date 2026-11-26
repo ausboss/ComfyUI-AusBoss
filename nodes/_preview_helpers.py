@@ -99,20 +99,21 @@ def save_temp_preview(
     return entry
 
 
-def save_live_sources(prefix: str, sources: dict, source: str = "Preview") -> dict:
+def save_live_sources(prefix: str, sources: dict, source: str = "Preview", keep_alpha: bool = False) -> dict:
     """Write the pictures a node worked from to the temp folder, one PNG each,
     so the node's face can redraw its result while a value is dragged
     (js/shared/live_stage.mjs). `sources` maps an input name to its IMAGE
     batch (BHWC) or, for a name that ends in "mask", a MASK (BHW); the first
-    frame of each is kept. Returns { name: ui.images-style entry }; a picture
-    that cannot be written is left out."""
+    frame of each is kept. With ``keep_alpha`` a picture's see-through parts
+    are kept (Cut Out reads them). Returns { name: ui.images-style entry }; a
+    picture that cannot be written is left out."""
     found = {}
     for name, value in sources.items():
         if value is None:
             continue
         try:
             batch = mask_to_preview_batch(value, source) if str(name).endswith("mask") else value
-            entry = save_temp_preview(batch, f"{prefix}_{name}", source, compress_level=1)
+            entry = save_temp_preview(batch, f"{prefix}_{name}", source, keep_alpha=keep_alpha, compress_level=1)
             entry.pop("alpha", None)
             found[name] = entry
         except Exception:  # noqa: BLE001 - the live picture is a convenience
@@ -146,7 +147,7 @@ def preview_payload(
     if extra_ui:
         ui.update(extra_ui)
     if live_sources:
-        found = save_live_sources(prefix, live_sources, source)
+        found = save_live_sources(prefix, live_sources, source, keep_alpha)
         if found:
             ui["ausboss_live"] = [found]
     return {"ui": ui, "result": result}

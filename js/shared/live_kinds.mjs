@@ -25,7 +25,8 @@ export const KINDS = {
     outChannels: 3,
   },
   cutout: {
-    inputs: [{ name: "image", channels: 3, noun: "an image" }, { name: "mask", channels: 1, noun: "a mask" }],
+    // Four channels: a see-through picture's alpha limits the cut-out, as in the node.
+    inputs: [{ name: "image", channels: 4, noun: "an image" }, { name: "mask", channels: 1, noun: "a mask" }],
     values: ["keep", "grow", "feather", "clean_edges", "clear_haze", "solid_above"],
     outChannels: 4,
   },
