@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 import re
 
 from ._h3_cast_helpers import (
+    SAYS_AFTER,
     EDIT,
     KEEP,
     MAIN,
@@ -126,9 +127,6 @@ PERSON_WORDS = re.compile(
 )
 # "says in a flat robot voice": how it is said, kept out of who says it.
 SPEECH_VERB = re.compile(r"\b(?:says?|said|asks?|whispers?|shouts?|yells?|screams?|mutters?|sings?|raps?|chants?|announces?|calls?\s+out|cries|replies|answers?)\b", re.I)
-CLAUSE_BREAK = re.compile(r"[.;:!?]|,|\b(?:as|while|when|whereas|then|before|after|until|but)\b", re.I)
-AND_SOMEONE = re.compile(r"\band\s+(?=@\d\b)", re.I)
-SOMEONE_BEFORE = re.compile(r"\b(?:who|she|he|they)\b", re.I)
 SAID_BY = re.compile(r"^(?:(?:the|a|an)\s+[\w\s-]+|someone|somebody)$", re.I)
 A_NAME = re.compile(r"^[A-Z][\w'.-]*(?:\s+[A-Z][\w'.-]*)?$")
 UNSEEN = re.compile(r"\b(?:feels?|thinks?|remembers?|reali[sz]es?|decides?|wants?|hopes?|wonders?|knows?|understands?|believes?|imagines?)\b", re.I)
@@ -692,6 +690,16 @@ def without_speech(moment):
 
 
 def moment_words(moment, say, cast):
+    if moment.speech and cast.as_typed and not moment.voice and f'"{moment.speech}"' in moment.text:
+        # More than one person: the line as typed, with only the words put in H3's speech tag.
+        typed = with_labels(moment.text.replace(f'"{moment.speech}"', "\x02", 1), cast)
+        if moment.start:
+            typed = "The shot opens on " + lower_first(typed)
+        elif moment.end:
+            typed = "The shot ends on " + lower_first(typed)
+        typed = typed.strip()
+        typed = typed if typed.endswith("\x02") else sentence(typed)
+        return typed.replace("\x02", say(moment.speech, not moment.voiceover, bare=True))
     words = with_labels(without_speech(moment), cast)
     if moment.start:
         words = "The shot opens on " + lower_first(words)
@@ -703,52 +711,19 @@ def moment_words(moment, say, cast):
     return line
 
 
-def speaker_before(lead, people):
-    """The person who says the words, from the text before the speech verb.
-
-    The speaker opens the part of the sentence the verb is in: "@1 listens as
-    @2 says" and "@1 looks at @2 and @2 says" are @2. A part that names no one
-    goes back: "who" or "she" is the last person named ("@1 glares at @2, who
-    says" is @2), and a verb with no one before it keeps the one doing the
-    action ("@1 turns to @2 and says", "@1 turns to @2, then says" are @1).
-    """
-    parts = []
-    for part in CLAUSE_BREAK.split(lead):
-        # "and @2" starts a new part once the part before it has its own verb,
-        # so "@1 and @2 say" stays one part.
-        for joint in reversed(list(AND_SOMEONE.finditer(part))):
-            if set(re.findall(r"[a-z]+", TOKEN.sub("", part[: joint.start()]).lower())) - {"and", "both", "the"}:
-                parts += [part[: joint.start()], part[joint.end():]]
-                break
-        else:
-            parts.append(part)
-
-    def named(part):
-        return [slot for slot in TOKEN.findall(part) if int(slot) in people]
-
-    if named(parts[-1]):
-        return named(parts[-1])[0]
-    if SOMEONE_BEFORE.search(parts[-1]):
-        everyone = named(lead)
-        return everyone[-1] if everyone else None
-    for part in reversed(parts[:-1]):
-        if named(part):
-            return named(part)[0]
-    return None
-
-
 def speaker_of(moment, cast):
-    """Who says a moment's words: an off-screen voice, the first person it names, or the main person."""
+    """Who says a moment's words: an off-screen voice, the person named right
+    before them ("@2 says"), the first person the moment names, or the main
+    person. With more than one person and no voice, as_typed means nobody is
+    picked at all."""
     if moment.voice:
         return moment.voice
     people = {picture.slot for picture in cast.people}
     quote = moment.text.find('"')
     before = moment.text[:quote] if quote >= 0 else moment.text
-    verbs = list(SPEECH_VERB.finditer(before))
-    if verbs:
-        who = speaker_before(before[: verbs[-1].start()], people)
-        if who:
-            return cast.subjects[int(who)]
+    named = [slot for slot in SAYS_AFTER.findall(before) if int(slot) in people]
+    if named:
+        return cast.subjects[int(named[-1])]
     for slot in TOKEN.findall(moment.text):
         if int(slot) in people:
             return cast.subjects[int(slot)]
@@ -759,8 +734,8 @@ def speakers(moments, cast):
     """Everyone who speaks, in the order H3 numbers them."""
     found = []
     for moment in moments:
-        who = speaker_of(moment, cast)
-        if moment.speech and who not in found:
+        who = moment.voice if cast.as_typed else speaker_of(moment, cast)
+        if moment.speech and who and who not in found:
             found.append(who)
     # A voice from off screen, like a card reader, comes after the people, who keep the low numbers.
     return [who for who in found if who.startswith("<")] + [who for who in found if not who.startswith("<")]
@@ -887,7 +862,9 @@ def shot_lines(script, seconds, say, cast, wearers, move="", hold=""):
         for index in shot:
             moment = script.moments[index]
 
-            def speak(words, on_screen=True, moment=moment):
+            def speak(words, on_screen=True, moment=moment, bare=False):
+                if bare:  # Only the speech tag: the typed line around it says who.
+                    return say(words, on_screen, None)
                 who = speaker_of(moment, cast)
                 if moment.delivery:
                     return say(words, on_screen, who, talking.index(who) + 1, delivery=moment.delivery)
@@ -970,8 +947,11 @@ def summary_of(script, cast, new_places, soundtrack):
         return f"[{tag}] The target video continues directly from the end of <Video 1>{where}."
     talking = [who for who in speakers(script.moments, cast) if who.startswith("<")]
     who_speaks = f"{' and '.join(talking)} speak" if len(talking) > 1 else f"{cast.main} speaks"
-    opening = with_labels(without_speech(script.moments[0]), cast) or who_speaks
-    later = [with_labels(without_speech(script.moments[shot[0]]), cast) for shot in shots_of(script)[1:]]
+    # With more than one person the summary keeps the typed line and only stands
+    # "a line" in for the words, which the description already carries once.
+    said = (lambda moment: re.sub(r'"[^"]*"', "a line", moment.text)) if cast.as_typed else without_speech
+    opening = with_labels(said(script.moments[0]), cast) or who_speaks
+    later = [with_labels(said(script.moments[shot[0]]), cast) for shot in shots_of(script)[1:]]
     if cast.opens and cast.ends:
         moving = f"moving from {picture_label(cast.opens.picture)} to {picture_label(cast.ends.picture)}"
         return f"[{task}] In the target video, {lower_first(opening.rstrip('.!? '))}, {moving}."

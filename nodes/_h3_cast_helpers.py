@@ -34,6 +34,8 @@ KEEPS_ITS_LENGTH = (MOVES, SWAP, REVOICE, EDIT)  # These follow a clip, so the n
 NEEDS_NO_WORDS = (SWAP, KEEP)
 
 TOKEN = re.compile(r"@(\d)\b")
+# "@2 says", "@2 whispers": the person named right before what they say.
+SAYS_AFTER = re.compile(r"@(\d)\s+(?:says?|said|asks?|whispers?|shouts?|yells?|screams?|mutters?|sings?|raps?|chants?|announces?|calls?\s+out|cries|replies|answers?)\b", re.I)
 MAIN = "@0"  # The main person, for lines the node writes itself.
 
 BACKGROUND = "The background of {picture} is not kept."
@@ -397,6 +399,7 @@ class Cast:
     def __init__(self, pictures, video=""):
         self.pictures = pictures
         self.video = video
+        self.voiced = False  # A voice recording is connected.
         last = max((picture.subject for picture in pictures), default=0)
         self.people = [picture for picture in pictures if picture.job in (*ACTORS, START)]
         self.moves = subject_label(last + 1) if video == MOVES else ""
@@ -501,6 +504,12 @@ class Cast:
         defined = {subject_label(picture.subject) for picture in self.of(*ACTORS, THING, START)}
         return self.main in defined
 
+    @property
+    def as_typed(self):
+        """Two or more people and no voice recording: each spoken line goes to H3
+        the way it was typed, and H3 reads who says it. The writer picks nobody."""
+        return len(self.people) >= 2 and self.video in ("", MOVES, KEEP) and not self.voiced
+
     def unclear_speaker(self, moments):
         """A refusal when two or more people are connected and a spoken line does not say which one speaks."""
         if self.video not in ("", MOVES, KEEP) or len(self.people) < 2:
@@ -511,6 +520,9 @@ class Cast:
                 if not any(int(slot) in people for slot in TOKEN.findall(moment.text)):
                     count = "two people" if len(self.people) == 2 else "more than one person"
                     return f'With {count}, name who speaks: @{self.people[1].slot} says "hello".'
+                if self.voiced and not any(int(slot) in people for slot in SAYS_AFTER.findall(moment.text)):
+                    # The recording's voice goes to one person, so they are named, never guessed.
+                    return f'With a voice and more than one person, put who speaks right before the words: @{self.people[1].slot} says "hello".'
         return ""
 
     @property

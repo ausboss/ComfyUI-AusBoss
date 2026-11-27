@@ -532,10 +532,13 @@ class PictureJobTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "@2 can't be in a line"):
             write_prompt("@2 runs", jobs={1: "person", 2: "end on it"})
 
-    def test_each_person_speaks_in_their_own_number(self):
+    def test_two_people_speak_as_typed(self):
+        # Nobody is picked for them: each line goes to H3 the way it was typed.
         text = write_prompt('@1 says "hi"\n@2 says "hello"', jobs={1: "person", 2: "person"})
-        self.assertIn("<Subject 1> (S1) says, <d>[English] hi.</d>", text)
-        self.assertIn("<Subject 2> (S2) says, <d>[English] hello.</d>", text)
+        self.assertIn("<Subject 1> says <d>[English] hi.</d>", text)
+        self.assertIn("<Subject 2> says <d>[English] hello.</d>", text)
+        self.assertNotIn("(S1)", text)
+        self.assertNotIn("jaw and lips", text)
 
     def test_the_voice_goes_to_who_speaks_first(self):
         parts = parts_of('@2 says "hello"\n@1 says "hi"', jobs={1: "person", 2: "person"}, voice=True)
@@ -687,18 +690,18 @@ class EverydayLineTests(unittest.TestCase):
         for line in ('She says "Wait" in voiceover.', 'VO: "Come back."'):
             moment = read_script(line).moments[0]
             self.assertTrue(moment.voiceover, line)
-        line = parts_of('@1 listens as @2 says "Hi."', jobs={1: "person", 2: "person"})["detailed_description"]
-        self.assertIn("<Subject 2> (S1) says", line)
-        for line, speaker in (
-            ('@1 turns to @2 and says "Hello."', 1),
-            ('@1 turns to @2 and, smiling, says "Hello."', 1),
-            ('@1 glares at @2, who says "Fine."', 2),
-            ('@1 nods at @2 as she says "Yes."', 2),
-            ('@1 looks at @2 and @2 says "Go."', 2),
+        # With two people the writer picks no speaker: the line reaches H3 as typed.
+        for line, typed in (
+            ('@1 listens as @2 says "Hi."', "<Subject 1> listens as <Subject 2> says <d>[English] Hi.</d>"),
+            ('@1 turns to @2 and says "Hello."', "<Subject 1> turns to <Subject 2> and says <d>[English] Hello.</d>"),
+            ('@1 glares at @2, who says "Fine."', "<Subject 1> glares at <Subject 2>, who says <d>[English] Fine.</d>"),
         ):
             text = parts_of(line, jobs={1: "person", 2: "person"})["detailed_description"]
-            self.assertIn(f"<Subject {speaker}> (S1)", text, line)
-            self.assertNotIn(f"<Subject {3 - speaker}> (S1)", text, line)
+            self.assertIn(typed, text, line)
+            self.assertNotIn("(S1)", text, line)
+            self.assertNotIn("jaw and lips", text, line)
+        voiced = parts_of('@1 looks at @2 and @2 says "Go."', jobs={1: "person", 2: "person"}, voice=True)
+        self.assertIn("voice-timbre reference for <Subject 2> (S1)", voiced["subject_definitions"])
         self.assertEqual(read_script("She says \"He said 'come here'.\"").moments[0].speech, "He said 'come here'.")
         self.assertNotIn("In voiceover", parts_of('She says "Wait" in voiceover.')["detailed_description"])
 
@@ -1745,7 +1748,10 @@ class PromptBugBatchTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, r"name who speaks: @2 says"):
             write_prompt('@1 and @2 talk. She says "hi". He says "hello".', seconds=6, jobs=jobs)
         parts = parts_of('@1 says "hi". @2 says "hello".', seconds=6, jobs=jobs)
-        self.assertIn("<Subject 1> and <Subject 2> speak", parts["summary"])
+        self.assertIn("<Subject 1> says a line.", parts["summary"])
+        self.assertNotIn('"hi"', parts["summary"])
+        with self.assertRaisesRegex(ValueError, r"put who speaks right before the words: @2 says"):
+            write_prompt('@1 turns to @2 and says "hi".', seconds=6, jobs=jobs, voice=True)
 
     def test_keep_going_uses_the_person_picture_as_the_main_person(self):
         parts = parts_of("He walks.", seconds=6, jobs={1: "person"}, video="keep going")

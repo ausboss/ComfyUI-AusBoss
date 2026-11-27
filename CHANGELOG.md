@@ -17,7 +17,8 @@ All notable changes to ComfyUI-AusBoss are documented here.
   after a quote keeps the lips closed, `Cut back to` returns to a place,
   and `Start on black.` works. A number such as "7 seconds remain" stays
   part of the action, and two people are no longer placed left and right
-  unless the script says where they stand.
+  unless the script says where they stand. With two or more people, a
+  spoken line reaches H3 as you typed it.
 - **New node: Strength Curve 🆎.** Draw how strong something should be
   from the start of a run to the end, and wire it into a node that follows
   it step by step. Drag the points or start from a preset (flat, fade out,
