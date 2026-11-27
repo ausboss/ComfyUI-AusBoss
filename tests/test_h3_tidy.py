@@ -138,6 +138,26 @@ class HoldTests(unittest.TestCase):
         out, _ = tidy_script('@1 holds up a sign and shouts "Run!"\n@2 nodds', ask)
         self.assertEqual(out, '@1 holds up a sign and shouts "Run!".\n@2 nods.')
 
+    def test_a_softly_said_line_keeps_its_speaker(self):
+        ask, _ = answering("@1 waits while @2 says SPOKEN.", "@2 nods.")
+        line = '@1 says softly "Hi." while @2 waits.'
+        self.assertEqual(tidy_script(line + "\n@2 nodds", ask), (line + "\n@2 nods.", True))
+
+    def test_a_sign_beside_dialogue_is_not_voiced(self):
+        ask, _ = answering("@1 says SPOKEN1 beside the sign. @1 says SPOKEN2.", "@1 waves.")
+        line = '@1 says "Hi." beside a sign reading "EXIT".'
+        self.assertEqual(tidy_script(line + "\n@1 wavs", ask), (line + "\n@1 waves.", True))
+
+    def test_a_timed_line_cannot_speak_earlier(self):
+        ask, _ = answering("@1 waves.", "0s: @1 says SPOKEN. 3s: @1 nods.")
+        script = '@1 waves.\n3s: @1 says "Hi." and nods.'
+        self.assertEqual(tidy_script(script, ask), (script, False))
+
+    def test_a_typed_cut_cannot_vanish(self):
+        ask, _ = answering("@1 waves.", "@1 sits.")
+        script = "@1 waves.\nCut to @1 sits."
+        self.assertEqual(tidy_script(script, ask), (script, False))
+
     def test_a_one_line_idea_is_left_for_the_model_to_fill_out(self):
         ask, calls = answering("The woman checks a chart. She walks to the door.")
         self.assertEqual(tidy_script("the woman checks a chart and walks to the door", ask), ("the woman checks a chart and walks to the door", False))
