@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.29.0 - 2026-11-27
 
 - **H3 Prompt Writer 🆎 can tidy up your lines.** Turn on **More → Tidy up
   my lines** with a small text model such as Qwen3-VL 8B on `clip`, and it
