@@ -228,7 +228,7 @@ Picks one frame from a batch, unchanged: `1` is the first, `-1` the last and `-2
 
 ### Frame Interpolate
 
-Changes a clip's frame rate by making in-between frames. You set the source and target fps, so 24 to 30 works as well as doubling. The blend method crossfades frames, and optical flow uses RAFT weights you put in place yourself. At a hard cut it holds the frame instead of blending two unrelated shots. It works in chunks to keep memory down.
+Changes a clip's frame rate by making in-between frames. You set the source and target fps, so 24 to 30 works as well as doubling. The blend method crossfades frames, and optical flow uses RAFT weights you put in place yourself. At a hard cut it holds the frame instead of blending two shots together, even when both shots show the same place. It works in chunks to keep memory down.
 
 It returns the new frames and their fps. It doesn't touch audio, so carry the source audio to Save Video separately. The [help page](js/docs/AUSBOSS_NODES_FrameInterpolate.md) covers the weights and timing.
 
