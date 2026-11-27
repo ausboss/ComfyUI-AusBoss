@@ -22,6 +22,7 @@ from ._fine_edge_helpers import (
     fine_edge_choices,
     fine_edges as find_fine_edges,
     grow_fine,
+    keep_subjects_for,
     loaded_subject_models,
     shown_colours,
     subject_matte,
@@ -1265,6 +1266,7 @@ class AusBossMaskByTouch:
         # Each picked thing's own area on the first picture, for the face.
         things = []
         self._edge_choice = fine_edges
+        keep_subjects_for(int(image.shape[0]))
         subject_trouble = None
         # Per word, which of its matches are picked on the first picture. A
         # word is in while it has any, in the order the words were picked.

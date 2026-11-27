@@ -161,6 +161,15 @@ CLEAN_FOR = 1440
 
 _MODELS = OrderedDict()
 _SUBJECTS = OrderedDict()
+# Raised to the batch at hand: a run asks about each picture twice (the
+# picks, then the fine edge), and RMBG-3.0 takes seconds a picture.
+_subjects_kept = SUBJECTS_KEPT
+
+
+def keep_subjects_for(pictures: int) -> None:
+    """Remember the subject of at least this many pictures (one batch)."""
+    global _subjects_kept
+    _subjects_kept = max(SUBJECTS_KEPT, int(pictures))
 
 
 # ---------------------------------------------------------------------------
@@ -192,8 +201,9 @@ def list_rmbg3_models() -> list[str]:
 
 
 def is_rmbg3(name) -> bool:
-    """An RMBG-3.0 choice, by its file name, whether or not this ComfyUI has it."""
-    return _base(name).startswith(RMBG3_PREFIX)
+    """An RMBG-3.0 choice, by its file name, whether or not this ComfyUI has
+    it. A background-removal file stays one, whatever it is called."""
+    return _base(name).startswith(RMBG3_PREFIX) and str(name).strip() not in list_subject_models()
 
 
 def fine_edge_choices() -> list[str]:
@@ -273,18 +283,24 @@ def _rmbg3_parts(name: str):
     if folder_paths is None or not folder_paths.get_full_path(RMBG3_FOLDER, name):
         raise FileNotFoundError(RMBG3_NOT_FOUND.format(name=name))
     text = _pick_file("text_encoders", RMBG3_TEXT, lambda base: "qwen3vl_4b" in base or "qwen3-vl-4b" in base)
-    vae = _pick_file("vae", RMBG3_VAE, lambda base: "flux2" in base and "vae" in base)
+    # A decoder-only or encoder-only copy of the VAE cannot do the job.
+    vae = _pick_file("vae", RMBG3_VAE, lambda base: "flux2" in base and "vae" in base and "decoder" not in base and "encoder" not in base)
+    # A file that is listed but cannot be opened (a broken link) counts as missing.
+    if text and not folder_paths.get_full_path("text_encoders", text):
+        text = None
+    if vae and not folder_paths.get_full_path("vae", vae):
+        vae = None
     missing = [what for what, found in (("qwen3vl_4b_int8_convrot.safetensors", text), ("flux2-vae.safetensors", vae)) if not found]
     if missing:
         raise FileNotFoundError(NEEDS_RMBG3_PARTS.format(missing=" and ".join(missing)))
     paths = [folder_paths.get_full_path(folder, file) for folder, file in ((RMBG3_FOLDER, name), ("text_encoders", text), ("vae", vae))]
-    if not all(paths):
-        raise FileNotFoundError(RMBG3_NOT_FOUND.format(name=name))
     stamp = tuple((path, os.path.getmtime(path), os.path.getsize(path)) for path in paths)
     kept = _MODELS.get(name)
     if kept is not None and kept[0] == stamp:
         _MODELS.move_to_end(name)
         return kept[1]
+    # One RMBG-3.0 at a time: another copy (int8 after bf16) goes first.
+    _drop_rmbg3()
     parts = (
         unet_loader().load_unet(unet_name=name, weight_dtype="default")[0],
         clip_loader().load_clip(clip_name=text, type="fibo2", device="default")[0],
@@ -402,7 +418,7 @@ def subject_matte(frame: torch.Tensor, choice, key: str | None = None) -> torch.
         matte = answer[0].detach().float().clamp(0.0, 1.0).cpu()
     if key is not None:
         _SUBJECTS[slot] = (matte * 255.0).round().to(torch.uint8)
-        while len(_SUBJECTS) > SUBJECTS_KEPT:
+        while len(_SUBJECTS) > _subjects_kept:
             _SUBJECTS.popitem(last=False)
     return matte
 

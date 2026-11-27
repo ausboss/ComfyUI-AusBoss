@@ -879,7 +879,13 @@ test("the Fine edges choices read off and on, and by name only when there are se
   const known = ["off", "birefnet.safetensors", "rmbg3_int8_convrot.safetensors"];
   assert.equal(fineEdgeLabel("birefnet.safetensors", known), "BiRefNet");
   assert.equal(fineEdgeLabel("rmbg3_int8_convrot.safetensors", known), "RMBG-3.0");
-  assert.equal(fineEdgeLabel("rmbg3_int8_convrot.safetensors", ["off", "rmbg3_int8_convrot.safetensors"]), "on");
+  // RMBG-3.0 alone still reads RMBG-3.0: the help page says to pick it by that name.
+  assert.equal(fineEdgeLabel("rmbg3_int8_convrot.safetensors", ["off", "rmbg3_int8_convrot.safetensors"]), "RMBG-3.0");
+  // Both of Bria's copies: each says which it is.
+  const both = ["off", "birefnet.safetensors", "rmbg3_bf16.safetensors", "rmbg3_int8_convrot.safetensors"];
+  assert.equal(fineEdgeLabel("rmbg3_bf16.safetensors", both), "RMBG-3.0 bf16");
+  assert.equal(fineEdgeLabel("rmbg3_int8_convrot.safetensors", both), "RMBG-3.0 int8");
+  assert.equal(fineEdgeLabel("birefnet.safetensors", both), "BiRefNet");
 });
 
 test("the line of settings a fine edge was made with is the one the node writes", () => {
