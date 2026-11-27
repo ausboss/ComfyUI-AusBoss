@@ -17,8 +17,7 @@ from __future__ import annotations
 
 import re
 
-from ._h3_cast_helpers import SAYS_AFTER
-from ._h3_script_helpers import LABEL as SETTING_LINE, clean, read_script
+from ._h3_script_helpers import LABEL as SETTING_LINE, SIGN_CUE, SPEECH_CUE, clean, read_script
 
 TIDY_SYSTEM = (
     'You tidy up lines of a video script.\n'
@@ -122,53 +121,91 @@ def answer_ok(held, answer, marks):
     return len(answer) <= 2 * len(held) + 40
 
 
-def said_pairs(text):
-    """(person, words) for each "@N says "words"" typed with the person right before the words."""
-    return [(found.group(1), quote.group(1)) for found in SAYS_AFTER.finditer(text)
-            for quote in [re.match(r'\s*[:,]?\s*"([^"\n]*)"', text[found.end():])] if quote]
+# "@1 says", "@1 softly whispers:": a person named right before the marker they say.
+SAYS = re.compile(
+    r"@(\d+)\s+(?:\w+ly\s+)?(?:says?|said|asks?|whispers?|shouts?|yells?|screams?|mutters?|sings?|raps?|chants?"
+    r"|announces?|calls?\s+out|cries|replies|answers?|goes)\b(?:\s+\w+ly)?\s*[:,]?\s*$",
+    re.I,
+)
+
+
+def before_each(held):
+    """{marker: the words typed before it, back to the end of the last sentence or the last marker}."""
+    spans, start = {}, 0
+    for found in SPOKEN.finditer(held):
+        span = held[start : found.start()]
+        spans[found.group(0)] = re.split(r"[.!?;]\s", span)[-1]
+        start = found.end()
+    return spans
+
+
+def same_roles(held, answer):
+    """Each marker typed right after "@N says" is still said by @N, and each one typed on a sign or a shirt
+    is still on one."""
+    typed, tidied = before_each(held), before_each(answer)
+    for mark, span in typed.items():
+        said, now = SAYS.search(span), SAYS.search(tidied.get(mark, ""))
+        if said and (not now or now.group(1) != said.group(1)):
+            return False
+        shown = SIGN_CUE.search(span) and not SPEECH_CUE.search(span)
+        if shown and not (SIGN_CUE.search(tidied[mark]) and not SPEECH_CUE.search(tidied[mark])):
+            return False
+    return True
+
+
+def reading(text):
+    """What the writer reads from the whole script: each spoken line with its shot and timed second, the
+    quotes it shows rather than says, the number of cuts and the timed seconds."""
+    shot, at, said, shown, times = 0, None, [], [], []
+    for moment in read_script(text).moments:
+        shot += bool(moment.cut)
+        if moment.at is not None:
+            at = moment.at
+            times.append(moment.at)
+        if moment.speech:
+            said.append((shot, at, moment.speech))
+        else:
+            shown += [match.group(1).strip() for match in [re.search(r'"([^"\n]+)"', moment.text)] if match]
+    return said, shown, shot, times
 
 
 def same_reading(typed, tidied):
-    """The writer reads the tidied line as it reads the typed one. Everything said is still said, in the same
-    order, by the same named person; a quote the writer shows on a sign or shirt is not said; the cuts and
-    timed seconds are the same. A second quote in one sentence, which the writer can't give a voice, may
-    become its own spoken line."""
-    before, after = read_script(typed), read_script(tidied)
-    said = [moment.speech for moment in before.moments if moment.speech]
-    now = [moment.speech for moment in after.moments if moment.speech]
+    """The writer reads the tidied script as it reads the typed one: everything said is still said, in the
+    same order, shot and second; nothing it shows on a sign is said; the same cuts and timed seconds. A
+    second quote in one sentence, which the writer can't give a voice, may become its own spoken line."""
+    said, shown, cuts, times = reading(typed)
+    now, _, now_cuts, now_times = reading(tidied)
     rest = iter(now)
-    if not all(any(words == other for other in rest) for words in said):
-        return False  # something said is lost, or the order changed
-    shown = [match.group(1).strip() for moment in before.moments if not moment.speech
-             for match in [re.search(r'"([^"\n]+)"', moment.text)] if match]
-    if any(words in now for words in shown):
+    if not all(any(line == other for other in rest) for line in said):
         return False
-    pairs = said_pairs(clean(tidied))
-    if any(pair not in pairs for pair in said_pairs(clean(typed))):
-        return False
-    if sum(moment.cut for moment in before.moments) != sum(moment.cut for moment in after.moments):
-        return False
-    return [moment.at for moment in before.moments if moment.at is not None] == [moment.at for moment in after.moments if moment.at is not None]
+    return not any(words in [line[2] for line in now] for words in shown) and (cuts, times) == (now_cuts, now_times)
 
 
 def tidy_line(line, ask):
-    """One typed line tidied, or as typed."""
+    """One typed line tidied by the model, or as typed when its answer breaks a rule."""
     held, marks, quotes = hold(line)
     longest = min(800, 64 + 3 * len(held.split()))
     answer = LABEL.sub("", str(ask(TIDY_SYSTEM, f"Line: {held}\nCleaned:", longest) or "").strip()).strip()
-    if "\n" in answer or not answer_ok(held, answer, marks):
+    if "\n" in answer or not answer_ok(held, answer, marks) or not same_roles(held, answer):
         return line
-    answer = put_back(answer, marks, quotes)
-    return answer if same_reading(line, answer) else line
+    return put_back(answer, marks, quotes)
 
 
 def tidy_script(script, ask):
-    """The script tidied by ask(system, user, longest) one line at a time. Returns (script, tidied)."""
+    """The script tidied by ask(system, user, longest) one line at a time. Returns (script, tidied). Each
+    line's answer is kept only when the whole script still reads the same with it."""
     if not clean(script):
         return script, False
     typed = read_script(script)
     if len(typed.moments) == 1 and not typed.moments[0].speech:
         return script, False  # One idea: Auto prompt fills it out from the line as typed.
     lines = str(script).replace("\r\n", "\n").replace("\r", "\n").split("\n")
-    out = [line if not line.strip() or SETTING_LINE.match(clean(line)) else tidy_line(line, ask) for line in lines]
+    out = list(lines)
+    for index, line in enumerate(lines):
+        if not line.strip() or SETTING_LINE.match(clean(line)):
+            continue
+        tidy = tidy_line(line, ask)
+        trial = out[:index] + [tidy] + out[index + 1 :]
+        if tidy != line and same_reading(script, "\n".join(trial)):
+            out = trial
     return ("\n".join(out), True) if out != lines else (script, False)

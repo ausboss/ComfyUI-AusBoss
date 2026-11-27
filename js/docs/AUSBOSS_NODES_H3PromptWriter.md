@@ -316,9 +316,10 @@ through the model. Each quote is swapped for a marker (`SPOKEN`, or `SPOKEN1`,
 `SPOKEN2`) before anything else touches the line, so the model never sees the
 quoted words. A line's answer is used only when it is one line, every marker comes
 back once, the same `@` numbers are in it, it is not much longer than what you
-typed, and the writer reads it as it reads your line: the same words said in the
-same order, each typed `@N says "..."` kept with the same person, the same cuts
-and timed seconds, and nothing it shows on a sign or a shirt turned into speech.
+typed, each typed `@N says "..."` keeps the same person, a quote on a sign or a
+shirt stays on it, and the writer reads the whole script the same way with the
+tidied line in it: the same words said in the same order, shot and second, and the
+same cuts and timed seconds.
 Any other line is used as typed. If the writer still turns the tidied lines down,
 it uses your lines as typed. On Qwen3-VL 8B the instructions put the right speaker
 before the words on 38 of 38 lines they were not written for, took about 0.3
