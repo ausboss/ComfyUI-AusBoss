@@ -1816,7 +1816,8 @@
             "type": "IMAGE"
           }
         ],
-        "extra": {}
+        "extra": {},
+        "reroutes": []
       },
       {
         "id": "a988ba93-208b-4af3-b721-61365d1292ac",
@@ -2612,7 +2613,8 @@
             "type": "IMAGE"
           }
         ],
-        "extra": {}
+        "extra": {},
+        "reroutes": []
       }
     ]
   },
@@ -2624,7 +2626,111 @@
         137,
         20
       ]
-    }
+    },
+    "reroutes": [
+      {
+        "id": 1,
+        "pos": [
+          940,
+          34
+        ],
+        "linkIds": [
+          1
+        ]
+      },
+      {
+        "id": 2,
+        "parentId": 1,
+        "pos": [
+          1420,
+          34
+        ],
+        "linkIds": [
+          1
+        ]
+      },
+      {
+        "id": 3,
+        "pos": [
+          940,
+          38
+        ],
+        "linkIds": [
+          13
+        ]
+      },
+      {
+        "id": 4,
+        "parentId": 3,
+        "pos": [
+          1780,
+          38
+        ],
+        "linkIds": [
+          13
+        ]
+      },
+      {
+        "id": 5,
+        "pos": [
+          940,
+          42
+        ],
+        "linkIds": [
+          14
+        ]
+      },
+      {
+        "id": 6,
+        "parentId": 5,
+        "pos": [
+          1780,
+          42
+        ],
+        "linkIds": [
+          14
+        ]
+      },
+      {
+        "id": 7,
+        "pos": [
+          934,
+          450
+        ],
+        "linkIds": [
+          15
+        ]
+      },
+      {
+        "id": 8,
+        "parentId": 7,
+        "pos": [
+          942,
+          700
+        ],
+        "linkIds": [
+          15
+        ]
+      }
+    ],
+    "linkExtensions": [
+      {
+        "id": 1,
+        "parentId": 2
+      },
+      {
+        "id": 13,
+        "parentId": 4
+      },
+      {
+        "id": 14,
+        "parentId": 6
+      },
+      {
+        "id": 15,
+        "parentId": 8
+      }
+    ]
   },
   "version": 0.4
 }
