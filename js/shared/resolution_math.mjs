@@ -248,7 +248,50 @@ export function chipMatch(width, height, ratio, tolerance = 0.015) {
 // Parse the gear menu's editable rail text ("1:1, 4:3, 7:4") into ratio
 // objects; junk entries drop, duplicates collapse, and an empty result
 // falls back to the shipped defaults so the rail can never vanish.
-export const DEFAULT_RAIL = "1:1, 4:3, 3:2, 16:9, 7:4, 2:1";
+// The rail setting is one comma list in chip order. A ratio saved with a
+// leading "-" ("-21:9") stays in the gear's list but is not shown as a chip;
+// parseRail skips it, so an older reader of the setting just sees fewer chips.
+export const DEFAULT_RAIL = "1:1, 4:3, 3:2, 16:9, 7:4, 2:1, -5:4, -21:9";
+export const RAIL_MAX = 24;
+
+// One typed ratio ("21:9", "21x9", "9 : 21") as a landscape entry: the flip
+// button sets the orientation, so 9:16 and 16:9 are the same chip.
+export function parseRatioToken(text) {
+  const match = String(text ?? "").trim().match(/^(\d{1,3})\s*[:x×]\s*(\d{1,3})$/i);
+  if (!match) return null;
+  const a = Number(match[1]);
+  const b = Number(match[2]);
+  if (!a || !b) return null;
+  const long = Math.max(a, b);
+  const short = Math.min(a, b);
+  const d = gcd(long, short);
+  return { x: long / d, y: short / d, label: `${long}:${short}` };
+}
+
+export function ratioKey(ratio) {
+  return `${Math.max(ratio.x, ratio.y)}:${Math.min(ratio.x, ratio.y)}`;
+}
+
+// Every ratio in the rail setting, in order, with `on` false for the hidden
+// ones. With nothing to show it falls back to the shipped list, the same
+// way parseRail does.
+export function railEntries(text) {
+  const seen = new Set();
+  const entries = [];
+  for (const raw of String(text ?? "").split(",")) {
+    const token = raw.trim();
+    const on = !token.startsWith("-");
+    const ratio = parseRatioToken(on ? token : token.slice(1));
+    if (!ratio || seen.has(ratioKey(ratio)) || entries.length >= RAIL_MAX) continue;
+    seen.add(ratioKey(ratio));
+    entries.push({ ...ratio, on });
+  }
+  return entries.some((entry) => entry.on) ? entries : railEntries(DEFAULT_RAIL);
+}
+
+export function railText(entries) {
+  return entries.map((entry) => `${entry.on ? "" : "-"}${entry.label}`).join(", ");
+}
 
 export function parseRail(text) {
   const seen = new Set();
@@ -274,7 +317,21 @@ export function parseRail(text) {
 export function orientRatio(ratio, portrait) {
   const long = Math.max(ratio.x, ratio.y), short = Math.min(ratio.x, ratio.y);
   const x = portrait ? short : long, y = portrait ? long : short;
+  // Keep the name the ratio was given: 21:9 stays 21:9, not 7:3.
+  const named = String(ratio.label ?? "").split(":").map(Number);
+  if (named.length === 2 && named.every(n => n > 0) && named[0] * ratio.y === named[1] * ratio.x) {
+    const [a, b] = [Math.max(...named), Math.min(...named)];
+    return { x, y, label: portrait ? `${b}:${a}` : `${a}:${b}` };
+  }
   return { x, y, label: `${x}:${y}` };
+}
+
+// The readout's name for a size: a rail ratio's own name when the size is
+// exactly on it (1568x672 reads 21:9, as its chip does), else ratioLabel.
+export function railRatioLabel(width, height, rail) {
+  const { x, y } = reduceRatio(width, height);
+  const match = (rail ?? []).find(r => (r.x === x && r.y === y) || (r.x === y && r.y === x));
+  return match ? orientRatio(match, height > width).label : ratioLabel(width, height);
 }
 
 // ---------- quick sizes ----------
