@@ -125,7 +125,7 @@ export function ensureCardCss() {
 .ausboss-card-select:focus-visible{outline:2px solid ${T.brand};outline-offset:1px}
 .ausboss-card-text{width:100%;height:${ROW_HEIGHT}px;padding:0 8px;box-sizing:border-box;border:1px solid transparent;border-radius:${RADIUS_CONTROL}px;background:${T.fill};color:${T.ink};font:12px ${FONT};min-width:0}
 .ausboss-card-text:focus{outline:none;border-color:${T.brand}}
-.ausboss-card-text::placeholder{color:${T.faint}}
+.ausboss-card-text::placeholder{color:${T.faint};font-style:italic}
 .ausboss-card-area{display:block;width:100%;height:100%;padding:5px 8px;box-sizing:border-box;border:1px solid transparent;border-radius:${RADIUS_CONTROL}px;background:${T.fill};color:${T.ink};font:12px/1.4 ${FONT};resize:none;overflow:auto;min-width:0}
 .ausboss-card-area:focus{outline:none;border-color:${T.brand}}
 .ausboss-card-area::placeholder{color:${T.faint}}

@@ -17,6 +17,18 @@ All notable changes to ComfyUI-AusBoss are documented here.
   row followed a Strength Curve that holds one value the whole run: the LoRA
   was skipped, but its words still reached the prompt. They stay out now,
   as they already did with no curve or a curve that moves.
+- **H3 Prompt Writer 🆎 shows only the sockets you use.** A new node has
+  five inputs and four outputs, where it had nine and fourteen. Connect a
+  picture and the next picture socket appears, and an output appears once
+  its input is connected. The picture chips under the words do the same: a
+  chip shows for each picture or video you plugged in. Saved workflows are
+  unchanged: every wire stays where it was and the node sends the same
+  things. To see every socket and chip all the time, turn on **Settings →
+  🆎 AusBoss → H3 Prompt Writer → Show every socket**.
+- **H3 Prompt Writer 🆎: the grey hints in Sound and Music read as examples.**
+  They now say `(e.g. rain on a window)` and `(e.g. slow piano)` in
+  italics, so an empty box no longer looks filled in. Every one-line text
+  box in the pack shows its hint in italics.
 
 ## 2.29.0 - 2026-11-27
 

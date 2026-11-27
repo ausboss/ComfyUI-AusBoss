@@ -16,6 +16,8 @@ name: ComfyUI updates
 #      and nothing throws. A third run acts like a privacy browser that
 #      blanks canvas pixel reads: a node that loads a picture must still
 #      draw it.
+#      scripts/dev/h3_sockets_check.mjs then checks that H3 Prompt Writer
+#      still draws only the sockets in use, in both views.
 #
 # A failure on the release opens an issue (or adds to the open one) and fails
 # the run. The development head breaks and mends itself often, so that job
@@ -33,6 +35,7 @@ on:
       - "tests/test_comfy_core_contract.py"
       - "scripts/compat_boot.py"
       - "scripts/dev/face_smoke.mjs"
+      - "scripts/dev/h3_sockets_check.mjs"
 
 permissions:
   contents: read
@@ -128,6 +131,8 @@ jobs:
           node ComfyUI-AusBoss/scripts/dev/face_smoke.mjs 9333 || status=1
           node ComfyUI-AusBoss/scripts/dev/face_smoke.mjs 9333 --vue || status=1
           node ComfyUI-AusBoss/scripts/dev/face_smoke.mjs 9333 --blocked-reads || status=1
+          node ComfyUI-AusBoss/scripts/dev/h3_sockets_check.mjs 9333 || status=1
+          node ComfyUI-AusBoss/scripts/dev/h3_sockets_check.mjs 9333 --vue || status=1
           exit "$status"
       - name: ComfyUI's log
         if: ${{ always() }}

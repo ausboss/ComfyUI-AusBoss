@@ -10,7 +10,7 @@ import { app } from "../../../scripts/app.js";
 import { chainCallback, notifyAusbossChange } from "../shared/index.mjs";
 import { formatWidgetVisibility } from "../shared/save_video_formats.mjs";
 import { hideInputsInDef } from "../shared/widget_visibility.mjs";
-import { castChips } from "../shared/h3_cast_chips.mjs";
+import { castChipNames, castChips } from "../shared/h3_cast_chips.mjs";
 import { FULL, fullPromptBox, isEdited, promptTab, promptTabs, simpleEditedNote } from "../shared/h3_full_prompt.mjs";
 import { cameraChoiceLabel, clipSetsDuration } from "../shared/h3_duration.mjs";
 import { loadImagePreview, loadImageStrip } from "../shared/load_image_strip.mjs";
@@ -467,10 +467,11 @@ const CARDS = {
         placeholder: "Type what happens, one line for each thing. Picture 1 is @1. A blank line cuts to a new place.\n\nSwap: leave empty, or name who goes. Optional new look on its own line: @1 looks like a woman with blonde hair and a black hoodie.",
       },
       { panel: momentStrip, height: 76, when: (values, node) => promptTab(node) !== FULL },
-      { widget: "sound", label: "Sound", placeholder: "rain on a window", when: (values, node) => promptTab(node) !== FULL },
-      { widget: "music", label: "Music", placeholder: "slow piano: music makes it louder", when: (values, node) => promptTab(node) !== FULL },
+      { widget: "sound", label: "Sound", placeholder: "(e.g. rain on a window)", when: (values, node) => promptTab(node) !== FULL },
+      { widget: "music", label: "Music", placeholder: "(e.g. slow piano)", when: (values, node) => promptTab(node) !== FULL },
       { section: "Pictures and settings" },
-      { panel: castChips, height: 30 },
+      // The row is there once a picture or a video is plugged in.
+      { panel: castChips, height: 30, when: (values, node) => castChipNames(node).length > 0 },
       { widget: "seconds", label: "Length", suffix: "s", readOnlyText: (node, values) => clipSetsDuration(node, values) ? "From the clip" : "", readOnlyTitle: "This video job uses the incoming clip, so Length is not used." },
       { widget: "camera", label: "Camera", kind: "select", labels: cameraChoiceLabel },
       { widget: "look", label: "Look", kind: "select" },

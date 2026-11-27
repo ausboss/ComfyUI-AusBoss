@@ -7,6 +7,26 @@ Use it with MiniMax H3 or Pika H3 Flex. Connect up to four pictures and give eac
 one a job. Copy the moves from a video, keep a clip going, or add a voice or a
 song.
 
+## Sockets appear as you use them
+
+The node shows only the sockets you are using, so its face stays small.
+
+- A new node has one picture socket. Connect a picture and the next one
+  appears, up to four.
+- **video_sound** appears once a video is connected.
+- An output appears once its input is connected: connect two pictures and
+  two picture outputs show. **song_under** needs a voice and a song, and
+  **keeps_clip_sound** a video. **prompt**, **frames**, **width** and
+  **height** are always there.
+- A socket with a wire on it always shows.
+- The picture chips under the words work the same way: a chip shows for each
+  picture or video you plugged in. If its loader is turned off, the chip
+  turns faint and says **off**.
+
+Nothing changes in a workflow you already saved: every wire stays where it
+was and the node sends the same things. To see every socket and chip all the
+time, turn on **Settings → 🆎 AusBoss → H3 Prompt Writer → Show every socket**.
+
 ## How to write it
 
 Every line is a moment, and the lines play in order in one shot. The bar under
@@ -114,7 +134,8 @@ Connect a video, then pick what it is for:
   This keeps the person in the clip, so a person picture is not allowed here;
   use **swap the person** to change who is in it.
 
-If your swap keeps the video's audio, connect it to **video_sound** and turn on
+If your swap keeps the video's audio, connect it to **video_sound** (it shows
+once a video is connected) and turn on
 **More → Clip's own sound**. The writer uses the clip to estimate when each
 line is spoken and keeps only the incoming people's words in the swap prompt.
 Type a time such as `3.2s:` to set it yourself. This switch starts off.
@@ -234,7 +255,7 @@ as not plugged in.
   the clip. Clay and 3D don't work from words, so change your picture first with
   an edit model.
 - **Picture 1** to **Picture 4** (`job_1` to `job_4`): what each picture is
-  for, on the picture chips under the bar. An empty slot shows as a faint `+ @3`.
+  for, on the picture chips under the bar. A chip shows once its picture is plugged in.
 - **Video** (`video_job`): what the video is for, on the video chip.
 - **Song starts at** (`song_start`, under **More**): the second of the song to
   start from, so the clip gets the good part.
