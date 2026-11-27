@@ -6,6 +6,7 @@ import { hideInputsInDef, hideWidget } from "./widget_visibility.mjs";
 import { mountTransformTrim } from "./transform_trim.mjs";
 import { mountClipWindow } from "./clip_window.mjs";
 import { clipOutputRate, inputNumber } from "./clip_rate.mjs";
+import { wiredFieldText, wiredNumber, wiredResize, wiredSummaryParts, wiredSwitch } from "./transform_wired.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "./index.mjs";
 import { WIDGET_FRAME, fillNodeHeight, holdVueNodeMinWidth, holdVuePanelMinHeight } from "./panel_layout.mjs";
 import { mediaViewQuery, unlistedMedia } from "./media_list.mjs";
@@ -191,6 +192,7 @@ function installStyles() {
     .ausboss-transform-group-title{display:inline-flex;align-items:center;gap:6px;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
     .ausboss-transform-group-caret{display:inline-block;color:${BRAND};font-size:11px;transition:transform .14s ease}
     .ausboss-transform-group.open .ausboss-transform-group-caret{transform:rotate(90deg)}
+    .ausboss-transform-wired{display:inline-flex;align-items:center;justify-content:flex-end;min-height:24px;padding:0 6px;border:1px dashed #3a5352;border-radius:5px;color:#8ca8a5;font:500 11px system-ui;font-variant-numeric:tabular-nums;white-space:nowrap;cursor:default}
     .ausboss-transform-group-summary{display:inline-flex;align-items:center;gap:6px;min-width:0;color:#8ca8a5;font:500 11px system-ui;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .ausboss-transform-group-swatch{flex:none;width:10px;height:10px;border:1px solid #555b63;border-radius:3px;box-sizing:border-box}
     .ausboss-transform-group-meta{min-width:0;overflow:hidden;text-overflow:ellipsis}
@@ -632,16 +634,9 @@ export function transformGroupSummary(state) {
     parts.push(`Custom ${ratioLabel(canvas.width, canvas.height)}`);
   }
   if (lockActive(state)) parts.push("held");
-  const feather = Math.round(Number(value(node, "feather", 0)) || 0);
-  if (feather > 0) parts.push(`feather ${feather} px`);
-  const multiple = Math.round(Number(value(node, "canvas_multiple", 1)) || 1);
-  if (multiple > 1) parts.push(`÷${multiple}`);
-  if (widget(node, "resize_to_megapixels") && value(node, "resize_to_megapixels", false)) {
-    const mp = Number(value(node, "megapixels", 1)) || 1;
-    const steps = Math.round(Number(value(node, "resolution_steps", 1)) || 1);
-    parts.push(`${mp.toFixed(2)} MP`);
-    if (steps > 1 && multiple <= 1) parts.push(`÷${steps}`);
-  }
+  // Feather, Align and the resize as the run uses them: a linked input runs
+  // with the wired value, not the widget's own (js/shared/transform_wired.mjs).
+  parts.push(...wiredSummaryParts(node));
   return parts.join(" · ");
 }
 
@@ -933,6 +928,13 @@ export function installTransformNode(node, kind, mountPanel = null) {
           for (const trim of state.trimViews) trim.sync();
         }
       }
+      // A wired value changed upstream (a Float typed to 24): the summary,
+      // the face fields and the size readout follow it.
+      if (!state.disposed) {
+        const wired = JSON.stringify([wiredSummaryParts(node), wiredResize(node)]);
+        if (state.wiredKey !== undefined && wired !== state.wiredKey) queueMicrotask(() => { if (!state.disposed) draw(state); });
+        state.wiredKey = wired;
+      }
       if (state.disposed || state.zoomRedraw || !panelBackingStale(state)) return;
       state.zoomRedraw = requestAnimationFrame(() => { state.zoomRedraw = null; if (!state.disposed) draw(state); });
     });
@@ -956,6 +958,7 @@ export function installTransformNode(node, kind, mountPanel = null) {
   }
   chainCallback(node, "onConnectionsChange", () => queueMicrotask(() => {
     for (const trim of state.trimViews) trim.sync();
+    if (!state.disposed) draw(state);
   }));
   chainCallback(node, "onConfigure", () => queueMicrotask(() => {
     if (state.disposed) return;
@@ -1514,6 +1517,12 @@ function buildCanvasRow(state) {
   stepLabel.append(createElement("span", "", "Step"), steps.root);
   const hasResize = Boolean(widget(node, "resize_to_megapixels"));
   resizeRow.append(resizeLabel, budgetLabel, stepLabel);
+  const wired = [
+    wiredStandIn(node, "feather", feather, 0, (amount) => `${Math.round(amount)} px`),
+    wiredStandIn(node, "canvas_multiple", multiple, 1, (amount) => `${Math.round(amount)} px`),
+    wiredStandIn(node, "megapixels", budget, 1, (amount) => `${Number(amount).toFixed(2)} MP`),
+    wiredStandIn(node, "resolution_steps", steps, 1, (amount) => `${Math.round(amount)} px`),
+  ];
   const sync = () => {
     fill.value = normalizeColor(value(node, "fill_color", "#808080"));
     fill.title = `${fill.title.split(" Now ")[0]} Now ${fill.value}.`;
@@ -1523,7 +1532,9 @@ function buildCanvasRow(state) {
     resize.sync();
     budget.set(value(node, "megapixels", 1));
     steps.set(value(node, "resolution_steps", 1));
-    const resizeOn = hasResize && Boolean(value(node, "resize_to_megapixels", false));
+    for (const standIn of wired) standIn();
+    const switched = wiredSwitch(node, "resize_to_megapixels", false);
+    const resizeOn = hasResize && (!switched.known || Boolean(switched.value));
     resizeRow.style.display = hasResize ? "" : "none";
     budgetLabel.style.display = resizeOn ? "" : "none";
     stepLabel.style.display = resizeOn ? "" : "none";
@@ -1535,6 +1546,22 @@ function buildCanvasRow(state) {
     element.addEventListener("pointerdown", (event) => { if (event.target.closest("input,label,button")) event.stopPropagation(); });
   }
   return [alignRow, row, resizeRow];
+}
+
+// A linked setting runs with the wired value, so its number box gives way to
+// that value (or "from a link" when only the run knows it). The box stays the
+// way to set the widget's own value once the link is gone. Returns the sync.
+function wiredStandIn(node, name, control, fallback, format) {
+  const text = createElement("span", "ausboss-transform-wired");
+  text.title = t("Set by a link into this input. Remove the link to type a value here.");
+  text.style.display = "none";
+  control.root.after(text);
+  return () => {
+    const shown = wiredFieldText(wiredNumber(node, name, fallback), format);
+    control.root.style.display = shown === null ? "" : "none";
+    text.style.display = shown === null ? "none" : "";
+    if (shown !== null) text.textContent = shown === "from a link" ? t("from a link") : shown;
+  };
 }
 
 // Resize as an off | on pill, on the node face and in the editor.
@@ -1577,7 +1604,7 @@ function syncReadout(state) {
   const source = rotatedSize(state.sourceWidth, state.sourceHeight, current.rotation_degrees);
   const resize = resizeRequest(state.node);
   const chain = sizeChain(current, source, resize);
-  const { tokens, warnings } = litTokens(state, sizeChainTokens(chain));
+  const { tokens, warnings } = readoutTokens(state, chain);
   const prefix = createElement("span", "ausboss-transform-ellipsis");
   tokens.forEach((token, index) => {
     if (index) prefix.append(" → ");
@@ -2334,6 +2361,12 @@ function buildControls(state, sidebar) {
   previewSection.append(finalPreview);
   state.finalPreviewCanvas = finalPreview;
 
+  const editorWired = [
+    wiredStandIn(node, "feather", featherNumber, 24, (amount) => `${Math.round(amount)} px`),
+    wiredStandIn(node, "canvas_multiple", multiple, 1, (amount) => `${Math.round(amount)} px`),
+    ...(budget ? [wiredStandIn(node, "megapixels", budget, 1, (amount) => `${Number(amount).toFixed(2)} MP`)] : []),
+    ...(steps ? [wiredStandIn(node, "resolution_steps", steps, 1, (amount) => `${Math.round(amount)} px`)] : []),
+  ];
   sidebar.append(cropSection, rotateSection, padSection);
   if (resizeSection) sidebar.append(resizeSection);
   sidebar.append(actions, previewSection);
@@ -2343,6 +2376,7 @@ function buildControls(state, sidebar) {
     featherNumber.set(value(node, "feather", 24));
     multiple.set(value(node, "canvas_multiple", 1)); color.value = normalizeColor(value(node, "fill_color", "#808080"));
     resize?.sync(); budget?.set(value(node, "megapixels", 1)); steps?.set(value(node, "resolution_steps", 1));
+    for (const standIn of editorWired) standIn();
     if (more) more.value = extra.includes(liveRequest(state) ?? "") ? liveRequest(state) : "";
   };
 }
@@ -2891,10 +2925,23 @@ function drawScene(context, state, render, compact, interactive) {
   context.restore();
 }
 
+// The resize the run makes, wired values included; null when it is off or a
+// link decides a part of it that only the run knows (resizeFromLink).
 function resizeRequest(node) {
-  return value(node, "resize_to_megapixels", false)
-    ? { megapixels: value(node, "megapixels", 1), steps: value(node, "resolution_steps", 1) }
-    : null;
+  const resize = wiredResize(node);
+  return resize && !resize.unknown ? resize : null;
+}
+
+function resizeFromLink(node) {
+  return Boolean(wiredResize(node)?.unknown);
+}
+
+// The size chain's steps, ending on a resize a link decides when it does:
+// the size it lands on is only known at run time.
+function readoutTokens(state, chain) {
+  const result = litTokens(state, sizeChainTokens(chain));
+  if (resizeFromLink(state.node)) result.tokens = [...result.tokens, { label: "resize", text: "from a link" }];
+  return result;
 }
 
 // The size readout, drawn OUTSIDE the image: under the output rect, above
@@ -2905,7 +2952,7 @@ function resizeRequest(node) {
 // amber line when the steps stretch the picture or the resize undoes Align.
 const READOUT_LINE = 15;
 function drawOutputSize(context, state, render) {
-  const { tokens } = litTokens(state, sizeChainTokens(sizeChain(values(state.node), render.source, resizeRequest(state.node))));
+  const { tokens } = readoutTokens(state, sizeChain(values(state.node), render.source, resizeRequest(state.node)));
   // The amber line is the settled note, as on the face: it waits for the hand.
   const warnings = shownNote(state).warnings;
   const { outputRect } = render;

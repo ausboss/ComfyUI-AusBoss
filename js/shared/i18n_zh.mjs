@@ -309,6 +309,8 @@ export const ZH = {
   "Unlink strength": "断开强度连线", "link": "连线",
   "Takes 1 off after each run. Tap for Random.": "每次运行后减 1。点一下改为随机。",
   "The words come from the wire.": "文字来自连线。",
+  "from a link": "来自连线",
+  "Set by a link into this input. Remove the link to type a value here.": "由连到这个输入的连线设置。断开连线后可在此输入数值。",
   "Tick to add with others": "勾选后与其他一起添加",
   "Toggle this trigger word into the row's output": "把这个触发词加入或移出该行的输出",
   "Trigger word separator": "触发词分隔符",
