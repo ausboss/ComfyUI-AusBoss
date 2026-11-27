@@ -1280,7 +1280,36 @@
         60
       ]
     },
-    "frontendVersion": "1.53.6"
+    "frontendVersion": "1.53.6",
+    "reroutes": [
+      {
+        "id": 1,
+        "pos": [
+          1464,
+          205
+        ],
+        "linkIds": [
+          5
+        ]
+      },
+      {
+        "id": 2,
+        "parentId": 1,
+        "pos": [
+          1924,
+          205
+        ],
+        "linkIds": [
+          5
+        ]
+      }
+    ],
+    "linkExtensions": [
+      {
+        "id": 5,
+        "parentId": 2
+      }
+    ]
   },
   "version": 0.4
 }

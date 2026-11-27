@@ -507,6 +507,7 @@ If you share workflows, a few of these nodes help the people who download them:
 
 - **Workflow Note** puts a setup card on the canvas with each model's download link, folder and size, the node packs it needs and your links, and checks them against the reader's install.
 - **Callout** is a note with big readable text and teal arrows you type with an emoji.
+- **Check layout 🆎** lists overlaps, hidden and backwards wires and nodes outside the groups before you share.
 - **Image Compare A/B** shows the result against its source with a slider.
 - **Seed** keeps runs repeatable, and **Use last run** brings back the seed the last run used.
 - **Run Timer** shows how long the whole run took, so a speed note is measured.
@@ -521,6 +522,7 @@ People who download your workflow get the nodes through ComfyUI-Manager's missin
 - **Help cards:** the **?** in a classic node's title bar opens its description, inputs and outputs. Nodes 2.0 and titleless nodes such as Run Timer have **About this node** in their right-click menu.
 - **Recreate node 🆎** (right-click an AusBoss node) rebuilds a node saved by an older version from the current definition. It keeps the values, links, position and colors.
 - **Replace with AusBoss nodes 🆎** (canvas right-click or the command palette) finds third-party nodes this pack can stand in for, such as VideoHelperSuite's Load Video and Video Combine or KJNodes' Color Match. It previews each swap and replaces the ones you leave ticked.
+- **Check layout 🆎** (canvas right-click or the command palette) lists what makes a workflow hard to read: overlapping nodes and groups (title bars included), wires that run backwards or hide behind a node, a node just under one that grows when it shows a picture, nodes outside every group, a saved zoom too small for the text to draw, and a missing Workflow Note. It checks inside every subgraph too. Click an entry to jump to it and select it. It moves nothing.
 - **Snap into line:** a node, group or selection you drag lines up with the nodes and groups around it, edge to edge or middle to middle, and a teal line shows what it lines up with. Pulling a corner to resize lines up the same way. Hold Shift while you drag to skip it, or turn it off in Settings → 🆎 AusBoss → Canvas.
 - **Line up:** select two or more nodes or groups and the selection toolbar gets a Line up button: line up edges or middles, match widths or heights, or space them evenly. With two or more nodes selected, pulling the edge or corner of one resizes them all: a column gets one width, a row one height, a grid both (turn it off in Settings → 🆎 AusBoss → Canvas → Resize together).
 - **Node colors:** Settings → 🆎 AusBoss → Appearance sets the scheme for every AusBoss node (AusBoss, Graphite, Slate, Teal, Moss, Plum, Rust, Navy, Custom or Theme default). A node's right-click **AusBoss color** menu recolors just that node, and nodes you colored by hand keep their colors.

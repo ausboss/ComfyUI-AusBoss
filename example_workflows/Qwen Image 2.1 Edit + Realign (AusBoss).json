@@ -1679,7 +1679,8 @@
       "origin_slot": 0,
       "target_id": 72,
       "target_slot": 1,
-      "type": "IMAGE"
+      "type": "IMAGE",
+      "parentId": 1
      },
      {
       "id": 5,
@@ -1706,7 +1707,19 @@
       "type": "STRING"
      }
     ],
-    "extra": {}
+    "extra": {},
+    "reroutes": [
+     {
+      "id": 1,
+      "pos": [
+       1048,
+       676
+      ],
+      "linkIds": [
+       6
+      ]
+     }
+    ]
    },
    {
     "id": "fe7eddff-ee33-40d2-98aa-e25b894fc34e",
@@ -2713,7 +2726,8 @@
       "origin_slot": 4,
       "target_id": 66,
       "target_slot": 2,
-      "type": "AUSBOSS_STITCHER"
+      "type": "AUSBOSS_STITCHER",
+      "parentId": 4
      },
      {
       "id": 28,
@@ -2729,7 +2743,8 @@
       "origin_slot": 0,
       "target_id": 68,
       "target_slot": 1,
-      "type": "IMAGE"
+      "type": "IMAGE",
+      "parentId": 2
      },
      {
       "id": 30,
@@ -2780,7 +2795,51 @@
       "type": "STRING"
      }
     ],
-    "extra": {}
+    "extra": {},
+    "reroutes": [
+     {
+      "id": 1,
+      "pos": [
+       522,
+       248
+      ],
+      "linkIds": [
+       29
+      ]
+     },
+     {
+      "id": 2,
+      "parentId": 1,
+      "pos": [
+       1600,
+       248
+      ],
+      "linkIds": [
+       29
+      ]
+     },
+     {
+      "id": 3,
+      "pos": [
+       522,
+       262
+      ],
+      "linkIds": [
+       27
+      ]
+     },
+     {
+      "id": 4,
+      "parentId": 3,
+      "pos": [
+       1600,
+       262
+      ],
+      "linkIds": [
+       27
+      ]
+     }
+    ]
    }
   ]
  },
@@ -2793,7 +2852,53 @@
     27
    ]
   },
-  "frontendVersion": "1.53.6"
+  "frontendVersion": "1.53.6",
+  "reroutes": [
+   {
+    "id": 1,
+    "pos": [
+     1460,
+     360
+    ],
+    "linkIds": [
+     35
+    ]
+   },
+   {
+    "id": 2,
+    "pos": [
+     1444,
+     500
+    ],
+    "linkIds": [
+     40
+    ]
+   },
+   {
+    "id": 3,
+    "pos": [
+     1476,
+     450
+    ],
+    "linkIds": [
+     41
+    ]
+   }
+  ],
+  "linkExtensions": [
+   {
+    "id": 35,
+    "parentId": 1
+   },
+   {
+    "id": 40,
+    "parentId": 2
+   },
+   {
+    "id": 41,
+    "parentId": 3
+   }
+  ]
  },
  "version": 0.4
 }
