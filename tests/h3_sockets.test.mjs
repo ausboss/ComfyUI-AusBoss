@@ -174,7 +174,7 @@ test('an output can take more than one wire, so a shown one of the kind is the t
   assert.equal(dropTarget(outputs(), 1, { shared: true }), 1, 'no picture output shows: the wire stays where it landed');
 });
 
-// Another branch gives the node pictures 5 to 8, added at the end of its lists.
+// A later release may give the node more pictures, added at the end of its lists.
 const EIGHT_IN = [...INPUT_NAMES, 'picture_5', 'picture_6', 'picture_7', 'picture_8'];
 const EIGHT_OUT = [...OUTPUT_NAMES, 'picture_5', 'picture_6', 'picture_7', 'picture_8'];
 const eight = (wiredInputs) => {
