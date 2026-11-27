@@ -689,9 +689,16 @@ class EverydayLineTests(unittest.TestCase):
             self.assertTrue(moment.voiceover, line)
         line = parts_of('@1 listens as @2 says "Hi."', jobs={1: "person", 2: "person"})["detailed_description"]
         self.assertIn("<Subject 2> (S1) says", line)
-        line = parts_of('@1 turns to @2 and says "Hello."', jobs={1: "person", 2: "person"})["detailed_description"]
-        self.assertIn("<Subject 1> (S1) says", line)
-        self.assertNotIn("<Subject 2> (S1)", line)
+        for line, speaker in (
+            ('@1 turns to @2 and says "Hello."', 1),
+            ('@1 turns to @2 and, smiling, says "Hello."', 1),
+            ('@1 glares at @2, who says "Fine."', 2),
+            ('@1 nods at @2 as she says "Yes."', 2),
+            ('@1 looks at @2 and @2 says "Go."', 2),
+        ):
+            text = parts_of(line, jobs={1: "person", 2: "person"})["detailed_description"]
+            self.assertIn(f"<Subject {speaker}> (S1)", text, line)
+            self.assertNotIn(f"<Subject {3 - speaker}> (S1)", text, line)
         self.assertEqual(read_script("She says \"He said 'come here'.\"").moments[0].speech, "He said 'come here'.")
         self.assertNotIn("In voiceover", parts_of('She says "Wait" in voiceover.')["detailed_description"])
 

@@ -127,6 +127,8 @@ PERSON_WORDS = re.compile(
 # "says in a flat robot voice": how it is said, kept out of who says it.
 SPEECH_VERB = re.compile(r"\b(?:says?|said|asks?|whispers?|shouts?|yells?|screams?|mutters?|sings?|raps?|chants?|announces?|calls?\s+out|cries|replies|answers?)\b", re.I)
 CLAUSE_BREAK = re.compile(r"[.;:!?]|,|\b(?:as|while|when|whereas|then|before|after|until|but)\b", re.I)
+AND_SOMEONE = re.compile(r"\band\s+(?=@\d\b)", re.I)
+SOMEONE_BEFORE = re.compile(r"\b(?:who|she|he|they)\b", re.I)
 SAID_BY = re.compile(r"^(?:(?:the|a|an)\s+[\w\s-]+|someone|somebody)$", re.I)
 A_NAME = re.compile(r"^[A-Z][\w'.-]*(?:\s+[A-Z][\w'.-]*)?$")
 UNSEEN = re.compile(r"\b(?:feels?|thinks?|remembers?|reali[sz]es?|decides?|wants?|hopes?|wonders?|knows?|understands?|believes?|imagines?)\b", re.I)
@@ -701,6 +703,40 @@ def moment_words(moment, say, cast):
     return line
 
 
+def speaker_before(lead, people):
+    """The person who says the words, from the text before the speech verb.
+
+    The speaker opens the part of the sentence the verb is in: "@1 listens as
+    @2 says" and "@1 looks at @2 and @2 says" are @2. A part that names no one
+    goes back: "who" or "she" is the last person named ("@1 glares at @2, who
+    says" is @2), and a verb with no one before it keeps the one doing the
+    action ("@1 turns to @2 and says", "@1 turns to @2, then says" are @1).
+    """
+    parts = []
+    for part in CLAUSE_BREAK.split(lead):
+        # "and @2" starts a new part once the part before it has its own verb,
+        # so "@1 and @2 say" stays one part.
+        for joint in reversed(list(AND_SOMEONE.finditer(part))):
+            if set(re.findall(r"[a-z]+", TOKEN.sub("", part[: joint.start()]).lower())) - {"and", "both", "the"}:
+                parts += [part[: joint.start()], part[joint.end():]]
+                break
+        else:
+            parts.append(part)
+
+    def named(part):
+        return [slot for slot in TOKEN.findall(part) if int(slot) in people]
+
+    if named(parts[-1]):
+        return named(parts[-1])[0]
+    if SOMEONE_BEFORE.search(parts[-1]):
+        everyone = named(lead)
+        return everyone[-1] if everyone else None
+    for part in reversed(parts[:-1]):
+        if named(part):
+            return named(part)[0]
+    return None
+
+
 def speaker_of(moment, cast):
     """Who says a moment's words: an off-screen voice, the first person it names, or the main person."""
     if moment.voice:
@@ -710,14 +746,9 @@ def speaker_of(moment, cast):
     before = moment.text[:quote] if quote >= 0 else moment.text
     verbs = list(SPEECH_VERB.finditer(before))
     if verbs:
-        # The speaker opens the part of the sentence the speech verb is in:
-        # "@1 listens as @2 says" is @2, "@1 turns to @2 and says" is @1.
-        lead = before[: verbs[-1].start()]
-        breaks = list(CLAUSE_BREAK.finditer(lead))
-        clause = lead[breaks[-1].end():] if breaks else lead
-        named = [slot for slot in TOKEN.findall(clause) if int(slot) in people]
-        if named:
-            return cast.subjects[int(named[0])]
+        who = speaker_before(before[: verbs[-1].start()], people)
+        if who:
+            return cast.subjects[int(who)]
     for slot in TOKEN.findall(moment.text):
         if int(slot) in people:
             return cast.subjects[int(slot)]
