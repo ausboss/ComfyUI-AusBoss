@@ -4,6 +4,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Latent Size 🆎: pick which ratio chips show.** The gear's Ratio chips
+  row opens a list of every ratio with its size. Switch each on or off,
+  remove one, add your own such as 21:9, or reset to the shipped list.
+  5:4 and 21:9 now come in the list, switched off. A chip keeps the name
+  it was given, so 21:9 no longer reads 7:3.
 - **Edit Lock 🆎 says what is wrong when the VAE and model don't match.**
   The readout used to blame the VAE alone. It now says either file can be
   the wrong one, gives the two channel counts it compared, and points to
