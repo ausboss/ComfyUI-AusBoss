@@ -29,7 +29,6 @@ JOB_HELP = (
     "best with nobody in the picture. Style gives only the look. Start on it and end on it fix the first or last moment."
 )
 NEEDS_TEXT_GENERATE = "This ComfyUI has no Generate Text node. Update ComfyUI, or disconnect the model on clip."
-TIDY_NEEDS_CLIP = "Tidy up needs a text model on clip, such as Qwen3-VL 8B. Connect one, or turn tidy off."
 TIDY_NEEDS_UPDATE = "Tidy up needs a newer ComfyUI (0.46.1 or later). Update ComfyUI, or turn tidy off."
 SAMPLING = {
     "sampling_mode": "on",
@@ -90,11 +89,12 @@ def model_tidier(clip):
 
 
 def tidied(script, clip):
-    """The typed script in plain, ordered sentences, from the model on clip. H3's own six parts go through as they are."""
-    if not str(script or "").strip() or split_sections(script) is not None:
+    """The typed script in plain, ordered sentences, from the model on clip.
+
+    H3's own six parts go through as they are, and so does everything when nothing is on clip:
+    a workflow can leave Tidy up on and tie it to the switch that turns its small model on."""
+    if clip is None or not str(script or "").strip() or split_sections(script) is not None:
         return script
-    if clip is None:
-        raise ValueError(TIDY_NEEDS_CLIP)
     return tidy_script(script, model_tidier(clip))[0]
 
 
@@ -334,7 +334,8 @@ class AusBossH3PromptWriter:
                         "default": False,
                         "tooltip": (
                             "Turn on to have the model on clip tidy your lines first: spelling, short sentences, and "
-                            "each spoken line next to whoever says it. Your quoted words stay exactly as typed."
+                            "each spoken line next to whoever says it. Your quoted words stay exactly as typed. With no model on "
+                            "clip, your lines go as typed."
                         ),
                     },
                 ),

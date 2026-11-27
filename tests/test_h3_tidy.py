@@ -15,7 +15,7 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
 
 from nodes import node_h3_prompt_writer
 from nodes._h3_tidy_helpers import TIDY_SYSTEM, hold, tidy_script
-from nodes.node_h3_prompt_writer import TIDY_NEEDS_CLIP, TIDY_NEEDS_UPDATE, AusBossH3PromptWriter
+from nodes.node_h3_prompt_writer import TIDY_NEEDS_UPDATE, AusBossH3PromptWriter
 
 PICTURE = torch.zeros(1, 8, 8, 3)
 
@@ -121,9 +121,10 @@ class NodeTests(unittest.TestCase):
         self.write(generate, '@1 waves at @2 and says "Hi."', clip="the clip", picture_1=PICTURE, picture_2=PICTURE)
         self.assertFalse(any(call.get("system_prompt") == TIDY_SYSTEM for call in generate.calls))
 
-    def test_tidy_needs_a_model(self):
-        with self.assertRaisesRegex(ValueError, TIDY_NEEDS_CLIP):
-            AusBossH3PromptWriter().write("she waves", 5, tidy=True)
+    def test_tidy_with_no_model_keeps_the_lines_as_typed(self):
+        on = AusBossH3PromptWriter().write('@1 waves at @2 and says "Hi."', 5, picture_1=PICTURE, picture_2=PICTURE, tidy=True)[0]
+        off = AusBossH3PromptWriter().write('@1 waves at @2 and says "Hi."', 5, picture_1=PICTURE, picture_2=PICTURE)[0]
+        self.assertEqual(on, off)
 
     def test_tidy_on_an_older_comfyui_says_to_update(self):
         with self.assertRaisesRegex(RuntimeError, "newer ComfyUI"):
