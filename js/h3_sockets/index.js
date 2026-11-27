@@ -13,10 +13,14 @@
 // as it always did.
 import { app } from "../../../scripts/app.js";
 import { chainCallback } from "../shared/index.mjs";
-import { setSocketHidden, socketsToShow } from "../shared/h3_sockets.mjs";
+import { lookupLink } from "../shared/graph_links.mjs";
+import { dropTarget, setSocketHidden, socketsToShow } from "../shared/h3_sockets.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_H3PromptWriter";
 const STYLE_ID = "ausboss-h3-sockets";
+const SHOW_ALL = "AusBoss.H3PromptWriter.ShowEverySocket";
+
+const showAll = () => Boolean(app.extensionManager?.setting?.get?.(SHOW_ALL));
 
 let warned = false;
 // Nothing here may stop a node from loading: on a throw the sockets show.
@@ -63,6 +67,7 @@ export function applySockets(node) {
   const show = socketsToShow({
     wiredInputs: plainInputs(node).filter((slot) => slot.link != null).map((slot) => slot.name),
     wiredOutputs: node.outputs.filter(outputWired).map((slot) => slot.name),
+    showAll: showAll(),
   });
   const hiddenKeys = [];
   node.inputs.forEach((slot, index) => {
@@ -89,8 +94,38 @@ export function applySockets(node) {
   node.setDirtyCanvas?.(true, true);
 }
 
+// A wire dropped on the node's body goes to the socket the frontend finds
+// for its kind, and the first free one can be one nobody can see (an audio
+// wire finds video_sound before voice). Nodes 2.0 then makes no wire at
+// all, as a hidden row has no place to snap to. So the node answers with
+// the first shown free socket of that kind instead.
+function shownSocketFor(node, found) {
+  if (!found?.slot?._ausbossHidden) return found;
+  const target = dropTarget(node.inputs.map((slot) => ({
+    name: slot.name,
+    type: slot.type,
+    // A wire that is being dragged away leaves its socket free.
+    wired: slot.link != null && !lookupLink(node.graph, slot.link)?._dragging,
+    shown: !slot.widget && !slot._ausbossHidden,
+  })), found.index);
+  return target === found.index ? found : { index: target, slot: node.inputs[target] };
+}
+
 app.registerExtension({
   name: "AusBoss.H3Sockets",
+  settings: [
+    {
+      id: SHOW_ALL,
+      name: "Show every socket on H3 Prompt Writer",
+      type: "boolean",
+      defaultValue: false,
+      category: ["🆎 AusBoss", "H3 Prompt Writer", "Show every socket"],
+      tooltip:
+        "H3 Prompt Writer shows only the sockets you are using. "
+        + "Turn this on to see all of them all the time.",
+      onChange: safely(() => writerNodes().forEach(applySockets)),
+    },
+  ],
   beforeRegisterNodeDef(nodeType, nodeData) {
     if (nodeData.name !== NODE_CLASS) return;
     const proto = nodeType.prototype;
@@ -102,6 +137,14 @@ app.registerExtension({
       try { size[1] -= hiddenRows(this) * rowHeight(); } catch { /* the full height is a safe answer */ }
       return size;
     };
+
+    const findInputByType = proto.findInputByType;
+    if (typeof findInputByType === "function") {
+      proto.findInputByType = function (...args) {
+        const found = findInputByType.apply(this, args);
+        try { return shownSocketFor(this, found); } catch { return found; }
+      };
+    }
 
     const apply = safely(function () { applySockets(this); });
     chainCallback(proto, "onNodeCreated", apply);

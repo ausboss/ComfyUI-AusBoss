@@ -293,6 +293,75 @@ await check("floor", async () => {
   return problems;
 });
 
+// A real mouse drag, as a person makes it.
+const mouse = (type, x, y, extra = {}) => send("Input.dispatchMouseEvent", { type, x, y, button: "left", buttons: type === "mouseReleased" ? 0 : 1, pointerType: "mouse", ...extra });
+const drag = async (from, to) => {
+  await mouse("mouseMoved", from.x, from.y, { buttons: 0 }); await sleep(80);
+  await mouse("mousePressed", from.x, from.y, { clickCount: 1 }); await sleep(120);
+  for (let step = 1; step <= 12; step++) { await mouse("mouseMoved", from.x + ((to.x - from.x) * step) / 12, from.y + ((to.y - from.y) * step) / 12); await sleep(25); }
+  await sleep(150);
+  await mouse("mouseReleased", to.x, to.y, { clickCount: 1 }); await sleep(500);
+};
+// Where a person would grab an audio source's output, and a blank spot of
+// the writer's body between its socket names.
+const DRAG_POINTS = `(async () => {
+  const h = window.__h3; const { app } = window; const node = h.node;
+  const source = h.add("LoadAudio", -420, 40 + 260 * (h.audioSources = (h.audioSources ?? 0) + 1));
+  await h.wait(700); app.canvas.setDirty(true, true); await h.wait(100);
+  const rect = app.canvas.canvas.getBoundingClientRect(); const ds = app.canvas.ds;
+  const client = (pos) => ({ x: rect.left + (pos[0] + ds.offset[0]) * ds.scale, y: rect.top + (pos[1] + ds.offset[1]) * ds.scale });
+  const dot = document.querySelector('[data-slot-key="' + source.id + '-out-0"]')?.getBoundingClientRect();
+  const from = h.vueOn() && dot ? { x: dot.left + dot.width / 2, y: dot.top + dot.height / 2 } : client(source.getOutputPos(0));
+  const to = client([node.pos[0] + node.size[0] / 2, node.pos[1] + 30]);
+  return { from, to };
+})()`;
+
+await check("body drop", async () => {
+  await evalJs(`(async () => { await window.__h3.fresh(); await window.__h3.wait(600); return true; })()`);
+  const problems = [];
+  await drag(...Object.values(await evalJs(DRAG_POINTS)));
+  const first = await evalJs(`window.__h3.read(window.__h3.node)`);
+  if (!same(first.wired.inputs, ["voice"])) problems.push(`the first audio wire dropped on the node is on ${first.wired.inputs.join(", ") || "nothing"}; expected voice`);
+  problems.push(...againstRule(first).map((p) => `after the first drop: ${p}`));
+  await drag(...Object.values(await evalJs(DRAG_POINTS)));
+  const second = await evalJs(`window.__h3.read(window.__h3.node)`);
+  if (!same(second.wired.inputs, ["voice", "song"])) problems.push(`after a second audio wire the node has ${second.wired.inputs.join(", ") || "nothing"} wired; expected voice and song`);
+  // A script that wires a hidden socket on purpose is left alone.
+  const scripted = await evalJs(`(async () => {
+    const h = window.__h3; const node = await h.fresh(); await h.wait(400);
+    const source = h.add("LoadAudio", -420, 0);
+    source.connect(0, node, h.input(node, "video_sound"));
+    return h.read(node);
+  })()`);
+  if (!same(scripted.wired.inputs, ["video_sound"])) problems.push(`a scripted wire to video_sound ended on ${scripted.wired.inputs.join(", ") || "nothing"}`);
+  if (!scripted.shown.inputs.includes("video_sound")) problems.push("video_sound has a wire and does not show");
+  problems.push(...againstRule(scripted).map((p) => `after the scripted wire: ${p}`));
+  return problems;
+});
+
+await check("setting", async () => {
+  const SETTING = "AusBoss.H3PromptWriter.ShowEverySocket";
+  const result = await evalJs(`(async () => {
+    const h = window.__h3; const settings = window.app.extensionManager.setting;
+    const node = await h.fresh(); await h.wait(500);
+    const before = JSON.stringify(node.serialize());
+    await settings.set(${JSON.stringify(SETTING)}, true);
+    const all = await h.read(node, 900);
+    const during = JSON.stringify(node.serialize());
+    await settings.set(${JSON.stringify(SETTING)}, false);
+    const back = await h.read(node, 900);
+    const sizeKept = (text) => text.replace(/"size":\\[[^\\]]*\\]/, "");
+    return { known: settings.get(${JSON.stringify(SETTING)}) === false, all, back, sameFile: sizeKept(before) === sizeKept(during) };
+  })()`);
+  const problems = [];
+  if (!result.known) problems.push("the setting is not registered");
+  if (!same(result.all.shown.inputs, INPUT_NAMES)) problems.push(`with the setting on the inputs shown are ${result.all.shown.inputs.join(", ")}`);
+  if (!same(result.all.shown.outputs, OUTPUT_NAMES)) problems.push(`with the setting on the outputs shown are ${result.all.shown.outputs.join(", ")}`);
+  problems.push(...result.all.shown.problems, ...againstRule(result.back).map((p) => `with the setting off again: ${p}`));
+  if (!result.sameFile) problems.push("the saved node differs with the setting on");
+  return problems;
+});
+
 const live = (process.env.H3_LIVE_WORKFLOWS ?? "").split(delimiter).filter(Boolean);
 if (!live.length) skip("live workflows", "set H3_LIVE_WORKFLOWS to check saved workflows");
 for (const file of live) {
