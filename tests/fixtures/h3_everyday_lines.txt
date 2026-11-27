@@ -1,0 +1,218 @@
+# Everyday lines for short clips. H3 Prompt Writer must add nothing to any of them
+# and switch nothing off: no sound, music or one-take note, no moved opening or ending.
+The man on the left waves while the woman on the right laughs.
+The woman waves at the camera.
+The girl waves goodbye from the bus window.
+The little boy waves both hands and smiles.
+The crowd waves their phones in the air.
+The old man waves his hat.
+She waves at her friend across the street.
+He gives a thumbs up and winks.
+She nods slowly and looks away.
+He shrugs and raises his eyebrows.
+She breaks eye contact and looks at the floor.
+He points at the sign and laughs.
+She runs her fingers through her hair.
+He runs a hand over his face.
+Her face falls when she reads the message.
+She drops her gaze and smiles shyly.
+Her eyes flash with anger.
+He flashes a peace sign at the camera.
+She claps her hands twice.
+The audience claps and cheers.
+She dances in the kitchen.
+The beat drops and everyone jumps.
+He breaks into a moonwalk.
+They are having a blast on the dance floor.
+She is on fire tonight, spinning across the stage.
+A flash mob starts dancing in the square.
+The lights dim as the band takes the stage.
+Neon lights flicker above the dance floor.
+The DJ blasts music and the crowd jumps.
+She breaks an egg into the bowl.
+He chops onions on a wooden board.
+She pours hot coffee into a mug.
+Steak sizzles in a hot pan.
+He drops pasta into boiling water.
+Water runs from the tap into the sink.
+She runs the knife under the tap.
+A splash of milk swirls into the tea.
+The chef sets the pan on fire with brandy.
+Smoke rises as the toast burns.
+She bites into a crunchy apple.
+He breaks the chocolate bar in half.
+A flavour explosion as she tastes the sauce.
+She opens the fridge door and grabs the milk.
+The perfume bottle spins on a glass table.
+Running shoes rotate on a white pedestal.
+A snow globe sits on the desk, glittering.
+Close-up of the watch, muted colours, soft light.
+Muted tones, slow push in on the headphones.
+A splash of colour fills the frame as the paint pours.
+The phone screen turns on and shows the logo.
+The camera orbits the new car as it races past.
+A toy car races across the kitchen floor.
+The electric car glides silently down the road.
+Rain boots stand by the front door.
+A model in a yellow rain jacket smiles.
+Drops of water roll off the bottle.
+Coffee drops into the cup from the machine.
+The dog runs across the yard.
+The cat walks along the fence.
+The puppy jumps into the pool.
+The dog shakes water off its fur.
+Birds sing in the trees.
+A bird lands on the windowsill.
+Pigeons take off from the square.
+The rooster crows at sunrise.
+The cat knocks a glass off the table and it smashes.
+The horse gallops across the field.
+The dog waves its paw at the camera.
+She walks along the beach at sunset.
+Waves wash over her feet.
+The ocean waves crash against the cliffs.
+A surfer rides a big wave.
+The train pulls into the station.
+The bride walks down the aisle, her long train trailing behind.
+A plane takes off over the city.
+She drives down the coast road.
+The bus pulls up at the stop.
+A motorbike speeds through the tunnel.
+The camera drops down from the clouds to the city.
+Bird's-eye view of the market.
+The sun drops below the horizon.
+Night falls over the city.
+Evening falls over the harbour.
+She climbs the stairs to the rooftop.
+They hike up a snowy mountain trail.
+She walks through deep snow.
+Snow-capped mountains glow in the morning light.
+The river runs through the valley.
+A waterfall pours into the lake.
+She walks in the rain without an umbrella.
+It starts raining on the street.
+The rain stops and the sun comes out.
+A light wind moves the curtains.
+Her hair blows in the wind.
+A strong wind rips the umbrella from her hand.
+The wind dies down and the field goes still.
+Wind chimes turn slowly on the porch.
+She climbs down the fire escape.
+A fire truck races down the street.
+Fireworks burst over the bay.
+They sit around the campfire and laugh.
+The fire goes out and smoke rises.
+Police lights flash in the rain.
+He runs onto the field.
+She jogs through the park.
+They train hard at the boxing gym.
+He takes one shot at the basket and scores.
+She breaks the world record.
+The ball smashes into the net.
+He kicks the ball into the goal.
+The boxer falls to the mat.
+She dives into the pool.
+He sprints to the finish line.
+The skater crashes into the wall.
+The runner crosses the line in a flash.
+A surfer catches the surf at dawn.
+Tears run down her face.
+Tears running down his cheeks, he smiles.
+A single tear falls from her eye.
+She falls to her knees and cries.
+His heart races as the car pulls in.
+A shiver runs down her spine.
+She breaks down crying.
+He breaks her heart with one look.
+Her mascara runs as she laughs.
+She falls in love at first sight.
+The color drains from his face and his face goes dark.
+She smiles, the memories flash before her eyes.
+He feels the cold wind on his face.
+Petals fall around the couple.
+Confetti falls as they kiss.
+Leaves fall from the trees.
+Snowflakes fall softly on her coat.
+Her silk dress falls to the floor.
+The lights flicker and go out.
+She turns off the lights.
+He switches off the lamp and goes to bed.
+The power goes out.
+She lights a candle and goes out the back door.
+The TV turns to static.
+She looks at the TV and turns to her friend.
+He stares at the monitor, then turns to the window.
+She turns off the TV and sits back.
+The screen goes dark.
+The sky goes dark as the storm rolls in.
+Thunder rumbles in the distance.
+Lightning strikes the tower.
+A lightning-fast punch knocks him down.
+The house explodes.
+He opens his eyes and looks at the door.
+She slams the door behind her.
+The door creaks open.
+He knocks on the door.
+The window shatters.
+Breaking news flashes across the screen.
+She breaks the silence with a laugh.
+The ice breaks under his feet.
+He fires the gun twice.
+A siren wails as the police car speeds away.
+She takes a photo of the sunset.
+The camera flash goes off.
+The building is on fire.
+Smoke and flames pour out of the window.
+A car crashes into the pole.
+Her phone drops onto the bed.
+Slow push in on her face.
+Handheld shot following him through the crowd.
+The camera pulls back to reveal the city.
+Drone shot over the waves at sunrise.
+Wide shot of the snowy village.
+First person view walking down the hallway.
+Close up of her hands as she lights the candle.
+The camera follows the runner from the side.
+Smash cut to her screaming.
+The man on the left waves and the woman on the right waves back.
+The man on the right runs his hand along the car.
+The woman in red walks over while the man in blue waves.
+The boy on the left drops his ice cream and the girl laughs.
+The kid on the left breaks into a dance.
+The woman sits, next to her a dog sleeps.
+The couple on the right falls asleep on the couch.
+The two friends on the left hug while the crowd waves flags.
+The dance ends with a spin and a bow.
+The road ends in a cliff and she stops.
+The man on the left feels the fabric of the jacket.
+The teacher on the right walks the kids to the bus.
+She gently closes the door behind her.
+The elevator doors open and he steps out.
+The man waves as the train pulls into the station.
+The flag waves in the wind.
+Her hair falls in the soft waves over her shoulders.
+She runs a bath and steps in.
+He fires up the grill.
+A blast of cold air hits her as she opens the window.
+She stands under the shower.
+The skateboarder lands a kickflip.
+She dribbles the basketball down the court.
+The baby laughs as bubbles float by.
+The candle flame flickers in the dark room.
+City lights flicker in the distance.
+The kitten falls asleep in a sunbeam.
+A gentle rain falls on the garden.
+A strong gust of wind slams the shutters.
+Her coat is muted blue.
+A timer runs on the screen.
+She breaks eye contact.
+Her smile drops.
+She trains for a marathon.
+The man on the left raises a hand and waves.
+She pulls on her rain boots.
+She starts to wind the clock.
+A bird sits motionless on the fence.
+She passes the fire exit.
+She lights a candle and goes out to the garden.
+First aid arrives.
+Back then people wore hats.

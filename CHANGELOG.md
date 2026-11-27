@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **H3 Prompt Writer 🆎 keeps to what you wrote.** It lays your notes out
+  for H3 and adds no sounds or settings you didn't type. Notes are read more
+  carefully too: "muted colours" no longer turns the sound off, "First
+  person view" keeps its first word, a shirt or sign that says something
+  stays written on it, and a "no music" said inside quotes stays part of
+  the line.
 - **New node: Strength Curve 🆎.** Draw how strong something should be
   from the start of a run to the end, and wire it into a node that follows
   it step by step. Drag the points or start from a preset (flat, fade out,

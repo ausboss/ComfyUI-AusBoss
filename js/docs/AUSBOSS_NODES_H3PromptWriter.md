@@ -23,10 +23,11 @@ the box shows the second each one starts, before you spend a run.
 That is two shots in two places. `@1` is Picture 1. With one person you can
 write `She` or `He` instead.
 
-The node also fills in two things H3 misses by itself. A moment gets its own
-sound when it names something that makes one, like rain, footsteps or thunder.
-And what changes stays changed: when the lights go out, the next moments in that
-place say they are still out.
+Your words go into the prompt as you typed them. To hear something at a
+moment, say it in that line: `Thunder cracks overhead.` For a sound under the
+whole clip, add a `sound:` line, such as `sound: rain on the windows`. When
+something should stay the way it changed, say so in the later lines too:
+`The lights are still off.`
 
 ## The words box and the bar
 
