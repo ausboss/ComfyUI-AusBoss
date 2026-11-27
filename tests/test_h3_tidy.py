@@ -22,12 +22,13 @@ from nodes.node_h3_prompt_writer import TIDY_NEEDS_UPDATE, AusBossH3PromptWriter
 PICTURE = torch.zeros(1, 8, 8, 3)
 
 
-def answering(answer):
+def answering(*answers):
+    """A fake model: one answer per call, the last one again after that."""
     calls = []
 
     def ask(system, line, longest):
         calls.append((system, line, longest))
-        return answer
+        return answers[min(len(calls), len(answers)) - 1]
 
     return ask, calls
 
@@ -96,12 +97,46 @@ class HoldTests(unittest.TestCase):
                 self.assertEqual(tidy_script(typed, answering(answer)[0]), (typed, False))
 
     def test_lines_with_no_words_are_tidied_too(self):
-        ask, _ = answering("The cat jumps on the table.\nThe dog barks.")
+        ask, _ = answering("The cat jumps on the table.", "The dog barks.")
         self.assertEqual(tidy_script("teh cat jumps on teh table\nteh dog barks", ask), ("The cat jumps on the table.\nThe dog barks.", True))
 
     def test_a_second_quote_the_writer_cant_voice_may_become_its_own_line(self):
         ask, _ = answering("@1 says SPOKEN1 to @2. @2 says SPOKEN2.")
         self.assertEqual(tidy_script('@1 says "Hi" to @2, who says "Bye."', ask), ('@1 says "Hi" to @2. @2 says "Bye.".', True))
+
+    def test_each_line_is_sent_on_its_own(self):
+        ask, calls = answering("@1 waves.", "@2 nods.")
+        self.assertEqual(tidy_script("@1 wavs\n\n@2 nodds", ask), ("@1 waves.\n\n@2 nods.", True))
+        self.assertEqual([line for _, line, _ in calls], ["Line: @1 wavs\nCleaned:", "Line: @2 nodds\nCleaned:"])
+
+    def test_speakers_cannot_swap(self):
+        ask, _ = answering("@2 says SPOKEN. @1 says it too.")
+        self.assertEqual(tidy_script('@1 says "Hi." and @2 waves\n@2 nods', ask)[0].split("\n")[0], '@1 says "Hi." and @2 waves')
+
+    def test_timings_and_cuts_stay_on_their_lines(self):
+        ask, _ = answering("3s: @1 sits.", "0s: @2 stands.")
+        script = "0s: @1 sits\n3s: @2 stands"
+        self.assertEqual(tidy_script(script, ask), (script, False))
+
+    def test_a_line_that_comes_back_as_two_is_not_used(self):
+        ask, _ = answering("@1 sits.\n\n@1 stands.", "@2 nods.")
+        self.assertEqual(tidy_script("@1 sits and stands\n@2 nodds", ask), ("@1 sits and stands\n@2 nods.", True))
+
+    def test_setting_lines_are_not_sent(self):
+        ask, calls = answering("@1 waves.", "@2 nods.")
+        out, _ = tidy_script("@1 wavs\ncamera: slow push in\n@2 nodds", ask)
+        self.assertEqual(out, "@1 waves.\ncamera: slow push in\n@2 nods.")
+        self.assertEqual(len(calls), 2)
+
+    def test_a_curly_quoted_sign_is_never_voiced(self):
+        ask, _ = answering("@1 points at a sign. @1 says SPOKEN.", "@2 nods.")
+        line = "@1 points at a sign reading \u201cEXIT\u201d"
+        self.assertEqual(tidy_script(line + "\n@2 nodds", ask), (line + "\n@2 nods.", True))
+
+    def test_a_shout_next_to_a_sign_can_be_tidied(self):
+        ask, _ = answering("@1 holds up a sign and shouts SPOKEN.", "@2 nods.")
+        out, _ = tidy_script('@1 holds up a sign and shouts "Run!"\n@2 nodds', ask)
+        self.assertEqual(out, '@1 holds up a sign and shouts "Run!".\n@2 nods.')
 
     def test_a_one_line_idea_is_left_for_the_model_to_fill_out(self):
         ask, calls = answering("The woman checks a chart. She walks to the door.")

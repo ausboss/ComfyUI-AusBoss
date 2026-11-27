@@ -246,9 +246,10 @@ as not plugged in.
   and puts each spoken line right after whoever says it, so
   `@1 stares at @2 who goes "No way."` becomes `@1 stares at @2. @2 says "No way."`
   Your words in quotes are never rewritten: they are held out while it tidies
-  and come back exactly as typed. If the tidied lines would change who says
-  what, drop a cut or move a timed line, your lines are used as typed. A
-  one-line idea is left as it is, for the model to fill out. With nothing on
+  and come back exactly as typed. Each line is tidied on its own, so blank
+  lines and timed lines stay where you put them, and `camera:`, `sound:` and
+  `music:` lines are left alone. If a tidied line would change who says what,
+  that line is used as typed. A one-line idea is left as it is, for the model to fill out. With nothing on
   **clip** it does nothing, so a workflow can leave it on. Starts off.
 - **Full prompt** (`full_prompt`, on the Full prompt tab): your own edit of the
   finished prompt. Empty means the node's own prompt is sent.
@@ -308,15 +309,18 @@ that sentence the picture's street came back halfway through on 2 of 2. With no
 place in your lines H3 has nothing else to use, so it stayed in the picture's
 place on 2 of 2.
 
-Tidy up sends the model one call with its own instructions, no picture, and no
-randomness, so the same lines tidy the same way every run. Each quote is swapped
-for a marker (`SPOKEN`, or `SPOKEN1`, `SPOKEN2`) before anything else touches the
-lines, so the model never sees the quoted words of the lines it tidies. The answer
-is used only when every marker comes back once, the same `@` numbers are in it, it
-is not much longer than what you typed, and the writer reads the same spoken lines,
-cuts and timed seconds from it as from your lines. If the writer still turns the
-tidied lines down, it uses your lines as typed. A quote on a sign or a shirt counts:
-tidied into speech, it fails the check. On Qwen3-VL 8B the instructions put the right speaker
+Tidy up sends the model one call per typed line, with its own instructions, no
+picture, and no randomness, so the same lines tidy the same way every run. Blank
+lines, `camera:`/`sound:`/`music:`/`look:` lines and the order of lines never pass
+through the model. Each quote is swapped for a marker (`SPOKEN`, or `SPOKEN1`,
+`SPOKEN2`) before anything else touches the line, so the model never sees the
+quoted words. A line's answer is used only when it is one line, every marker comes
+back once, the same `@` numbers are in it, it is not much longer than what you
+typed, and the writer reads it as it reads your line: the same words said in the
+same order, each typed `@N says "..."` kept with the same person, the same cuts
+and timed seconds, and nothing it shows on a sign or a shirt turned into speech.
+Any other line is used as typed. If the writer still turns the tidied lines down,
+it uses your lines as typed. On Qwen3-VL 8B the instructions put the right speaker
 before the words on 38 of 38 lines they were not written for, took about 0.3
 seconds a call once the model was loaded, and passed every check on 77 of 79
 lines. What it still changes: "as" and "while" can become two sentences, and a

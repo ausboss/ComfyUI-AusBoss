@@ -75,7 +75,7 @@ def model_tidier(clip):
     """ask(system, line, longest) for Tidy up: the same Generate Text, with its own instructions and no picture.
 
     Greedy, so the same script tidies the same way every run. None on a ComfyUI whose Generate Text
-    takes no system prompt (older than 0.38): the rest of the node still works there."""
+    takes no system prompt (an older ComfyUI): the rest of the node still works there."""
     generate = _core_nodes().get("TextGenerate")
     if generate is None or not hasattr(generate, "execute"):
         raise RuntimeError(NEEDS_TEXT_GENERATE)
