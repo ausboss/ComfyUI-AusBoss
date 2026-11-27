@@ -4,6 +4,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **H3 Prompt Writer 🆎 can tidy up your lines.** Turn on **More → Tidy up
+  my lines** with a small text model such as Qwen3-VL 8B on `clip`, and it
+  fixes spelling, writes short sentences, and puts each spoken line right
+  after whoever says it before the node reads them. Your quoted words are
+  never rewritten: they stay exactly as typed. Off by default.
 - **Mask Refine 🆎's guided and matting edges follow the picture.** Both
   edge modes now look further from the mask's edge and snap to the real
   edge in the guide image, so hair and thin parts a rough mask missed come

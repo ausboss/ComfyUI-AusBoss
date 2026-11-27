@@ -1560,7 +1560,7 @@ class SoundAndMusicBoxTests(unittest.TestCase):
 
     def test_the_boxes_are_appended_after_every_older_input(self):
         names = list(AusBossH3PromptWriter.INPUT_TYPES()["optional"])
-        self.assertEqual(names[-4:], ["sound", "music", "clip_sound", "full_prompt"])
+        self.assertEqual(names[-5:], ["sound", "music", "clip_sound", "full_prompt", "tidy"])
 
 
 def spoken(stretches, seconds, rate=16000, noise=0.002, seed=3):
