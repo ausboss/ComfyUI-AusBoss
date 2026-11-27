@@ -438,6 +438,70 @@ class MissingRowPolicyTests(unittest.TestCase):
             )
         self.assertEqual(triggers, "kept word, parked word")
 
+    def test_a_missing_row_on_a_flat_curve_adds_no_trigger_words(self):
+        # A LoRA that never loaded must not put its words in the prompt. A
+        # row parked at strength 0 keeps its words, as the node docs promise,
+        # so comparing with and without it changes only the weights.
+        try:
+            from nodes.node_lora_loader import AusBossLoraLoader
+        except Exception as exc:  # pragma: no cover - needs the package importable
+            self.skipTest(f"node module not importable offline: {exc}")
+
+        def resolve(name):
+            if name == "gone.safetensors":
+                raise ValueError("LoRA file not found in models/loras: gone.safetensors")
+            return Path(name)
+
+        rows = [
+            {**self.ROW, "name": "kept.safetensors", "triggers": "kept word"},
+            {**self.ROW, "triggers": "ghost word", "curve": True},
+            {**self.ROW, "name": "parked.safetensors", "strength": 0, "strength_clip": 0,
+             "triggers": "parked word"},
+            {**self.ROW, "name": "off.safetensors", "enabled": False, "triggers": "off word"},
+        ]
+        sys.modules["comfy.sd"].load_lora_for_models = lambda model, clip, *_args: (model, clip)
+        with (
+            patch.object(_lora_helpers, "resolve_lora_path", side_effect=resolve),
+            patch.object(_lora_helpers, "_load_lora_file", return_value={}),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            _model, _clip, triggers = AusBossLoraLoader().load_loras(
+                "model", json.dumps(rows), on_missing="skip", curve=[0.5, 0.5, 0.5]
+            )
+        self.assertEqual(triggers, "kept word, parked word")
+
+    def test_a_missing_row_on_a_moving_curve_adds_no_trigger_words(self):
+        # A LoRA that never loaded must not put its words in the prompt. A
+        # row parked at strength 0 keeps its words, as the node docs promise,
+        # so comparing with and without it changes only the weights.
+        try:
+            from nodes.node_lora_loader import AusBossLoraLoader
+        except Exception as exc:  # pragma: no cover - needs the package importable
+            self.skipTest(f"node module not importable offline: {exc}")
+
+        def resolve(name):
+            if name == "gone.safetensors":
+                raise ValueError("LoRA file not found in models/loras: gone.safetensors")
+            return Path(name)
+
+        rows = [
+            {**self.ROW, "name": "kept.safetensors", "triggers": "kept word"},
+            {**self.ROW, "triggers": "ghost word", "curve": True},
+            {**self.ROW, "name": "parked.safetensors", "strength": 0, "strength_clip": 0,
+             "triggers": "parked word"},
+            {**self.ROW, "name": "off.safetensors", "enabled": False, "triggers": "off word"},
+        ]
+        sys.modules["comfy.sd"].load_lora_for_models = lambda model, clip, *_args: (model, clip)
+        with (
+            patch.object(_lora_helpers, "resolve_lora_path", side_effect=resolve),
+            patch.object(_lora_helpers, "_load_lora_file", return_value={}),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            _model, _clip, triggers = AusBossLoraLoader().load_loras(
+                "model", json.dumps(rows), on_missing="skip", curve=[1.0, 0.5, 0.0]
+            )
+        self.assertEqual(triggers, "kept word, parked word")
+
     def test_the_on_missing_choices_come_from_the_helper(self):
         try:
             from nodes.node_lora_loader import AusBossLoraLoader
