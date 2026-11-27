@@ -679,7 +679,8 @@
       "end_seconds"
     ],
     "optional": [
-      "max_seconds"
+      "max_seconds",
+      "clean_up"
     ],
     "outputs": [
       [
