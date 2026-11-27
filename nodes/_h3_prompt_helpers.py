@@ -12,6 +12,7 @@ import re
 
 import numpy as np
 
+from ._h3_swap_reader import read_swap
 from ._h3_cast_helpers import EDIT, KEEP, NEEDS_NO_WORDS, ONE_GOES, REVOICE, SWAP, Cast, number_pictures, swap_appearances
 from ._h3_cast_helpers import TOKEN, things_that_perform
 from ._h3_script_helpers import (
@@ -326,6 +327,7 @@ def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="E
         jobs = things_that_perform(script, jobs, video)
         cast = Cast(number_pictures(jobs, video), video)
         cast.voiced = bool(voice)
+        typed = script
         script, cast.appearances = swap_appearances(script, jobs, video)
         scene = read_script(script)
         cast.notice_people(" ".join(moment.text for moment in scene.moments))
@@ -338,7 +340,7 @@ def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="E
         if not scene.moments and video not in NEEDS_NO_WORDS:
             raise ValueError(NO_SCRIPT)
         if video == SWAP and scene.moments:  # Typed words in a swap say which person goes, for a clip with two.
-            cast.name_who_goes([without_speech(moment) for moment in scene.moments])
+            cast.name_who_goes(read_swap(typed, jobs), typed)
             if cast.appearances and cast.clip_clothes:
                 raise ValueError('Remove "keep the clip\'s clothes" or the looks like line. This appearance hint replaces the whole look.')
             goes = [(who, str(picture.slot)) for who, picture in zip(cast.whos, cast.swappers) if who != ONE_GOES]

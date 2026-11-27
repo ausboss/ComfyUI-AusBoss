@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import re
 
+from ._h3_swap_reader import read_swap
 from ._h3_cast_helpers import (
     SAYS_AFTER,
     EDIT,
@@ -627,10 +628,33 @@ def script_warning(script, seconds, cast=None):
     return ""
 
 
+def swap_reading(text, jobs):
+    """What a swap's lines were read as, for the node: who each new person replaces and how they look, from the
+    same reading the prompt uses, and the words a swap does not use."""
+    jobs = things_that_perform(text, jobs, SWAP)
+    read = read_swap(text, jobs)
+    cast = Cast(number_pictures(jobs, SWAP), SWAP)
+    cast.name_who_goes(read, text)
+    descriptions = read.descriptions
+    people = [
+        {"slot": picture.slot, "goes": who, "looks": descriptions.get(picture.slot, ""), "named": picture.slot in read.goes}
+        for picture, who in zip(cast.swappers, cast.whos)
+    ]
+    return {"people": people, "unused": read.unused, "keeps_clip_clothes": cast.clip_clothes}
+
+
 def script_report(text, seconds, jobs=None, video=""):
     """What a script will do, for the timeline on the node."""
+    reading = None
+    if video == SWAP and jobs is not None:
+        try:
+            reading = swap_reading(text, jobs)
+        except ValueError as error:
+            # The writer refuses these lines when it runs; say why now, on the node.
+            reading = {"people": [], "unused": [], "keeps_clip_clothes": False, "problem": str(error)}
     # The optional swap description is not a second timed action.
-    text, _ = swap_appearances(text, jobs, video)
+    if not (reading and "problem" in reading):
+        text, _ = swap_appearances(text, jobs, video)
     script = read_script(text)
     starts = timeline(script, seconds)
     ends = [*starts[1:], seconds]
@@ -647,7 +671,10 @@ def script_report(text, seconds, jobs=None, video=""):
     ]
     jobs = things_that_perform(text, jobs, video) if jobs is not None else None
     cast = Cast(number_pictures(jobs, video), video) if jobs is not None else None
-    return {"moments": moments, "seconds": seconds, "warning": script_warning(script, seconds, cast)}
+    report = {"moments": moments, "seconds": seconds, "warning": script_warning(script, seconds, cast)}
+    if reading is not None:
+        report["read"] = reading
+    return report
 
 
 def stamp(seconds):

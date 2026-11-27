@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 
+from ._h3_swap_reader import KEEP_CLOTHES_WORDS, read_swap
+
 PERSON = "person"
 SHEET = "character sheet"
 PLACE = "place"
@@ -145,15 +147,8 @@ WEARS_LINE = re.compile(r'^\s*@([1-4])\s+(?:is\s+wearing|wears|is\s+dressed\s+in
 QUOTE = re.compile(r'["\u201c\u201d]')
 
 
-# "The man in front is replaced by @1, a game character with orange hair.": the words after "@1," say how the new
-# person looks. A swap kept only the quoted words of such a line, so the description was dropped without a word.
-LOOKS_AFTER_PICTURE = re.compile(r"@([1-4]),\s*((?:a|an)\s+[^.!?@\n]+)", re.I)
-
-
 def looks_on_own_lines(text):
-    """The script with each @N looks like sentence on a line of its own, and a description typed right after a
-    picture ("replaced by @1, a man in a red hat") as that picture's looks like line, unless it already has one.
-    A spoken line is left alone."""
+    """The script with each @N looks like sentence on a line of its own. A spoken line is left alone."""
     text = str(text or "")
     lines = []
     for line in text.splitlines():
@@ -162,19 +157,7 @@ def looks_on_own_lines(text):
             continue
         first, *rest = LOOKS_MID_LINE.sub("\n", line).splitlines()
         lines += [re.sub(r"\s+([.,;:])$", r"\1", first), *rest]
-    typed = {int(match.group(1)) for match in map(APPEARANCE_LINE.match, lines) if match}
-    moved = []
-    for line in lines:
-        match = None if QUOTE.search(line) or APPEARANCE_LINE.match(line) else LOOKS_AFTER_PICTURE.search(line)
-        slot = int(match.group(1)) if match else None
-        if slot is None or slot in typed:
-            moved.append(line)
-            continue
-        looks = re.sub(r"(?:,|\s+and)+\s*$", "", match.group(2).rstrip()).rstrip(" ,;:")
-        rest = line[match.start(2) + len(looks) :]
-        moved += [re.sub(r"\s+([.,;:])", r"\1", line[: match.start(1) + 1] + rest, count=1).rstrip(), f"@{slot} looks like {looks}"]
-        typed.add(slot)
-    return "\n".join(moved) if moved != text.splitlines() else text
+    return "\n".join(lines) if len(lines) != len(text.splitlines()) else text
 
 
 # Hair and face only, no clothes, expression or background. When the line names clothes that differ from what the
@@ -191,7 +174,7 @@ def add_looks(text, jobs, describe):
     small picture-reading model shown that person's picture. Without such a line H3 kept the original person for the
     first seconds (2026-11-07), so a connected model writes it when the user didn't."""
     text = looks_on_own_lines(text)
-    typed = {int(match.group(1)) for match in map(APPEARANCE_LINE.match, text.splitlines()) if match}
+    typed = set(read_swap(text, jobs).descriptions)
     for slot in sorted(jobs):
         if jobs[slot] not in (PERSON, SHEET) or slot in typed:
             continue
@@ -206,87 +189,31 @@ def add_looks(text, jobs, describe):
 
 
 def swap_appearances(text, jobs, video):
-    """An optional separate @1 looks like line describes a replacement, not who goes.
-
-    Other jobs and scripts without that exact line keep their original text.
-    The number is the visible picture slot, not its compact H3 ordinal.
-    """
+    """How each new person in a swap looks, by the visible picture slot, and the script without its looks and
+    clothes lines. Other jobs keep their text."""
     if video != SWAP:
         return text, {}
-    kept, descriptions, clothes = [], {}, {}
+    descriptions = read_swap(text, jobs).descriptions
+    if not descriptions:
+        return text, {}
+    kept = []
     for line in looks_on_own_lines(text).splitlines():
         worn = WEARS_LINE.fullmatch(line)
         if worn and (jobs or {}).get(int(worn.group(1))) in (PERSON, SHEET):
-            clothes.setdefault(int(worn.group(1)), []).append(worn.group(2).strip().rstrip(" ."))
             continue
         match = APPEARANCE_LINE.fullmatch(line)
         if match is None:
             kept.append(line)
             continue
-        slot = int(match.group(1))
-        if slot not in (jobs or {}):
-            raise ValueError(f"Picture {slot} is not connected. Connect the new person's picture or remove its looks like line.")
-        if jobs[slot] not in (PERSON, SHEET):
-            raise ValueError(f"Picture {slot} must be a person or character sheet for a swap's looks like line.")
-        if slot in descriptions:
-            raise ValueError(f"Describe Picture {slot} once, in one looks like line.")
-        # A sentence on the looks line that names an @ again ("The trees behind @1 stay the same.") is not how
-        # the person looks: it goes back to the script as its own line, or H3 reads a raw @1 in the appearance.
-        sentences = re.split(r"(?<=[.!?])\s+", match.group(2).strip())
-        looks = [sentence for sentence in sentences if not TOKEN.search(sentence)]
-        kept.extend(sentence for sentence in sentences if TOKEN.search(sentence))
-        description = " ".join(looks).strip().rstrip(" .")
-        if not description:
-            raise ValueError(f"Say what Picture {slot}'s person looks like, or remove its looks like line.")
-        descriptions[slot] = description
-    for slot, worn in clothes.items():
-        # Clothes typed on their own line join the description; with none typed, the picture still gives the hair.
-        descriptions[slot] = f"{descriptions.get(slot, 'the same hair')}, wearing {' and '.join(worn)}"
-    return ("\n".join(kept), descriptions) if descriptions else (text, {})
+        # A sentence on the looks line that names an @ again ("The trees behind @1 stay the same.") goes back.
+        kept.extend(sentence for sentence in re.split(r"(?<=[.!?])\s+", match.group(2).strip()) if TOKEN.search(sentence))
+    return "\n".join(kept), descriptions
 
 
-# Where each person stands when two or more go and the script doesn't say, from left to right like the pictures.
-SPOTS = {2: ("left", "right"), 3: ("left", "centre", "right"), 4: ("far left", "left", "right", "far right")}
-SAYS_WHO = re.compile(
-    r"^(?:is|are|replaces|takes\s+the\s+place\s+of|goes\s+in\s+for|swaps?\s+(?:in\s+)?for|in\s+place\s+of|for|as)\b\s*"
-    r"|^[:=\-\u2013\u2014>]+\s*",
-    re.I,
-)
-# "he replaces the person at the counter": the words after one of these are who goes, wherever they stand in the line.
-REPLACES = re.compile(
-    r"\b(?:replaces|replacing|takes\s+the\s+place\s+of|taking\s+the\s+place\s+of|in\s+place\s+of|instead\s+of"
-    r"|swaps?\s+(?:in\s+)?for|goes\s+in\s+for|stands?\s+in\s+for)\s+",
-    re.I,
-)
-# A plain sentence: "Replace the man in red with @1", "swap the guy for @1", "make the dancer look like @1",
-# "swap @1 in for the singer". The words caught are who goes.
-ASKS = re.compile(
-    r"^\s*(?:please\s+)?(?:replace|swap(?:\s+out)?|switch(?:\s+out)?|change|turn|make)\s+(?!@\d)(.+?)\s+"
-    r"(?:with|for|to|into|by|look\s+like|become)\s+@\d\b"
-    r"|^\s*(?:please\s+)?(?:swap|put|place|drop|switch)\s+@\d\s+(?:in\s+)?(?:with|for|over|on|onto|in\s+place\s+of)\s+(.+)",
-    re.I,
-)
-# "the cashier is now @1", "the man on the left becomes @1".
-BECOMES = re.compile(
-    r"^\s*(.+?)\s+(?:is\s+now|becomes|turns\s+into|is\s+replaced\s+(?:by|with)|gets\s+replaced\s+(?:by|with)"
-    r"|is\s+swapped\s+(?:for|with|to)|gets\s+swapped\s+(?:for|with)|->|\u2192)\s*@\d\b",
-    re.I,
-)
-IN_THE_CLIP = re.compile(r"\s+(?:in|from|of)\s+the\s+(?:clip|video|original(?:\s+(?:clip|video))?)\b", re.I)
-# "Elon is @1," names the new person, not the one who goes.
-# "the man on the left, Dario is" ends where the next person's name starts.
-NAMES_NEXT = re.compile(r",?\s*(?:[A-Z][\w'.-]*\s+)+(?:is|as|plays)\s*$")
-NAMES_THE_NEW = re.compile(r"^[^@.;]*?\b(?:is|as|plays)\s+@\d\b[\s,.;]*", re.I)
 SWAPPED = "attribute_transfer - apply the defined appearance to the original performance; the background of {picture} is not transferred."
 # "keeps the outfit", "in the clip's clothes": the new person wears the clothes of the one who goes, not the picture's.
-KEEP_CLOTHES = (
-    r"\bkeep(?:s|ing)?\s+(?:the\s+|his\s+|her\s+|their\s+)?(?:original\s+|same\s+)?(?:outfit|clothes|clothing)\b"
-    r"(?:\s+(?:from|of|in)\s+the\s+(?:clip|video|original))?"
-    r"|\b(?:in|wearing|wears)\s+the\s+(?:clip'?s|video'?s|original)\s+(?:outfit|clothes|clothing)\b"
-    r"|\b(?:outfit|clothes|clothing)\s+(?:from|of)\s+the\s+(?:clip|video)\b"
-)
+KEEP_CLOTHES = KEEP_CLOTHES_WORDS
 CLIP_CLOTHES = re.compile(KEEP_CLOTHES, re.I)
-CLIP_CLOTHES_CUT = re.compile(rf",?\s*(?:\band\s+)?(?:{KEEP_CLOTHES})", re.I)
 CLOTHED_SWAP = "{subject} is the person in {picture}, with the same face and hair, wearing the clothes of {who} in <Video 1>."
 CLOTHES_STAY = (
     "attribute_transfer - apply only the face and hair to the original performance; the clothes of {who} in <Video 1> "
@@ -318,34 +245,8 @@ REVOICE_KEPT = (
 )
 
 
-# A line only names who goes when it is a noun phrase like "the child in the seat", not an action or a pronoun.
-NOUN_PHRASE = re.compile(r"^(?:the|a|an|this|that|these|those|his|her|their|everyone|someone|somebody|both|each|all)\b", re.I)
-ACTION_WORD = re.compile(
-    r"\b(?:dances|walks|runs|talks|says|sits|stands|smiles|waves|jumps|enters|leaves|laughs|sings|eats|drinks|waits|"
-    r"is\s+\w+ing|are\s+\w+ing)\b",
-    re.I,
-)
-
-
-def who_goes_in(text):
-    """Who a typed swap line says goes, without the rest of the line: "Elon is @1, he replaces the man at the
-    counter" is the man at the counter, and so is "Replace the man at the counter with @1."."""
-    replaces = REPLACES.search(text)
-    plain = None if replaces else next((match for match in (ASKS.search(text), BECOMES.search(text)) if match), None)
-    if replaces:
-        text = text[replaces.end() :]
-    elif plain:
-        text = next(group for group in plain.groups() if group)
-    else:
-        text = NAMES_THE_NEW.sub("", text)
-    text = IN_THE_CLIP.sub("", text)
-    text = re.split(r"[.;!?]", text.strip(" .;!?"), maxsplit=1)[0]
-    text = NAMES_NEXT.sub("", text)
-    text = SAYS_WHO.sub("", TOKEN.sub("", text).strip(" .,;")).strip(" .,;")
-    text = re.sub(r"\s+and$", "", text).strip(" .,;")
-    if not (replaces or plain) and not (NOUN_PHRASE.match(text) and not ACTION_WORD.search(text)):
-        return ""  # "@1 dances" or "He dances" says what happens, not who goes.
-    return text
+# Where each person stands when two or more go and the script doesn't say, from left to right like the pictures.
+SPOTS = {2: ("left", "right"), 3: ("left", "centre", "right"), 4: ("far left", "left", "right", "far right")}
 
 
 def lower_first(text):
@@ -486,33 +387,13 @@ class Cast:
         new = subject_label(picture.subject)
         return next((who for _, who, coming in self.swaps if coming == new), self.who)
 
-    def name_who_goes(self, lines):
-        """Who each new person replaces, from the lines typed in a swap. With one, the words are who goes. With more,
-        each @ names one, or else the lines go in picture order; anything else keeps left to right."""
-        self.clip_clothes = any(CLIP_CLOTHES.search(line) for line in lines)
-        lines = [CLIP_CLOTHES_CUT.sub("", line).strip() for line in lines]
-        lines = [line for line in lines if line.strip(" .")]
-        text = ". ".join(line.rstrip(" .") for line in lines)  # Each line ends where its who-goes words end.
-        if len(self.whos) == 1:
-            self.who = lower_first(who_goes_in(text) or ONE_GOES)
-            return
-        slots = [picture.slot for picture in self.swappers]
-        # A line that names one new person says who that person replaces, wherever its @ stands in the line:
-        # "The man on the left is replaced by @1." Only a line that names several is cut at each @.
-        own = {}
-        for line in lines:
-            named_here = {int(slot) for slot in TOKEN.findall(line)} & set(slots)
-            if len(named_here) == 1:
-                own.setdefault(named_here.pop(), []).append(line.rstrip(" ."))
-        pieces = re.split(r"@(\d)\b", ". ".join(line.rstrip(" .") for line in lines if line.rstrip(" .") not in sum(own.values(), [])))
-        named = {int(slot): words for slot, words in zip(pieces[1::2], pieces[2::2]) if int(slot) in slots}
-        named.update({slot: ". ".join(words) for slot, words in own.items()})
-        if not named:
-            named = dict(zip(slots, lines)) if len(lines) == len(slots) else {}
-        for index, slot in enumerate(slots):
-            words = who_goes_in(named.get(slot, ""))
-            if words:
-                self.whos[index] = lower_first(words)
+    def name_who_goes(self, read, text):
+        """Who each new person replaces, from the reader. A new person nobody placed keeps the default: the original
+        person, or left to right."""
+        self.clip_clothes = bool(CLIP_CLOTHES.search(text or ""))
+        for index, picture in enumerate(self.swappers):
+            if picture.slot in read.goes:
+                self.whos[index] = lower_first(read.goes[picture.slot])
 
     @property
     def main(self):

@@ -6,13 +6,14 @@ import { clipLengthWords, clipSetsDuration, clipTimingFor, linkSource } from "./
 import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
 import { BRAND, chainCallback } from "./index.mjs";
-import { dragRange, moveMoment, retime, rulerSeconds, stripCaption, stripRows, toggleCut, wiredJobs } from "./moment_strip_math.mjs";
+import { dragRange, moveMoment, readLines, retime, rulerSeconds, stripCaption, stripRows, toggleCut, wiredJobs } from "./moment_strip_math.mjs";
 import { attachScriptAssist } from "./script_assist.mjs";
 import { attachScriptColours } from "./script_colours.mjs";
 import { commitWidgetValue } from "./widget_card_math.mjs";
 
 const CSS_ID = "ausboss-moment-strip-css";
 const WAIT = 200; // Lets someone finish a word before asking.
+const SWAP_JOB = "swap the person";
 const WATCH = 1000; // A Workflow Switches card turns a picture off without touching this node.
 
 function ensureCss() {
@@ -45,6 +46,10 @@ function ensureCss() {
 .ausboss-strip-drop{position:absolute;top:-3px;bottom:-3px;z-index:4;width:3px;margin-left:-2px;border-radius:2px;background:#f5b53d;pointer-events:none}
 .ausboss-strip-note{flex:none;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:#6f8886;font-size:10px;font-weight:500;line-height:12px}
 .ausboss-strip-note.warn{color:#d9a441}
+.ausboss-strip-read{display:flex;flex-direction:column;justify-content:center;gap:2px;height:100%;min-width:0;overflow:hidden;color:#cfe8e5;font-weight:500}
+.ausboss-strip-read div{flex:none;overflow:hidden;line-height:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
+.ausboss-strip-read.tight div{display:block;white-space:nowrap;text-overflow:ellipsis}
+.ausboss-strip-read .warn{color:#d9a441}
 `;
   document.head.append(style);
 }
@@ -208,6 +213,7 @@ export function momentStrip(node) {
   const show = (report) => {
     const seconds = Number(report?.seconds) || Number(lastValues.seconds) || 8;
     ruler.textContent = "";
+    ruler.style.display = "";
     for (const mark of rulerSeconds(seconds)) {
       const tick = document.createElement("span");
       tick.style.left = `${(mark / seconds) * 100}%`;
@@ -279,6 +285,49 @@ export function momentStrip(node) {
     }
   };
 
+  // What a swap's lines were read as: who each new person replaces, how they
+  // look, and any words a swap leaves out.
+  let readShown = null;
+  let readTimer = null;
+  let readLast = null;
+  let readTurn = 0;
+  const showRead = (read, words) => {
+    const lines = readLines(read);
+    if (!lines.length) return;
+    track.textContent = "";
+    // The bar's seconds are empty here; give their row to the reading.
+    ruler.style.display = "none";
+    // Two lines may wrap; more than that keep one row each so all of them show.
+    const box = el(lines.length > 2 ? "ausboss-strip-read tight" : "ausboss-strip-read");
+    for (const line of lines) {
+      const row = el(line.warn ? "warn" : "", line.text);
+      row.title = line.text;
+      box.append(row);
+    }
+    track.append(box);
+    // The clip's frame count moves down to the line under the reading.
+    if (words?.title) {
+      note.textContent = words.title;
+      note.title = [words.title, words.note].filter(Boolean).join(". ");
+    }
+  };
+  const askRead = async (script, jobs, words) => {
+    const turn = ++readTurn;
+    try {
+      const response = await api.fetchApi("/ausboss/h3_writer/read", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ script, seconds: 8, jobs, video: SWAP_JOB }),
+      });
+      const report = response.ok ? await response.json() : null;
+      if (turn !== readTurn || !clipSetsDuration(node, lastValues) || lastValues.video_job !== SWAP_JOB) return;
+      readLast = report?.read ?? null;
+      if (readLast) showRead(readLast, words);
+    } catch {
+      // The reading is a help; without it the box still shows the clip's length.
+    }
+  };
+
   let latest = null;
   let fromClip = false;
   const sync = (values) => {
@@ -296,6 +345,7 @@ export function momentStrip(node) {
       clearTimeout(timer);
       asked += 1;
       ruler.textContent = "";
+      ruler.style.display = "";
       track.textContent = "";
       // Say what H3 will make of the clip's frames, when the clip node knows
       // its count; it rounds down to 5 + 17n, so a 48-frame clip gives 39.
@@ -306,8 +356,21 @@ export function momentStrip(node) {
       note.textContent = words?.note ?? "Set the clip's length on the clip node. H3 makes 5 + 17n frames (22, 39, 56 ...), rounding the clip down.";
       note.title = note.textContent;
       note.classList.toggle("warn", Boolean(words?.warn));
+      // A swap shows how its lines were read where the moments would be.
+      if (values.video_job === SWAP_JOB && !wired(node, "script")) {
+        const script = String(values.script ?? "");
+        const jobs = wiredJobs(values, (name) => wired(node, name));
+        const key = JSON.stringify([script, jobs]);
+        if (key === readShown && readLast) showRead(readLast, words);
+        else if (key !== readShown) {
+          readShown = key;
+          clearTimeout(readTimer);
+          readTimer = setTimeout(() => askRead(script, jobs, words), WAIT);
+        }
+      } else readShown = null;
       return;
     }
+    readShown = null;
     if (wired(node, "script")) {
       shown = null;
       clearTimeout(timer);

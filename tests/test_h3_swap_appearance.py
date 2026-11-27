@@ -64,9 +64,10 @@ class SwapAppearanceTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.parts(text)
 
-    def test_anchored_line_only_and_other_jobs_are_untouched(self):
-        for text in ['Put @1 looks like a friend here.', '@1 looks like a woman and says "Hello".']:
-            self.assertEqual(swap_appearances(text, {1: 'person'}, 'swap the person'), (text, {}))
+    def test_a_looks_in_a_spoken_line_is_read_and_other_jobs_are_untouched(self):
+        # The look is read; the line stays in the script for what is said.
+        text = '@1 looks like a woman and says "Hello".'
+        self.assertEqual(swap_appearances(text, {1: 'person'}, 'swap the person'), (text, {1: 'a woman'}))
         for job in ['', 'copy its moves', 'change something', 'keep going']:
             self.assertEqual(swap_appearances(SCRIPT, {1: 'person'}, job), (SCRIPT, {}))
         legacy = '\r\n  @1 replaces the man in the hat.\r\n'
