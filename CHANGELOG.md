@@ -4,6 +4,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Mask Refine 🆎's guided and matting edges follow the picture.** Both
+  edge modes now look further from the mask's edge and snap to the real
+  edge in the guide image, so hair and thin parts a rough mask missed come
+  back. Two new settings under More, Detail range and Fix threshold, tune
+  them. Workflows that use guided or matting will give a cleaner, different
+  edge after updating. The node can also run on its own now, to check a
+  mask before the rest of the graph. Thanks to kajan988.
 - **Edit Lock 🆎 says what is wrong when the VAE and model don't match.**
   The readout used to blame the VAE alone. It now says either file can be
   the wrong one, gives the two channel counts it compared, and points to

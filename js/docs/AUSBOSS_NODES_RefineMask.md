@@ -6,8 +6,8 @@ quick brush before the mask goes to an inpainter. It can also snap the edge
 to a guide image and adjust the mask's levels. Both the refined mask and its
 inverse are returned, so no separate invert node is needed.
 
-It is an output node, so you can run it on its own — with nothing wired
-downstream — to check the mask before the rest of the graph runs.
+You can run it on its own, with nothing wired after it, to check the mask
+before the rest of the graph runs.
 
 The panel shows the refined mask itself once the node has run, so the effect
 of a setting is visible without wiring a preview node beside it. With a batch
@@ -61,12 +61,19 @@ run the workflow again. The switch is the node's optional `preview` input.
 - **Edge** (`edge_refine`): `off`, **guided** (`guided filter`), or
   `matting`. Both refinements snap the mask edge to the connected
   **guide_image** and run per frame, so video batches stay interruptible:
-  - `guided filter` — fast edge-aware filtering of the soft mask against the
-    guide image. The filter radius scales with **Expand**.
-  - `matting` — closed-form alpha matting: the binarized mask eroded by the
-    edge radius counts as definite foreground, the dilation marks where
-    definite background begins, and the band between is solved against the
-    guide image. Pair it with the levels remap to tidy the solved alpha.
+  - `guided filter` — fast. Pulls the mask's edge onto the edges in the
+    guide image, which picks up thin parts and loose strands a rough mask
+    missed. **Detail range** sets how far it looks.
+  - `matting` — slower and finer. Softens the mask's edge over a wide band
+    and works out the real edge inside it from the guide image. Pair it
+    with the levels remap to tidy the result.
+- **Detail range** (`detail_range`): How far from the mask's edge to look
+  for the real edge, `12` by default. Raise it for hair or a loose mask,
+  lower it for a small subject. Used only while **Edge** is on.
+- **Fix threshold** (`fix_threshold`): How much of the softened edge
+  matting may rework. The default, `0.01`, lets it fix the whole edge;
+  higher values trim the mask inward. Used only while **Edge** is
+  `matting`.
 - **guide_image** (optional input): RGB frames the mask belongs to, matching
   the mask's size; one frame is broadcast across a mask batch. Required when
   `edge_refine` is not `off`.

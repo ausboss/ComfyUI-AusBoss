@@ -381,9 +381,9 @@ def guided_filter_refine(
 ) -> torch.Tensor:
     """Snap soft mask edges to guide-image edges with an edge-aware filter.
 
-    radius and eps mirror LayerStyle's MaskEdgeUltraDetail: a wide window with
-    a firm eps (0.015) is what pulls a feathered mask onto the image edge
-    instead of leaving the gray ramp the tiny default eps kept.
+    A window of detail_range + 1 pixels with a firm eps (0.015) pulls a
+    feathered mask onto the picture's edge; the old tiny eps (1e-4) left the
+    gray ramp in place.
     """
     guided_filter = _load_guided_filter()
     count, height, width = mask.shape
@@ -403,7 +403,6 @@ def matting_refine(
     guide_image: torch.Tensor,
     detail_range: int,
     fix_threshold: float,
-    white_point: float,
 ) -> torch.Tensor:
     """Closed-form alpha matting around the mask edge.
 
@@ -429,14 +428,25 @@ def matting_refine(
         ):
             frames.append(alpha_in)
             continue
-        blurred = cv2.GaussianBlur(alpha_in.numpy().astype("float64"), (kernel, kernel), 0)
-        # The node shows black_point/white_point as 0 and 1, but a trimap
-        # threshold of exactly 0 or 1 leaves pymatting with no background or
-        # foreground to anchor on (a blurred alpha never exceeds 1), so the
-        # solve uses LayerStyle's 0.01/0.99 bounds instead.
-        lower = min(max(float(fix_threshold), 0.01), 0.99)
-        upper = min(max(float(white_point), 0.01), 0.99)
-        trimap = fix_trimap(blurred, lower, upper)
+        # Below fix_threshold is definite background, above 0.99 definite
+        # foreground, the rest is solved. The upper bound is fixed: a blurred
+        # alpha never reaches exactly 1, and white_point stays a levels
+        # control rather than also moving the solve. A high fix_threshold
+        # marks the blurred rim as background and shrinks the mask, so the
+        # default is the lowest value.
+        lower = min(max(float(fix_threshold), 0.01), 0.98)
+        upper = 0.99
+        source = alpha_in.numpy().astype("float64")
+        size = kernel
+        while True:
+            blurred = cv2.GaussianBlur(source, (size, size), 0)
+            trimap = fix_trimap(blurred, lower, upper)
+            # A blur wider than the subject never lets its core reach the
+            # upper bound, which leaves no foreground and nothing solved.
+            # Narrow the blur until the subject keeps a solid core.
+            if bool((trimap >= 0.9).any()) or size <= 3:
+                break
+            size = _odd(size // 2)
         if not (
             bool((trimap >= 0.9).any())
             and bool((trimap <= 0.1).any())
@@ -483,7 +493,7 @@ def refine_mask(
     guide_image: torch.Tensor | None = None,
     max_hole_size: float = 0.0,
     detail_range: int = 12,
-    fix_threshold: float = 0.75,
+    fix_threshold: float = 0.01,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Expand, fill holes, smooth, feather, edge-refine, then remap levels.
 
@@ -491,7 +501,7 @@ def refine_mask(
     frame's area; 0 (the default) fills every hole, as before it existed.
     detail_range and fix_threshold tune the edge_refine pass: detail_range sets
     the guided-filter window and the matting unknown-band width, fix_threshold
-    is the lower trimap threshold for matting.
+    is the lower trimap threshold for matting (higher trims the mask inward).
     """
     if edge_refine not in EDGE_REFINE_MODES:
         raise ValueError(
@@ -520,7 +530,7 @@ def refine_mask(
     if edge_refine == "guided filter":
         refined = guided_filter_refine(refined, guide_image, detail_range)
     elif edge_refine == "matting":
-        refined = matting_refine(refined, guide_image, detail_range, fix_threshold, white_point)
+        refined = matting_refine(refined, guide_image, detail_range, fix_threshold)
     refined = remap_mask(refined, black_point, white_point)
     return refined, 1.0 - refined
 

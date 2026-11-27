@@ -150,21 +150,21 @@ class AusBossRefineMask:
                         "min": 1,
                         "max": 256,
                         "step": 1,
-                        "tooltip": "Edge-refine reach. Sets the guided-filter window "
-                        "and the matting unknown-band width; higher snaps a wider, "
-                        "softer edge. Only used when edge_refine is on.",
+                        "tooltip": "How far from the mask's edge to look for the real "
+                        "edge in the guide picture. Raise it for hair or a loose mask, "
+                        "lower it for a small subject. Used only while Edge is on.",
                     },
                 ),
                 "fix_threshold": (
                     "FLOAT",
                     {
-                        "default": 0.75,
+                        "default": 0.01,
                         "min": 0.01,
                         "max": 0.99,
                         "step": 0.01,
-                        "tooltip": "Matting lower trimap threshold. Lower widens the "
-                        "unknown band the solver refines; higher keeps the band tight. "
-                        "Only used when edge_refine is 'matting'.",
+                        "tooltip": "How much of the softened edge matting may rework. "
+                        "Low (the default) lets it fix the whole edge; higher trims "
+                        "the mask inward. Used only while Edge is matting.",
                     },
                 ),
             },
@@ -197,7 +197,7 @@ class AusBossRefineMask:
         preview=True,
         max_hole_size=0.0,
         detail_range=12,
-        fix_threshold=0.75,
+        fix_threshold=0.01,
     ):
         refined, inverted = refine_mask(
             mask,

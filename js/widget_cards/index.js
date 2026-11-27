@@ -261,7 +261,7 @@ const CARDS = {
     // saved by 2.x before Max hole size existed holds the card's there; it
     // loads 0, no limit, as the node ran then. detail_range and fix_threshold
     // came later still; older saves hold the card's value there.
-    resetUnknown: { preview: true, max_hole_size: 0, detail_range: 12, fix_threshold: 0.75 },
+    resetUnknown: { preview: true, max_hole_size: 0, detail_range: 12, fix_threshold: 0.01 },
     rows: [
       { widget: "expand", label: "Expand", suffix: "px" },
       { widget: "blur", label: "Blur" },

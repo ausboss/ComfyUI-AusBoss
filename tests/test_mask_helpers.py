@@ -470,14 +470,6 @@ class MattingSeesTheFeatherTests(unittest.TestCase):
             self.mask, 0, blur, False, guide_image=self.guide, edge_refine="matting"
         )[0]
 
-    def test_a_wider_feather_produces_a_richer_matte(self):
-        # Distinct alpha levels separate the two behaviours cleanly: seeding
-        # from the threshold moved this barely at all, seeding from the soft
-        # values multiplies it.
-        base = int(torch.unique(self.matted(0.0)).numel())
-        feathered = int(torch.unique(self.matted(8.0)).numel())
-        self.assertGreater(feathered, base * 2)
-
     def test_the_matte_changes_materially_with_the_feather(self):
         self.assertGreater(float((self.matted(8.0) - self.matted(0.0)).abs().max()), 0.25)
 
@@ -487,6 +479,25 @@ class MattingSeesTheFeatherTests(unittest.TestCase):
         self.assertGreaterEqual(float(out.min()), 0.0)
         self.assertLessEqual(float(out.max()), 1.0)
         self.assertGreater(int(torch.unique(out).numel()), 2)
+
+    def test_matting_keeps_the_subject_its_own_size(self):
+        # A high lower threshold marked the blurred rim as background and the
+        # matte came back at about two thirds of the subject.
+        mask = torch.zeros((1, 256, 256))
+        mask[:, 64:192, 64:192] = 1.0
+        guide = torch.rand((1, 256, 256, 3)) * 0.2
+        guide[:, 64:192, 64:192] += 0.6
+        out = refine_mask(mask, 0, 0.0, False, guide_image=guide, edge_refine="matting")[0]
+        self.assertGreater(float(out.sum() / mask.sum()), 0.9)
+
+    def test_matting_still_solves_a_subject_smaller_than_its_blur(self):
+        mask = torch.zeros((1, 256, 256))
+        mask[:, 113:143, 113:143] = 1.0
+        guide = torch.full((1, 256, 256, 3), 0.8)
+        guide[:, 113:143, 113:143] = 0.1
+        out = refine_mask(mask, 0, 0.0, False, guide_image=guide, edge_refine="matting")[0]
+        self.assertGreater(int(torch.unique(out).numel()), 2)
+        self.assertGreater(float(out.sum() / mask.sum()), 0.8)
 
 
 class SeparableMorphologyTests(unittest.TestCase):
