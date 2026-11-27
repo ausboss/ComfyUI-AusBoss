@@ -4,6 +4,38 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **New node: Film Grain 🆎.** Adds film grain to a picture or a video.
+  The grain is strongest in the midtones and gentler in deep shadows and
+  highlights, as on film. Size, roughness and colour set its look, it moves
+  from frame to frame on a video (or stays put), an optional mask limits
+  where, and the same seed gives the same grain.
+- **Film Grain has an Auto switch.** With Auto on, the node picks the grain
+  for the picture: the same look on a small or a big one (the size follows the
+  picture's size), and an amount that matches the grain the picture already
+  has. A clean render starts at the normal 0.25. Amount and Size then count as
+  multipliers ("1 × = Auto's pick"), with the real value in small type beside
+  each box. Auto on and Auto off keep their own numbers, and Auto starts off,
+  so saved workflows behave as before.
+- **Film Grain can copy another picture's grain.** Wire a picture whose grain
+  you like into `grain_from` and switch Auto on (it reads "match"). The node
+  reads that picture's grain, how strong, how big and how colourful, and adds
+  grain like it; Amount, Size and Color then count from the match ("1 × = the
+  match"), with the real value beside each box. The picture to copy from is
+  scaled to your picture's size first, so the grain matches at the same
+  viewing size, and only its plainest patches are read. Roughness stays yours.
+- **Film Grain, Keep Detail and Cut Out show a live preview.** After one run,
+  the picture on the node redraws while you drag a value, with a "not run yet"
+  tag until you queue. A Fit | 100% switch left of Preview shows the whole
+  picture or real pixels; at 100% dragging the picture moves around it.
+- **New node: Cut Out 🆎.** Turns a picture and a mask into a cut-out with a
+  see-through background, ready to save as a PNG. Clean edges takes the old
+  background's colour out of hair and soft edges so there is no halo, and
+  fully kept pixels stay exactly as they were. Grow, feather, haze and
+  solid-core levels, and smoothing over video frames, are on the card.
+- **New node: Keep Detail 🆎.** Puts the original picture's fine detail
+  back on an edit that came out too smooth. The edit keeps its shapes,
+  light and colour; Light only never shifts a colour. The two pictures must
+  line up.
 - **Check layout 🆎 shows what makes a workflow hard to read.** Right-click
   the canvas or use the command palette. It lists overlapping nodes and
   groups, wires that run backwards or hide behind a node, nodes just under a

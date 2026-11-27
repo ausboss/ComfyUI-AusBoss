@@ -326,6 +326,12 @@ export const ZH = {
   "Your own ratios from ausboss_presets.json. Picking one works like a ratio button.": "来自 ausboss_presets.json 的自定义比例。选中它的效果和点比例按钮一样。",
   "Choose or upload an image": "选择或上传图片",
   "Preview could not load this image": "预览无法加载这张图片",
+  // ---- image finishing nodes
+  "Auto": "自动", "1 \u00d7 = Auto's pick": "1 \u00d7 = 自动的选择", "1 \u00d7 = the match": "1 \u00d7 = 匹配结果", "match": "匹配",
+  "Amount": "颗粒量", "Roughness": "粗糙度", "Video grain": "视频颗粒", "moving": "逐帧变化",
+  "Clean edges": "清理边缘", "Clear haze": "清除薄雾", "Solid above": "高于此值为实", "Smooth video": "视频平滑",
+  "white part": "白色部分", "black part": "黑色部分",
+  "Detail size": "细节大小", "Detail": "细节", "color + light": "颜色 + 明暗", "light only": "仅明暗", "Edge safe": "保护边缘",
   // ---- Check layout
   "Check layout": "检查布局",
   "Check again": "再检查一次",
