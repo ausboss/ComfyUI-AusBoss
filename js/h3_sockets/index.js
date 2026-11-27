@@ -14,7 +14,7 @@
 import { app } from "../../../scripts/app.js";
 import { chainCallback } from "../shared/index.mjs";
 import { lookupLink } from "../shared/graph_links.mjs";
-import { SHOW_ALL, dropTarget, setSocketHidden, socketsToShow } from "../shared/h3_sockets.mjs";
+import { SHOW_ALL, dropTarget, hiddenRowsRule, setSocketHidden, socketsToShow } from "../shared/h3_sockets.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_H3PromptWriter";
 const STYLE_ID = "ausboss-h3-sockets";
@@ -62,7 +62,9 @@ function writeStyleRules() {
 
 export function applySockets(node) {
   if (!node?.inputs || !node?.outputs) return;
-  const rowsBefore = shownRows(node);
+  // The rows as this node last had them. Not counted from the sockets: a
+  // paste or a copy gives the node new socket objects, with no marks.
+  const rowsBefore = node._ausbossSocketRows;
   const show = socketsToShow({
     wiredInputs: plainInputs(node).filter((slot) => slot.link != null).map((slot) => slot.name),
     wiredOutputs: node.outputs.filter(outputWired).map((slot) => slot.name),
@@ -72,21 +74,24 @@ export function applySockets(node) {
   node.inputs.forEach((slot, index) => {
     if (slot.widget) return;
     const hide = !show.inputs.has(slot.name);
-    if (setSocketHidden(slot, hide) && hide) hiddenKeys.push(`${node.id}-in-${index}`);
+    if (setSocketHidden(slot, hide) && hide) hiddenKeys.push(`in-${index}`);
   });
   node.outputs.forEach((slot, index) => {
     const hide = !show.outputs.has(slot.name);
-    if (setSocketHidden(slot, hide) && hide) hiddenKeys.push(`${node.id}-out-${index}`);
+    if (setSocketHidden(slot, hide) && hide) hiddenKeys.push(`out-${index}`);
   });
-  node._ausbossSocketRule = hiddenKeys.length
-    ? `${hiddenKeys.map((key) => `.lg-slot:has([data-slot-key="${key}"])`).join(",")}{display:none}`
-    : "";
+  // When the hidden rows change, the nudge flips, so Nodes 2.0 measures the
+  // sockets again and every wire ends on its dot.
+  const hiddenNow = hiddenKeys.join(",");
+  if (node._ausbossHiddenRows !== undefined && node._ausbossHiddenRows !== hiddenNow) node._ausbossNudge = !node._ausbossNudge;
+  node._ausbossHiddenRows = hiddenNow;
+  node._ausbossSocketRule = hiddenRowsRule(node.id, hiddenKeys, Boolean(node._ausbossNudge));
   writeStyleRules();
 
   // The node gets a row taller or shorter with its sockets, so the panel
   // keeps its size. A workflow that is loading keeps the size it was saved at.
   const rows = shownRows(node);
-  if (node._ausbossSocketRows != null && rows !== rowsBefore && !app.configuringGraph && node.size) {
+  if (rowsBefore != null && rows !== rowsBefore && !app.configuringGraph && node.size) {
     node.setSize([node.size[0], node.size[1] + (rows - rowsBefore) * rowHeight()]);
   }
   node._ausbossSocketRows = rows;
@@ -97,17 +102,19 @@ export function applySockets(node) {
 // for its kind, and the first free one can be one nobody can see (an audio
 // wire finds video_sound before voice). Nodes 2.0 then makes no wire at
 // all, as a hidden row has no place to snap to. So the node answers with
-// the first shown free socket of that kind instead.
-function shownSocketFor(node, found) {
+// the first shown socket of that kind that can take the wire. The same goes
+// for a wire pulled from another node's input, which lands on an output.
+function shownSocketFor(node, found, outputs) {
   if (!found?.slot?._ausbossHidden) return found;
-  const target = dropTarget(node.inputs.map((slot) => ({
+  const slots = outputs ? node.outputs : node.inputs;
+  const target = dropTarget(slots.map((slot) => ({
     name: slot.name,
     type: slot.type,
     // A wire that is being dragged away leaves its socket free.
-    wired: slot.link != null && !lookupLink(node.graph, slot.link)?._dragging,
+    wired: outputs ? outputWired(slot) : slot.link != null && !lookupLink(node.graph, slot.link)?._dragging,
     shown: !slot.widget && !slot._ausbossHidden,
-  })), found.index);
-  return target === found.index ? found : { index: target, slot: node.inputs[target] };
+  })), found.index, { shared: outputs });
+  return target === found.index ? found : { index: target, slot: slots[target] };
 }
 
 app.registerExtension({
@@ -138,18 +145,21 @@ app.registerExtension({
       return size;
     };
 
-    const findInputByType = proto.findInputByType;
-    if (typeof findInputByType === "function") {
-      proto.findInputByType = function (...args) {
-        const found = findInputByType.apply(this, args);
-        try { return shownSocketFor(this, found); } catch { return found; }
+    for (const [name, outputs] of [["findInputByType", false], ["findOutputByType", true]]) {
+      const find = proto[name];
+      if (typeof find !== "function") continue;
+      proto[name] = function (...args) {
+        const found = find.apply(this, args);
+        try { return shownSocketFor(this, found, outputs); } catch { return found; }
       };
     }
 
     const apply = safely(function () { applySockets(this); });
     chainCallback(proto, "onNodeCreated", apply);
     chainCallback(proto, "onAdded", apply);
-    chainCallback(proto, "onConfigure", apply);
+    // A node that takes a saved state (a load, a paste, a copy) keeps the
+    // size that came with it.
+    chainCallback(proto, "onConfigure", safely(function () { this._ausbossSocketRows = null; applySockets(this); }));
     chainCallback(proto, "onConnectionsChange", apply);
     chainCallback(proto, "onRemoved", safely(function () {
       this._ausbossSocketRule = "";

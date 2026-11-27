@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { INPUT_NAMES, OUTPUT_NAMES, SHOW_ALL, chipsToShow, dropTarget, setSocketHidden, socketsToShow } from '../js/shared/h3_sockets.mjs';
+import { INPUT_NAMES, OUTPUT_NAMES, SHOW_ALL, chipsToShow, dropTarget, hiddenRowsRule, setSocketHidden, socketsToShow } from '../js/shared/h3_sockets.mjs';
 
 const BASE_IN = ['clip', 'picture_1', 'video', 'voice', 'song'];
 const BASE_OUT = ['prompt', 'frames', 'width', 'height'];
@@ -132,4 +132,44 @@ test('show all gives every picture chip and the video chip', () => {
 
 test('the setting has the id the settings page lists it under', () => {
   assert.equal(SHOW_ALL, 'AusBoss.H3PromptWriter.ShowEverySocket');
+});
+
+test('the style rule hides one row for each hidden socket of a node', () => {
+  assert.equal(
+    hiddenRowsRule(7, ['in-2', 'out-1']),
+    '.lg-slot:has([data-slot-key="7-in-2"]),.lg-slot:has([data-slot-key="7-out-1"]){display:none}',
+  );
+  assert.equal(hiddenRowsRule(7, []), '');
+});
+
+test('a node id from a workflow file cannot add style rules of its own', () => {
+  const hostile = 'a"]){}body{background:url(https://example.com/x)}.x:has([q="';
+  const rule = hiddenRowsRule(hostile, ['in-2'], true);
+  assert.equal(rule.split('{').length - 1, 2, 'one block for the rows and one for the nudge, no more');
+  assert.equal(rule.split('}').length - 1, 2);
+  assert.equal(rule.split('"').length - 1, 4, 'only the quotes around the two attribute values');
+  assert.doesNotMatch(rule, /url\(/);
+});
+
+test('the nudge adds a rule for the node\'s widget grid, so the frontend measures the rows again', () => {
+  const plain = hiddenRowsRule(7, ['in-2']);
+  const nudged = hiddenRowsRule(7, ['in-2'], true);
+  assert.notEqual(nudged, plain);
+  assert.ok(nudged.startsWith(plain));
+  assert.match(nudged, /\[data-widgets-grid-node-id="7"\]\{padding-left:0\.1px\}$/);
+  assert.match(hiddenRowsRule(7, [], true), /^\[data-widgets-grid-node-id="7"\]/, 'a node with nothing hidden can still be measured again');
+});
+
+const outputs = ({ voiceWired = true } = {}) => [
+  { name: 'prompt', type: 'STRING', wired: false, shown: true },
+  { name: 'picture_1', type: 'IMAGE', wired: false, shown: false },
+  { name: 'video_sound', type: 'AUDIO', wired: false, shown: false },
+  { name: 'voice', type: 'AUDIO', wired: voiceWired, shown: true },
+];
+
+test('an output can take more than one wire, so a shown one of the kind is the target even when wired', () => {
+  assert.equal(dropTarget(outputs(), 2, { shared: true }), 3);
+  assert.equal(dropTarget(outputs({ voiceWired: false }), 2, { shared: true }), 3);
+  assert.equal(dropTarget(outputs(), 2), 2, 'an input takes one wire only');
+  assert.equal(dropTarget(outputs(), 1, { shared: true }), 1, 'no picture output shows: the wire stays where it landed');
 });

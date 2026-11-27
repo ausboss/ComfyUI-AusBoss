@@ -15,8 +15,9 @@ The node shows only the sockets you are using, so its face stays small.
   appears, up to four.
 - **video_sound** appears once a video is connected.
 - An output appears once its input is connected: connect two pictures and
-  two picture outputs show. **prompt**, **frames**, **width** and **height**
-  are always there.
+  two picture outputs show. **song_under** needs a voice and a song, and
+  **keeps_clip_sound** a video. **prompt**, **frames**, **width** and
+  **height** are always there.
 - A socket with a wire on it always shows.
 - The picture chips under the words work the same way: a chip shows for each
   picture or video you plugged in. If its loader is turned off, the chip

@@ -86,7 +86,19 @@ await evalJs(`(() => {
     if (vueOn()) {
       const row = (side, index) => document.querySelector('[data-slot-key="' + node.id + '-' + side + '-' + index + '"]')?.closest(".lg-slot");
       const tall = (side) => ({ slot, index }) => { const element = row(side, index); if (!element) problems.push("no row for " + side + " " + slot.name); return Boolean(element && element.getBoundingClientRect().height > 0); };
-      return { inputs: inputs.filter(tall("in")).map(({ slot }) => slot.name), outputs: outputs.filter(tall("out")).map(({ slot }) => slot.name), problems };
+      const seenIn = inputs.filter(tall("in")), seenOut = outputs.filter(tall("out"));
+      // A wire ends where the frontend last measured the socket: that must
+      // be the dot on the screen now.
+      const rect = app.canvas.canvas.getBoundingClientRect(); const ds = app.canvas.ds;
+      for (const [side, list, at] of [["in", seenIn, (i) => node.getInputPos(i)], ["out", seenOut, (i) => node.getOutputPos(i)]]) {
+        for (const { slot, index } of list) {
+          const dot = document.querySelector('[data-slot-key="' + node.id + '-' + side + '-' + index + '"]').getBoundingClientRect();
+          const y = (dot.top + dot.height / 2 - rect.top) / ds.scale - ds.offset[1];
+          const off = Math.round(at(index)[1] - y);
+          if (Math.abs(off) > 2) problems.push("a wire on " + (side === "in" ? "input " : "output ") + slot.name + " ends " + Math.abs(off) + " px " + (off > 0 ? "under" : "over") + " its dot");
+        }
+      }
+      return { inputs: seenIn.map(({ slot }) => slot.name), outputs: seenOut.map(({ slot }) => slot.name), problems };
     }
     const [x, y] = node.pos; const [w, h] = node.size;
     const inside = (pos) => pos[0] >= x - 2 && pos[0] <= x + w + 2 && pos[1] >= y && pos[1] <= y + h;
@@ -243,6 +255,9 @@ await check("paste and delete", async () => {
   const result = await evalJs(`(async () => {
     const h = window.__h3; const { app } = window; const original = h.node;
     const before = new Set(h.writers().map((node) => node.id));
+    // A node the person made taller: its copy keeps that height.
+    original.setSize([original.size[0], original.size[1] + 150]);
+    await h.wait(300);
     app.canvas.selectItems?.([original]) ?? app.canvas.selectNode?.(original);
     app.canvas.copyToClipboard(); app.canvas.pasteFromClipboard();
     await h.wait(700);
@@ -258,6 +273,9 @@ await check("paste and delete", async () => {
   if (result.skip) { skip("paste and delete", result.skip); return "skip"; }
   const problems = [...againstRule(result.copy).map((p) => `the copy: ${p}`), ...againstRule(result.original).map((p) => `the original: ${p}`), ...againstRule(result.afterDelete).map((p) => `the copy after the delete: ${p}`)];
   if (result.rule.includes(`"${result.originalId}-in-`) || result.rule.includes(`"${result.originalId}-out-`)) problems.push("the deleted node's style rule is still on the page");
+  const rows = (state) => Math.max(state.shown.inputs.length, state.shown.outputs.length);
+  const least = result.original.size[1] - Math.max(0, rows(result.original) - rows(result.copy)) * 20 - 2;
+  if (result.copy.size[1] < least) problems.push(`the copy is ${Math.round(result.copy.size[1])} px tall; the original is ${Math.round(result.original.size[1])} with ${rows(result.original)} rows against the copy's ${rows(result.copy)}, so at least ${Math.round(least)}`);
   return problems;
 });
 
@@ -336,6 +354,31 @@ await check("body drop", async () => {
   if (!same(scripted.wired.inputs, ["video_sound"])) problems.push(`a scripted wire to video_sound ended on ${scripted.wired.inputs.join(", ") || "nothing"}`);
   if (!scripted.shown.inputs.includes("video_sound")) problems.push("video_sound has a wire and does not show");
   problems.push(...againstRule(scripted).map((p) => `after the scripted wire: ${p}`));
+  return problems;
+});
+
+// A wire pulled from another node's input and dropped on the writer takes a
+// shown output, never one nobody can see.
+await check("body drop, backwards", async () => {
+  const points = await evalJs(`(async () => {
+    const h = window.__h3; const { app } = window; const node = await h.fresh();
+    const source = h.add("LoadAudio", -420, 40);
+    source.connect(0, node, h.input(node, "voice"));
+    const player = h.add("PreviewAudio", 520, 300);
+    h.player = player.id;
+    await h.wait(900); app.canvas.setDirty(true, true); await h.wait(100);
+    const rect = app.canvas.canvas.getBoundingClientRect(); const ds = app.canvas.ds;
+    const client = (pos) => ({ x: rect.left + (pos[0] + ds.offset[0]) * ds.scale, y: rect.top + (pos[1] + ds.offset[1]) * ds.scale });
+    const dot = document.querySelector('[data-slot-key="' + player.id + '-in-0"]')?.getBoundingClientRect();
+    const from = h.vueOn() && dot ? { x: dot.left + dot.width / 2, y: dot.top + dot.height / 2 } : client(player.getInputPos(0));
+    const to = client([node.pos[0] + node.size[0] / 2, node.pos[1] + 30]);
+    return { from, to };
+  })()`);
+  await drag(points.from, points.to);
+  const state = await evalJs(`window.__h3.read(window.__h3.node)`);
+  const problems = [];
+  if (!same(state.wired.outputs, ["voice"])) problems.push(`an audio wire pulled from a player and dropped on the node is on output ${state.wired.outputs.join(", ") || "nothing"}; expected voice`);
+  problems.push(...againstRule(state));
   return problems;
 });
 
@@ -434,6 +477,18 @@ for (const file of live) {
       const lost = state.wired.outputs.filter((name) => !state.shown.outputs.includes(name));
       if (lost.length) problems.push(`node ${state.id} does not show its wired outputs ${lost.join(", ")}`);
     }
+    // One more picture plugged in: a row comes in the shorter column, and
+    // every wire still ends on its dot.
+    const more = await evalJs(`(async () => {
+      const h = window.__h3; const node = h.writers().find((item) => item.graph === window.app.canvas.graph);
+      if (!node) return null;
+      const free = ["picture_1", "picture_2", "picture_3", "picture_4"].find((name) => node.inputs[h.input(node, name)].link == null);
+      if (!free) return null;
+      const picture = h.add("LoadImage", node.pos[0] - 420, node.pos[1] - 420);
+      picture.connect(0, node, h.input(node, free));
+      return { free, state: await h.read(node, 900) };
+    })()`);
+    if (more) problems.push(...againstRule(more.state).map((p) => `with a picture on ${more.free}: ${p}`));
     return problems;
   });
 }

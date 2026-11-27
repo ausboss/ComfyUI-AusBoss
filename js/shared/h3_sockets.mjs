@@ -50,15 +50,35 @@ export function chipsToShow({ wiredInputs = [], showAll = false } = {}) {
   return [...PICTURES, "video"].filter((name) => showAll || wired.has(name));
 }
 
-// Where a wire dropped on the node's body should go. `inputs` is the node's
-// input list as { name, type, wired, shown }, and `landed` the index the
-// frontend picked. A wire never stays on a socket nobody can see while a
-// shown one of the same kind is free.
-export function dropTarget(inputs, landed) {
-  const slot = inputs[landed];
+// Where a wire dropped on the node's body should go. `slots` is the node's
+// input or output list as { name, type, wired, shown }, and `landed` the
+// index the frontend picked. A wire never stays on a socket nobody can see
+// while a shown one of the same kind can take it. An input takes one wire;
+// an output takes many (`shared`), so a wired one will do when none is free.
+export function dropTarget(slots, landed, { shared = false } = {}) {
+  const slot = slots[landed];
   if (!slot || slot.shown) return landed;
-  const free = inputs.findIndex((other, index) => index !== landed && other.shown && !other.wired && other.type === slot.type);
-  return free === -1 ? landed : free;
+  const fits = (other, index) => index !== landed && other.shown && other.type === slot.type;
+  const free = slots.findIndex((other, index) => fits(other, index) && !other.wired);
+  if (free !== -1) return free;
+  const any = shared ? slots.findIndex(fits) : -1;
+  return any === -1 ? landed : any;
+}
+
+// A node's id comes from the workflow file and can be any text, so it goes
+// into a style rule escaped: it can name a row and nothing else.
+const cssText = (value) => String(value).replace(/[^A-Za-z0-9_-]/g, (char) => `\\${char.codePointAt(0).toString(16)} `);
+
+// The style rule for one node in Nodes 2.0: it hides the row of each hidden
+// socket. `keys` are "in-<index>" and "out-<index>". Nodes 2.0 measures
+// where the sockets are only when the node or its widget grid changes size,
+// and a row that comes or goes in the shorter column changes neither, which
+// left wires ending beside their dots. `nudge` makes the grid a tenth of a
+// pixel narrower; flipping it makes the frontend measure again.
+export function hiddenRowsRule(nodeId, keys, nudge = false) {
+  const id = cssText(nodeId);
+  const rows = keys.length ? `${keys.map((key) => `.lg-slot:has([data-slot-key="${id}-${key}"])`).join(",")}{display:none}` : "";
+  return nudge ? `${rows}[data-widgets-grid-node-id="${id}"]{padding-left:0.1px}` : rows;
 }
 
 // A socket with a position of its own gets no row: the frontend only stacks
