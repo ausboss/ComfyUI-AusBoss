@@ -36,6 +36,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
   back on an edit that came out too smooth. The edit keeps its shapes,
   light and colour; Light only never shifts a colour. The two pictures must
   line up.
+- **Frame Interpolate 🆎 holds cuts between two shots of the same place.**
+  It used to count a cut only when the frame changed more than **Scene
+  cut**, and two shots of one place in the same light can change less
+  than fast movement inside one shot, so it mixed those shots together
+  for a frame or two. A change that jumps out from the frames around it
+  now counts as a cut too. **Scene cut** still works as before, and `0`
+  still turns cut finding off.
 - **Latent Size 🆎: pick which ratio chips show.** The gear's Ratio chips
   row opens a list of every ratio with its size. Switch each on or off,
   remove one, add your own such as 21:9, or reset to the shipped list.
