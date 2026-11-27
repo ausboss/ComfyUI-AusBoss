@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import patch
 
 import torch
+import torch.nn.functional as functional
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -24,13 +25,16 @@ from nodes._interpolate_helpers import (
     adjacent_frame_differences,
     apply_scene_cuts,
     backward_warp,
+    cut_thumbnails,
     detect_scene_cuts,
     interpolate_frames,
     is_passthrough,
+    matched_frame_changes,
     method_uses_optical_flow,
     output_frame_count,
     plan_frame_jobs,
     raft_checkpoint_path,
+    standout_cuts,
     weighted_blend,
 )
 
@@ -145,6 +149,105 @@ class SceneCutTests(unittest.TestCase):
     def test_no_cuts_returns_jobs_unchanged(self):
         jobs = [FrameJob(0, 0, 1, 0.5)]
         self.assertEqual(apply_scene_cuts(jobs, set()), jobs)
+
+
+def place(seed: int, low: float, high: float, width: int = 640) -> torch.Tensor:
+    """A wide HWC picture of soft color patches, 64 px tall, to film shots in."""
+    generator = torch.Generator().manual_seed(seed)
+    coarse = torch.rand((1, 3, 6, 6 * width // 64), generator=generator)
+    smooth = functional.interpolate(
+        coarse, size=(64, width), mode="bicubic", align_corners=False
+    )[0]
+    return (low + (high - low) * smooth.clamp(0.0, 1.0)).permute(1, 2, 0)
+
+
+def pan(scene: torch.Tensor, start: int, step: int, count: int, seed: int) -> list:
+    """``count`` 64x128 frames panning across ``scene``, with film grain."""
+    generator = torch.Generator().manual_seed(seed)
+    frames = []
+    for index in range(count):
+        left = start + step * index
+        frame = scene[:, left : left + 128]
+        grain = 0.02 * torch.randn(frame.shape, generator=generator)
+        frames.append((frame + grain).clamp(0.0, 1.0))
+    return frames
+
+
+class SamePlaceCutTests(unittest.TestCase):
+    """Two shots of one place can differ less than fast motion inside a shot.
+
+    MiniMax H3 rooftop clip: its cuts scored 0.136 to 0.171 while a fast
+    street clip moved 0.15 inside one shot, so no fixed threshold held both.
+    """
+
+    def setUp(self):
+        rooftop = place(1, 0.3, 0.7)
+        # Shot 1 and shot 2 look at different parts of the same place: same
+        # colors, same light. The cut is between frames 5 and 6.
+        self.cut_clip = torch.stack(
+            pan(rooftop, 0, 1, 6, seed=10) + pan(rooftop, 300, 1, 6, seed=11)
+        )
+        # One shot, no cut, panning 16 px a frame.
+        self.fast_clip = torch.stack(pan(place(2, 0.1, 0.9), 0, 16, 10, seed=12))
+
+    def test_a_cut_between_two_shots_of_one_place_holds(self):
+        differences = adjacent_frame_differences(self.cut_clip)
+        # The plain difference at the cut is under the default threshold...
+        self.assertLess(differences[5], 0.35)
+        result, _fps = interpolate_frames(
+            self.cut_clip, 12.0, 24.0, BLEND_METHOD, 0.35, 8, CPU
+        )
+        # ...yet the frame between 5 and 6 holds frame 5 instead of mixing
+        # the two shots.
+        self.assertTrue(torch.equal(result[11], self.cut_clip[5]))
+        # Inside each shot the in-betweens are still blends.
+        for index in (0, 3, 7, 9):
+            self.assertFalse(torch.equal(result[2 * index + 1], self.cut_clip[index]))
+
+    def test_fast_motion_inside_one_shot_never_holds(self):
+        cut = adjacent_frame_differences(self.cut_clip)[5]
+        motion = adjacent_frame_differences(self.fast_clip)
+        # Every step of the fast pan changes more than the cut does, so a
+        # fixed threshold low enough for the cut would hold the whole pan.
+        self.assertGreater(min(motion), cut)
+        result, _fps = interpolate_frames(
+            self.fast_clip, 12.0, 24.0, BLEND_METHOD, 0.35, 8, CPU
+        )
+        for index in range(9):
+            self.assertFalse(torch.equal(result[2 * index + 1], self.fast_clip[index]))
+
+    def test_matched_changes_cancel_motion_but_not_a_cut(self):
+        changes = matched_frame_changes(cut_thumbnails(self.cut_clip))
+        self.assertGreater(changes[5], 3.0 * max(changes[:5] + changes[6:]))
+        self.assertEqual(standout_cuts(changes), {5})
+        self.assertEqual(standout_cuts(matched_frame_changes(cut_thumbnails(self.fast_clip))), set())
+
+    def test_thumbnails_keep_the_long_side_small(self):
+        thumbnails = cut_thumbnails(torch.zeros((3, 960, 544, 4)))
+        self.assertEqual(tuple(thumbnails.shape), (3, 3, 64, 36))
+        self.assertEqual(tuple(cut_thumbnails(torch.zeros((2, 4, 4, 3))).shape), (2, 3, 4, 4))
+
+    def test_grain_in_a_still_shot_is_not_a_cut(self):
+        # 0.015 is three times its neighbours, but too small to be a cut.
+        self.assertEqual(standout_cuts([0.004, 0.005, 0.015, 0.005, 0.004]), set())
+
+    def test_repeated_frames_do_not_make_every_step_a_cut(self):
+        # Footage drawn on threes: two repeats, then one real step.
+        changes = [0.0003, 0.0002, 0.04] * 6
+        self.assertEqual(standout_cuts(changes), set())
+        changes[8] = 0.2
+        self.assertEqual(standout_cuts(changes), {8})
+
+    def test_a_single_pair_has_nothing_to_stand_out_from(self):
+        self.assertEqual(standout_cuts([0.5]), set())
+
+    def test_the_threshold_still_counts_and_zero_still_disables(self):
+        differences = [0.1, 0.8, 0.2]
+        flat = [0.1, 0.1, 0.1]
+        self.assertEqual(detect_scene_cuts(differences, 0.35, flat), {1})
+        spike = [0.02, 0.2, 0.02, 0.02]
+        self.assertEqual(detect_scene_cuts([0.1] * 4, 0.35, spike), {1})
+        self.assertEqual(detect_scene_cuts([0.1, 0.8, 0.2, 0.1], 0.0, spike), set())
 
 
 class BlendAndWarpTests(unittest.TestCase):
