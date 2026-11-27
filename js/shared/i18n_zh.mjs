@@ -148,6 +148,7 @@ export const ZH = {
   "Start the clip at the frame on the stage. The Duration stays.": "让片段从舞台上当前这一帧开始，时长不变。",
   "How long the clip is. Counted in clip frames at the output rate.": "片段有多长，按输出帧率的片段帧数计算。",
   "How long the sound is. Clear it, or type 0, to run to the end of the file.": "声音有多长。清空或输入 0 表示播到文件末尾。",
+  "Clean up": "清理", "For a voice recording. On cuts the quiet bits at the start and end, takes out hum and hiss, and evens out the volume. Off hands on the sound as it is.": "用于人声录音。开启后会剪掉开头和结尾的安静部分，去掉嗡嗡声和嘶嘶声，并让音量保持均匀。关闭则按原样输出声音。",
   "Where the sound starts in the file, of 0:00.": "声音在文件中的起点，从 0:00 起算。", "Where the sound stops in the file. Typing it changes the Duration.": "声音在文件中的终点。输入它会改变时长。",
   "Keep a frame count the video model takes: LTX wants 8n+1 (49, 97, 121), Wan 4n+1. The Duration steps to those counts. Any keeps every frame.": "保留视频模型能接受的帧数：LTX 需要 8n+1（49、97、121），Wan 需要 4n+1。时长会按这些帧数步进。选“任意”则保留每一帧。",
   "Keep one frame in this many. Output fps is adjusted to keep real-time playback; the Duration counts the frames kept.": "每隔这么多帧保留一帧。输出帧率会随之调整以保持实时播放；时长按保留的帧数计算。",

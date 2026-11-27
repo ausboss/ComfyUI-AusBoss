@@ -1937,6 +1937,9 @@
       },
       "max_seconds": {
         "name": "最大秒数"
+      },
+      "clean_up": {
+        "name": "清理"
       }
     },
     "outputs": {
