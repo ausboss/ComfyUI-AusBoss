@@ -179,7 +179,7 @@ export const ZH = {
   "What happens, one line for each moment. A blank line cuts to a new place. @1 is Picture 1. Start a line with 3s: to put it on that second.": "发生了什么，每个时刻写一行。空行表示切到新的地点。@1 是图片 1。行首写 3s: 可把它放在第 3 秒。",
   "Type what happens, one line for each thing. Picture 1 is @1. A blank line cuts to a new place.\n\nSwap: leave empty, or name who goes. Optional new look on its own line: @1 looks like a woman with blonde hair and a black hoodie.": "输入发生了什么，每件事一行。图片 1 是 @1。空行表示切到新的地点。\n\n换人：留空，或写明换掉谁。新造型可单独写一行：@1 是一位金发、穿黑色连帽衫的女士。",
   "Your lines, the pictures and the menus. The node writes the full prompt from them.": "你写的文字、图片和各个菜单。节点会据此写出完整提示词。",
-  "What you can type in the words": "文字里可以怎么写", "rain on a window": "窗上的雨声", "slow piano: music makes it louder": "舒缓钢琴：加了音乐会更响",
+  "What you can type in the words": "文字里可以怎么写", "(e.g. rain on a window)": "（例如：窗上的雨声）", "(e.g. slow piano)": "（例如：舒缓钢琴）",
   "upscale, face": "放大, 人脸", 
   "Switching a row on switches the other rows off - for alternatives such as two upscalers.": "打开一行会关掉其他行，适合在两个放大器这类互斥方案之间切换。",
   "Rows gives each switch a row with its own off | on. One pill makes the switches choices in a single pill, where one is always picked.": "“逐行”让每个开关各占一行，各自有关 | 开。“单选”把这些开关合成一个选项条，始终选中其中一个。",

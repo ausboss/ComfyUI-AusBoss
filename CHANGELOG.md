@@ -4,6 +4,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Example text in a node's one-line boxes is easier to tell apart.** It is
+  now in italics, and H3 Prompt Writer 🆎's Sound and Music boxes show
+  `(e.g. rain on a window)` and `(e.g. slow piano)`, so an empty box no
+  longer looks like something was typed in it.
 - **Mask Refine 🆎's guided and matting edges follow the picture.** Both
   edge modes now look further from the mask's edge and snap to the real
   edge in the guide image, so hair and thin parts a rough mask missed come
