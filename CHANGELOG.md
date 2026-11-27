@@ -11,6 +11,87 @@ All notable changes to ComfyUI-AusBoss are documented here.
   them. Workflows that use guided or matting will give a cleaner, different
   edge after updating. The node can also run on its own now, to check a
   mask before the rest of the graph. Thanks to kajan988.
+- **H3 Prompt Writer 🆎 keeps to what you wrote.** It lays your notes out
+  for H3 and adds no sounds or settings you didn't type. Notes are read more
+  carefully too: "muted colours" no longer turns the sound off, "First
+  person view" keeps its first word, a shirt or sign that says something
+  stays written on it, and a "no music" said inside quotes stays part of
+  the line.
+- **H3 Prompt Writer 🆎 follows your layout more closely.** A `camera:` or
+  `sound:` line belongs to the shot it is typed under, `Shot 2:` on its own
+  line starts the next shot, and two people quoted in one sentence each get
+  their line. Single quotes after "says" count as speech, "in voiceover"
+  after a quote keeps the lips closed, `Cut back to` returns to a place,
+  and `Start on black.` works. A number such as "7 seconds remain" stays
+  part of the action, and two people are no longer placed left and right
+  unless the script says where they stand. With two or more people, a
+  spoken line reaches H3 as you typed it.
+- **New node: Strength Curve 🆎.** Draw how strong something should be
+  from the start of a run to the end, and wire it into a node that follows
+  it step by step. Drag the points or start from a preset (flat, fade out,
+  fade in, ease out, ease in); Top and Bottom set the strength range.
+- **LoRA Loader 🆎 rows can follow a strength curve.** A new `curve` input
+  takes a Strength Curve, and each row gets a curve mark: rows you mark run
+  at their strength times the curve at every step, so a style LoRA can fade
+  out before the last steps. It works with every model file, fp8 and int8
+  included.
+- **Krea 2 Encode 🆎 can change the reference's strength over the run.** A
+  new `reference_curve` input takes a Strength Curve: 1 follows the
+  reference as before, 0 ignores it. It also works with Krea 2 Outpaint
+  Model Patch 🆎.
+- **New node: Film Grain 🆎.** Adds film grain to a picture or a video.
+  The grain is strongest in the midtones and gentler in deep shadows and
+  highlights, as on film. Size, roughness and colour set its look, it moves
+  from frame to frame on a video (or stays put), an optional mask limits
+  where, and the same seed gives the same grain.
+- **Film Grain has an Auto switch.** With Auto on, the node picks the grain
+  for the picture: the same look on a small or a big one (the size follows the
+  picture's size), and an amount that matches the grain the picture already
+  has. A clean render starts at the normal 0.25. Amount and Size then count as
+  multipliers ("1 × = Auto's pick"), with the real value in small type beside
+  each box. Auto on and Auto off keep their own numbers, and Auto starts off,
+  so saved workflows behave as before.
+- **Film Grain can copy another picture's grain.** Wire a picture whose grain
+  you like into `grain_from` and switch Auto on (it reads "match"). The node
+  reads that picture's grain, how strong, how big and how colourful, and adds
+  grain like it; Amount, Size and Color then count from the match ("1 × = the
+  match"), with the real value beside each box. The picture to copy from is
+  scaled to your picture's size first, so the grain matches at the same
+  viewing size, and only its plainest patches are read. Roughness stays yours.
+- **Film Grain, Keep Detail and Cut Out show a live preview.** After one run,
+  the picture on the node redraws while you drag a value, with a "not run yet"
+  tag until you queue. A Fit | 100% switch left of Preview shows the whole
+  picture or real pixels; at 100% dragging the picture moves around it.
+- **New node: Cut Out 🆎.** Turns a picture and a mask into a cut-out with a
+  see-through background, ready to save as a PNG. Clean edges takes the old
+  background's colour out of hair and soft edges so there is no halo, and
+  fully kept pixels stay exactly as they were. Grow, feather, haze and
+  solid-core levels, and smoothing over video frames, are on the card.
+- **New node: Keep Detail 🆎.** Puts the original picture's fine detail
+  back on an edit that came out too smooth. The edit keeps its shapes,
+  light and colour; Light only never shifts a colour. The two pictures must
+  line up.
+- **Check layout 🆎 shows what makes a workflow hard to read.** Right-click
+  the canvas or use the command palette. It lists overlapping nodes and
+  groups, wires that run backwards or hide behind a node, nodes just under a
+  preview that grows when it runs, nodes outside every group, a saved zoom
+  too small to read and a missing Workflow Note, inside subgraphs too. Click
+  an entry to jump to it. Nothing is moved.
+- **The example workflows are tidied so Check layout finds nothing.** Only
+  node and group positions and sizes, and reroute spots, changed. What each
+  workflow does is the same.
+- **Frame Interpolate 🆎 holds cuts between two shots of the same place.**
+  It used to count a cut only when the frame changed more than **Scene
+  cut**, and two shots of one place in the same light can change less
+  than fast movement inside one shot, so it mixed those shots together
+  for a frame or two. A change that jumps out from the frames around it
+  now counts as a cut too. **Scene cut** still works as before, and `0`
+  still turns cut finding off.
+- **Latent Size 🆎: pick which ratio chips show.** The gear's Ratio chips
+  row opens a list of every ratio with its size. Switch each on or off,
+  remove one, add your own such as 21:9, or reset to the shipped list.
+  5:4 and 21:9 now come in the list, switched off. A chip keeps the name
+  it was given, so 21:9 no longer reads 7:3.
 - **Edit Lock 🆎 says what is wrong when the VAE and model don't match.**
   The readout used to blame the VAE alone. It now says either file can be
   the wrong one, gives the two channel counts it compared, and points to

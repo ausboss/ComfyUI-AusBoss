@@ -5,6 +5,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  DEFAULT_RAIL,
+  RAIL_MAX,
   DIM_MAX,
   DIM_MIN,
   MP_LADDER,
@@ -16,6 +18,10 @@ import {
   megapixels,
   offGrid,
   orientRatio,
+  parseRatioToken,
+  railEntries,
+  railRatioLabel,
+  railText,
   outwardDelta,
   parsePins,
   parseRail,
@@ -201,12 +207,42 @@ test("the rail renders in the canvas orientation", () => {
   assert.deepEqual(orientRatio({ x: 3, y: 2 }, true), { x: 2, y: 3, label: "2:3" });
   assert.deepEqual(orientRatio({ x: 3, y: 2 }, false), { x: 3, y: 2, label: "3:2" });
   assert.deepEqual(orientRatio({ x: 1, y: 1 }, true), { x: 1, y: 1, label: "1:1" });
+  // A named ratio keeps its name: a 21:9 chip never reads 7:3.
+  assert.deepEqual(orientRatio({ x: 7, y: 3, label: "21:9" }, false), { x: 7, y: 3, label: "21:9" });
+  assert.deepEqual(orientRatio({ x: 7, y: 3, label: "21:9" }, true), { x: 3, y: 7, label: "9:21" });
+  assert.deepEqual(orientRatio({ x: 7, y: 3, label: "4:3" }, false), { x: 7, y: 3, label: "7:3" });
+  const rail = parseRail("1:1, 21:9");
+  assert.equal(railRatioLabel(1568, 672, rail), "21:9");
+  assert.equal(railRatioLabel(672, 1568, rail), "9:21");
+  assert.equal(railRatioLabel(1344, 768, rail), "7:4");
 });
 
 test("parseRail survives junk and never empties", () => {
   const rail = parseRail("1:1, junk, 21x9, 4:3, 4:3");
   assert.deepEqual(rail.map((r) => r.label), ["1:1", "21:9", "4:3"]);
   assert.equal(parseRail("").length, 6); // shipped defaults
+});
+
+test("the ratio list keeps hidden ratios without showing them", () => {
+  const text = "1:1, -21:9, 16:9";
+  assert.deepEqual(parseRail(text).map((r) => r.label), ["1:1", "16:9"]);
+  assert.deepEqual(railEntries(text).map((e) => [e.label, e.on]),
+    [["1:1", true], ["21:9", false], ["16:9", true]]);
+  assert.equal(railText(railEntries(text)), text);
+  // The shipped list shows six chips and offers 5:4 and 21:9 switched off.
+  assert.deepEqual(railEntries(DEFAULT_RAIL).filter((e) => !e.on).map((e) => e.label), ["5:4", "21:9"]);
+});
+
+test("a typed ratio lands as one landscape entry", () => {
+  assert.deepEqual(parseRatioToken("9:21"), { x: 7, y: 3, label: "21:9" });
+  assert.deepEqual(parseRatioToken(" 16 x 9 "), { x: 16, y: 9, label: "16:9" });
+  assert.equal(parseRatioToken("0:4"), null);
+  assert.equal(parseRatioToken("2.39:1"), null);
+  // 9:16 and 16:9 are one chip (the flip button picks the orientation).
+  assert.deepEqual(railEntries("16:9, 9:16, 32:18").map((e) => e.label), ["16:9"]);
+  // A list with nothing switched on falls back to the shipped one.
+  assert.equal(railText(railEntries("-1:1")), DEFAULT_RAIL);
+  assert.equal(railEntries(Array.from({ length: 40 }, (_, i) => `${i + 1}:1`).join(",")).length, RAIL_MAX);
 });
 
 // ---------- quick sizes ----------

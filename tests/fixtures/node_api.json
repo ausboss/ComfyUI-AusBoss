@@ -116,6 +116,32 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_CutOut": {
+    "required": [
+      "image",
+      "mask",
+      "keep",
+      "grow",
+      "feather",
+      "clean_edges",
+      "clear_haze",
+      "solid_above",
+      "smooth_frames"
+    ],
+    "optional": [
+      "preview"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
+      ],
+      [
+        "MASK",
+        "alpha"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_EditLock": {
     "required": [
       "model",
@@ -159,6 +185,32 @@
       [
         "STRING",
         "report"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_FilmGrain": {
+    "required": [
+      "image",
+      "amount",
+      "size",
+      "roughness",
+      "color",
+      "moving",
+      "seed"
+    ],
+    "optional": [
+      "mask",
+      "preview",
+      "auto",
+      "auto_amount",
+      "auto_size",
+      "grain_from",
+      "auto_color"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
       ]
     ]
   },
@@ -506,6 +558,26 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_KeepDetail": {
+    "required": [
+      "image",
+      "detail_from",
+      "detail_size",
+      "strength",
+      "color_detail",
+      "edge_safe"
+    ],
+    "optional": [
+      "mask",
+      "preview"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_Krea2Encode": {
     "required": [
       "clip",
@@ -517,7 +589,8 @@
       "reference",
       "extra_image",
       "vlm_reference",
-      "mask"
+      "mask",
+      "reference_curve"
     ],
     "outputs": [
       [
@@ -765,7 +838,8 @@
     "optional": [
       "clip",
       "trigger_separator",
-      "on_missing"
+      "on_missing",
+      "curve"
     ],
     "outputs": [
       [
@@ -1210,6 +1284,20 @@
       [
         "MASK",
         "blend_mask"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_StrengthCurve": {
+    "required": [
+      "points",
+      "high",
+      "low"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "FLOATS",
+        "curve"
       ]
     ]
   },

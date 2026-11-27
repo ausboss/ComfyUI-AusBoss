@@ -144,6 +144,18 @@ Small picture jobs in one node, picked from a list. **split sheet at gaps** cuts
 
 Matches a picture's colors to a reference, with LAB, RGB, MKL or histogram transfer. Strength sets how much, and an optional mask (with invert) limits where. With `reference_mode` set to first frame, every frame of a batch matches the batch's first frame. That can cut down color drift in a clip, but it does not steady motion.
 
+### Film Grain
+
+Adds film grain to a picture or a video. The grain is strongest in the midtones and gentler in deep shadows and bright highlights, as on film. **Size** is the grain's size in pixels, **Roughness** mixes in finer grain that bunches up unevenly, and **Color** goes from black-and-white grain to colour film's. On a video the grain moves from frame to frame, or stays put with **Video grain** on *still*. An optional mask adds grain only where it is white, and the same seed always gives the same grain. **Auto** picks the grain for the picture's size, or copies the grain of a picture wired into `grain_from`. The preview shows the result.
+
+### Cut Out
+
+Turns a picture and a mask into a cut-out with a see-through background, ready to save as a PNG (Save Image keeps the transparency) or lay on a new background. Keep the white or the black part of the mask, grow or shrink it and soften its edge. **Clean edges** takes the old background's colour out of hair and soft edges, so the cut-out has no halo; fully kept pixels stay exactly as they were. It also returns the final mask, and works on video. The preview shows the cut-out on a checkerboard.
+
+### Keep Detail
+
+Puts the original picture's fine detail (skin, fabric, grain) back on an edited version that came out too smooth. Wire the edit and the original, which must line up (Realign to Source fixes an edit that drifted). The edit keeps its shapes, light and colour, and only detail smaller than **Detail size** comes from the original. **Light only** never shifts the edit's colours; **color + light** brings the detail's colour too. An optional mask limits where.
+
 ### Realign to Source (EXPERIMENTAL 🧪)
 
 Lines an edited picture back up with the original. Qwen Image 2.1 often draws an edit, especially a style change, a little bigger or shifted: up to about 12% taller, by a different amount every seed. Wire in the edit and the picture it was made from. The node measures how far the edit moved and moves it back, at the original's size. It fixes the zoom and shift of the whole picture, not shapes the edit redrew in a new place, so the result lines up closely rather than pixel for pixel.
@@ -228,7 +240,7 @@ Picks one frame from a batch, unchanged: `1` is the first, `-1` the last and `-2
 
 ### Frame Interpolate
 
-Changes a clip's frame rate by making in-between frames. You set the source and target fps, so 24 to 30 works as well as doubling. The blend method crossfades frames, and optical flow uses RAFT weights you put in place yourself. At a hard cut it holds the frame instead of blending two unrelated shots. It works in chunks to keep memory down.
+Changes a clip's frame rate by making in-between frames. You set the source and target fps, so 24 to 30 works as well as doubling. The blend method crossfades frames, and optical flow uses RAFT weights you put in place yourself. At a hard cut it holds the frame instead of blending two shots together, even when both shots show the same place. It works in chunks to keep memory down.
 
 It returns the new frames and their fps. It doesn't touch audio, so carry the source audio to Save Video separately. The [help page](js/docs/AUSBOSS_NODES_FrameInterpolate.md) covers the weights and timing.
 
@@ -320,11 +332,15 @@ In the **+ LoRA** list, tick several files to add them at once. Rows can be gath
 
 When a file has moved, the node finds it by name if only one file matches. A missing LoRA that is switched on stops the run by default. Turn off **Stop on missing LoRA** to warn and skip it instead. A LoRA that changes nothing in the model gets a warning with its file name.
 
+Wire a [Strength Curve](#strength-curve) into the `curve` input and click the curve mark on a row, and that row's strength changes over the run: fade a style LoRA out so the last steps come out clean. It works with every model file, fp8 and int8 included.
+
 ### Krea 2 Encode
 
 Krea 2's positive and negative prompts in one card. Connect a VAE and reference pictures, and it adds them as references too, resized for the model first. **VLM reference** sets whether the text encoder also looks at them. Leave the references empty for plain text to image. For an outpaint, connect the pad node's mask too: the model then sees the new area in your picture's own colour instead of gray, so it paints it rather than keeping a gray frame.
 
 The prompt box takes several lines and a linked text. The [help page](js/docs/AUSBOSS_NODES_Krea2Encode.md) covers preparing references. With an outpaint LoRA, copy the wiring from the matching example.
+
+Wire a [Strength Curve](#strength-curve) into `reference_curve` and the picture follows the references as strongly as the curve says at each step, from 1 (as today) to 0 (ignored): hold the layout early and let go late.
 
 ### Krea 2 Outpaint Model Patch
 
@@ -340,6 +356,10 @@ The card has **Reference** placement and **KV cache**. The placement has to matc
 Here Krea 2 Outpaint takes a 16:9 photo to 4:5 in one pass. [Open the Krea 2 Outpaint workflow →](example_workflows/Krea%202%20Outpaint%20%28AusBoss%29.json)
 
 The patch relies on ComfyUI's internal attention code. Its [help page](js/docs/AUSBOSS_NODES_Krea2OutpaintModelPatch.md) explains both setups and what happens without reference conditioning.
+
+### Strength Curve
+
+Draw how strong something should be from the first step of a run to the last: drag the points, or start from flat, fade out, fade in, ease out or ease in. **Top** and **Bottom** set the strength at the top and bottom of the curve box. Wire the curve into LoRA Loader's `curve` (rows you mark follow it) or Krea 2 Encode's `reference_curve`. The output is ComfyUI's list of numbers (`FLOATS`), so it also feeds ComfyUI's own hook keyframe nodes.
 
 ## 3D viewer
 
@@ -495,6 +515,7 @@ If you share workflows, a few of these nodes help the people who download them:
 
 - **Workflow Note** puts a setup card on the canvas with each model's download link, folder and size, the node packs it needs and your links, and checks them against the reader's install.
 - **Callout** is a note with big readable text and teal arrows you type with an emoji.
+- **Check layout 🆎** lists overlaps, hidden and backwards wires and nodes outside the groups before you share.
 - **Image Compare A/B** shows the result against its source with a slider.
 - **Seed** keeps runs repeatable, and **Use last run** brings back the seed the last run used.
 - **Run Timer** shows how long the whole run took, so a speed note is measured.
@@ -509,6 +530,7 @@ People who download your workflow get the nodes through ComfyUI-Manager's missin
 - **Help cards:** the **?** in a classic node's title bar opens its description, inputs and outputs. Nodes 2.0 and titleless nodes such as Run Timer have **About this node** in their right-click menu.
 - **Recreate node 🆎** (right-click an AusBoss node) rebuilds a node saved by an older version from the current definition. It keeps the values, links, position and colors.
 - **Replace with AusBoss nodes 🆎** (canvas right-click or the command palette) finds third-party nodes this pack can stand in for, such as VideoHelperSuite's Load Video and Video Combine or KJNodes' Color Match. It previews each swap and replaces the ones you leave ticked.
+- **Check layout 🆎** (canvas right-click or the command palette) lists what makes a workflow hard to read: overlapping nodes and groups (title bars included), wires that run backwards or hide behind a node, a node just under one that grows when it shows a picture, nodes outside every group, a saved zoom too small for the text to draw, and a missing Workflow Note. It checks inside every subgraph too. Click an entry to jump to it and select it. It moves nothing.
 - **Snap into line:** a node, group or selection you drag lines up with the nodes and groups around it, edge to edge or middle to middle, and a teal line shows what it lines up with. Pulling a corner to resize lines up the same way. Hold Shift while you drag to skip it, or turn it off in Settings → 🆎 AusBoss → Canvas.
 - **Line up:** select two or more nodes or groups and the selection toolbar gets a Line up button: line up edges or middles, match widths or heights, or space them evenly. With two or more nodes selected, pulling the edge or corner of one resizes them all: a column gets one width, a row one height, a grid both (turn it off in Settings → 🆎 AusBoss → Canvas → Resize together).
 - **Node colors:** Settings → 🆎 AusBoss → Appearance sets the scheme for every AusBoss node (AusBoss, Graphite, Slate, Teal, Moss, Plum, Rust, Navy, Custom or Theme default). A node's right-click **AusBoss color** menu recolors just that node, and nodes you colored by hand keep their colors.

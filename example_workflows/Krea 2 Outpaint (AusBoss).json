@@ -2183,7 +2183,7 @@
               1080,
               0,
               500,
-              529
+              600
             ],
             "color": "#1d5560",
             "flags": {}
@@ -2375,7 +2375,8 @@
             "type": "MASK"
           }
         ],
-        "extra": {}
+        "extra": {},
+        "reroutes": []
       }
     ]
   },
@@ -2388,7 +2389,78 @@
         20
       ]
     },
-    "frontendVersion": "1.53.6"
+    "frontendVersion": "1.53.6",
+    "reroutes": [
+      {
+        "id": 1,
+        "pos": [
+          950,
+          188
+        ],
+        "linkIds": [
+          31
+        ]
+      },
+      {
+        "id": 2,
+        "parentId": 1,
+        "pos": [
+          1462,
+          188
+        ],
+        "linkIds": [
+          31
+        ]
+      },
+      {
+        "id": 3,
+        "pos": [
+          1468,
+          325
+        ],
+        "linkIds": [
+          43
+        ]
+      },
+      {
+        "id": 4,
+        "pos": [
+          1444,
+          475
+        ],
+        "linkIds": [
+          50
+        ]
+      },
+      {
+        "id": 5,
+        "pos": [
+          1468,
+          450
+        ],
+        "linkIds": [
+          51
+        ]
+      }
+    ],
+    "linkExtensions": [
+      {
+        "id": 31,
+        "parentId": 2
+      },
+      {
+        "id": 43,
+        "parentId": 3
+      },
+      {
+        "id": 50,
+        "parentId": 4
+      },
+      {
+        "id": 51,
+        "parentId": 5
+      }
+    ]
   },
   "version": 0.4
 }

@@ -106,6 +106,7 @@ export function ensureCardCss() {
 .ausboss-card-field>.ausboss-scrub{flex:1 1 0;width:auto;min-width:0}
 .ausboss-card-field>.ausboss-scrub .ausboss-scrub-input{width:100%}
 .ausboss-card-sep{flex:none;color:${T.faint};font-size:11px}
+.ausboss-card-note{flex:none;min-width:58px;color:${T.faint};font:600 10px ${FONT};font-variant-numeric:tabular-nums;white-space:nowrap;user-select:none}
 .ausboss-card-suffix{flex:none;color:${T.faint};font:600 10px ${FONT};letter-spacing:.1em;text-transform:uppercase;user-select:none}
 .ausboss-card-section{height:${SECTION_HEIGHT}px;flex:none;display:flex;align-items:flex-end;gap:8px;color:${T.faint};font:600 10px/1 ${FONT};letter-spacing:.1em;text-transform:uppercase;user-select:none}
 .ausboss-card-section::after{content:"";flex:1;height:1px;margin-bottom:4px;background:${T.rule}}
@@ -189,6 +190,7 @@ function isFloatWidget(widget) {
 
 // Mount a card on `node`. Rows:
 //   { widget, label?, kind?, labels?, suffix?, title?, when?, group?, linkedBy?, snap?, pixels?, step?, limits?, trimZeros? }
+//                                          - `when(values, node)` shows the row
 //                                          - `linkedBy` names other inputs
 //                                            whose link also dims the row
 //                                            (a wired source replacing a
@@ -207,6 +209,8 @@ function isFloatWidget(widget) {
 //                                            `trimZeros` drops the zeroes
 //                                            the steps never reach (1.00,
 //                                            not 1.000)
+//                                          - `note(node, values)` is small
+//                                            type after the control ("= 0.27")
 //   { widget, kind: "textarea", placeholder?, height, grow?, looks? }
 //                                          - a multiline string; `grow` takes
 //                                            the node's spare height; `looks`
@@ -402,16 +406,20 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     seg.setAttribute("role", "radiogroup");
     const label = (text, fallback) => (typeof text === "string" && text.length <= SWITCH_LABEL_MAX ? text : fallback);
     const buttons = new Map();
-    for (const [value, text] of [[false, label(row.offText, "off")], [true, label(row.onText, "on")]]) {
+    // `onText` may be a function of the node, read at every refresh (Film
+    // Grain's Auto reads "match" while a picture to copy from is wired).
+    const onText = () => label(typeof row.onText === "function" ? row.onText(node) : row.onText, "on");
+    for (const [value, text] of [[false, label(row.offText, "off")], [true, onText()]]) {
       const button = el("button", "", text);
       button.type = "button";
-      button.title = row.title ?? (widgetTooltip(node, name, widget) || (value ? row.onText ?? "" : row.offText ?? ""));
+      button.title = row.title ?? (widgetTooltip(node, name, widget) || (value ? (typeof row.onText === "string" ? row.onText : "") : row.offText ?? ""));
       button.addEventListener("click", () => setWidget(name, value));
       seg.append(button); buttons.set(value, button);
     }
     into.append(seg);
     return (vals) => {
       const on = Boolean(vals[name]);
+      if (typeof row.onText === "function") buttons.get(true).textContent = onText();
       for (const [value, button] of buttons) {
         button.classList.toggle("on", value === on);
         button.setAttribute("aria-checked", String(value === on));
@@ -584,6 +592,14 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       fields.set(name, field);
     });
     if (row.button) buildButton(row.button, control);
+    // A small line of type after the control: what the value comes to
+    // (`note(node, values)` returns the text, "" for none).
+    if (typeof row.note === "function") {
+      const note = el("span", "ausboss-card-note");
+      note.setAttribute("role", "status");
+      control.append(note);
+      syncs.push((vals) => { note.textContent = String(row.note(node, vals) ?? ""); });
+    }
     line.append(control);
     state.rows.push({ row: { ...row, inGroup: row.group ?? null }, element: line, names, syncs, fields });
     root.append(line);

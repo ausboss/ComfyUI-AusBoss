@@ -158,6 +158,40 @@ while something is linked to that row. It takes FLOAT or INT. In an API
 prompt, give a row's input the row's `id` from the `loras` text, for example
 `"strength_ra1": 0.6`. A name that matches no row is ignored.
 
+## Strength over the run
+
+A row can change strength while the picture is made: strong at the start
+and gone by the end, say, so a style LoRA sets the look and the fine detail
+at the end comes out clean.
+
+1. Wire a Strength Curve 🆎 into the loader's `curve` input.
+2. Each row now shows a small curve mark beside its strength. The first
+   curve you wire marks every row (teal). Click a mark, or right-click the
+   row and pick **Keep a steady strength**, for a row that should stay as
+   it is; its mark turns gray. **Follow the strength curve** in the same
+   menu turns it back on.
+
+A row that follows the curve runs at its own strength times the curve: a row
+at 0.8 with a fade out goes from 0.8 down to 0. It works with every model
+file: full size, fp8, fp8 scaled and int8.
+
+### Technical details
+
+The CLIP half of a row is applied as always, since a prompt is encoded once.
+The model half is loaded in ComfyUI's bypass mode: the LoRA is added to each
+layer's result as the layer runs, and the model's weights are never
+rewritten. Before every step the loader sets each following row to its
+strength times the curve at that step. "Where in the run" is read by the
+step's noise level, the way ComfyUI reads hook keyframes, so it lines up
+with Krea 2 Encode's `reference_curve`. In the `loras` text a following row
+has `"curve": true`; in an API prompt, link `curve` and set that on the rows.
+
+A moving curve costs a little speed and no memory: on Krea 2 each step ran
+3 to 8% slower, the same on every model file we tried. A flat curve
+skips all of this: the rows just run at their strength times its value. The
+rare parts of a LoRA that are not low-rank (a plain weight or bias
+difference) cannot change from step to step and stay at the row's strength.
+
 ## Strength bars
 
 Every named row paints a center-zero bar behind its name: teal grows right

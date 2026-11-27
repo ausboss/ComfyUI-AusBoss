@@ -1706,7 +1706,7 @@
             "type": "SetLatentNoiseMask",
             "pos": [
               20,
-              354
+              398
             ],
             "size": [
               460,
@@ -1947,7 +1947,7 @@
             "type": "KSampler",
             "pos": [
               1100,
-              304
+              338
             ],
             "size": [
               460,
@@ -2325,7 +2325,7 @@
               0,
               0,
               500,
-              428
+              470
             ],
             "color": "#1d5560",
             "flags": {}
@@ -2349,7 +2349,7 @@
               1080,
               0,
               500,
-              586
+              620
             ],
             "color": "#1d5560",
             "flags": {}
@@ -2361,7 +2361,7 @@
               1620,
               0,
               500,
-              529
+              620
             ],
             "color": "#1d5560",
             "flags": {}
@@ -2446,7 +2446,8 @@
             "origin_slot": 0,
             "target_id": 11,
             "target_slot": 0,
-            "type": "CONDITIONING"
+            "type": "CONDITIONING",
+            "parentId": 1
           },
           {
             "id": 34,
@@ -2553,7 +2554,19 @@
             "type": "IMAGE"
           }
         ],
-        "extra": {}
+        "extra": {},
+        "reroutes": [
+          {
+            "id": 1,
+            "pos": [
+              1060,
+              540
+            ],
+            "linkIds": [
+              33
+            ]
+          }
+        ]
       }
     ]
   },
@@ -2566,7 +2579,92 @@
         20
       ]
     },
-    "frontendVersion": "1.53.6"
+    "frontendVersion": "1.53.6",
+    "reroutes": [
+      {
+        "id": 1,
+        "pos": [
+          1040,
+          188
+        ],
+        "linkIds": [
+          14
+        ]
+      },
+      {
+        "id": 2,
+        "parentId": 1,
+        "pos": [
+          1580,
+          188
+        ],
+        "linkIds": [
+          14
+        ]
+      },
+      {
+        "id": 3,
+        "pos": [
+          1580,
+          325
+        ],
+        "linkIds": [
+          4
+        ]
+      },
+      {
+        "id": 4,
+        "pos": [
+          1562,
+          450
+        ],
+        "linkIds": [
+          10
+        ]
+      },
+      {
+        "id": 5,
+        "pos": [
+          1580,
+          425
+        ],
+        "linkIds": [
+          11
+        ]
+      },
+      {
+        "id": 6,
+        "pos": [
+          1604,
+          400
+        ],
+        "linkIds": [
+          12
+        ]
+      }
+    ],
+    "linkExtensions": [
+      {
+        "id": 14,
+        "parentId": 2
+      },
+      {
+        "id": 4,
+        "parentId": 3
+      },
+      {
+        "id": 10,
+        "parentId": 4
+      },
+      {
+        "id": 11,
+        "parentId": 5
+      },
+      {
+        "id": 12,
+        "parentId": 6
+      }
+    ]
   },
   "version": 0.4
 }

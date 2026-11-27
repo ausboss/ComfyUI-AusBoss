@@ -77,10 +77,10 @@ class AusBossFrameInterpolate:
                         "max": 1.0,
                         "step": 0.01,
                         "tooltip": (
-                            "Mean absolute frame difference above this counts "
-                            "as a hard cut, and the new frame holds the last "
-                            "frame before the cut instead of morphing across "
-                            "it. 0 disables cut detection."
+                            "At a hard cut the node holds a frame instead of "
+                            "mixing two shots. A cut is a change that jumps "
+                            "out from the frames around it, or any change "
+                            "above this number; 0 turns cut finding off."
                         ),
                     },
                 ),

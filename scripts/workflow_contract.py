@@ -51,6 +51,9 @@ CORE_WIDGETS = {
     "TextEncodeQwenImage21": "prompt negative_prompt resolution",
     "QwenImage21Cache": "device dtype",
     "SAM3_Detect": "threshold refine_iterations individual_masks",
+    "ImageToMask": "channel",
+    "ThresholdMask": "value",
+    "ImageBlur": "blur_radius sigma",
 }
 
 

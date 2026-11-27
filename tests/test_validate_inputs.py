@@ -50,6 +50,7 @@ NAMED = {
     "AusBossLoraLoader": ["loras", "on_missing"],
     "AusBossSaveImage": ["exact_name", "filename_prefix", "output_dir"],
     "AusBossStitchInpaint": ["seam", "paste_onto"],
+    "AusBossStrengthCurve": ["points"],
     "AusBossVideoCropRotatePad": ["video", "source_mode", "local_path"],
     "AusBossVideoCropRotatePadClip": ["video", "source_mode", "local_path"],
 }

@@ -2785,7 +2785,7 @@
        1080,
        0,
        500,
-       719
+       780
       ],
       "color": "#1d5560",
       "flags": {}
@@ -2990,7 +2990,8 @@
       "origin_slot": 0,
       "target_id": 19,
       "target_slot": 0,
-      "type": "CONDITIONING"
+      "type": "CONDITIONING",
+      "parentId": 1
      },
      {
       "id": 147,
@@ -2998,7 +2999,8 @@
       "origin_slot": 1,
       "target_id": 19,
       "target_slot": 1,
-      "type": "CONDITIONING"
+      "type": "CONDITIONING",
+      "parentId": 2
      },
      {
       "id": 148,
@@ -3065,7 +3067,29 @@
       "type": "FLOAT"
      }
     ],
-    "extra": {}
+    "extra": {},
+    "reroutes": [
+     {
+      "id": 1,
+      "pos": [
+       1080,
+       900
+      ],
+      "linkIds": [
+       146
+      ]
+     },
+     {
+      "id": 2,
+      "pos": [
+       1090,
+       900
+      ],
+      "linkIds": [
+       147
+      ]
+     }
+    ]
    }
   ]
  },
@@ -3078,7 +3102,53 @@
     25
    ]
   },
-  "frontendVersion": "1.53.6"
+  "frontendVersion": "1.53.6",
+  "reroutes": [
+   {
+    "id": 1,
+    "pos": [
+     1508,
+     325
+    ],
+    "linkIds": [
+     63
+    ]
+   },
+   {
+    "id": 2,
+    "pos": [
+     1476,
+     475
+    ],
+    "linkIds": [
+     59
+    ]
+   },
+   {
+    "id": 3,
+    "pos": [
+     1508,
+     400
+    ],
+    "linkIds": [
+     60
+    ]
+   }
+  ],
+  "linkExtensions": [
+   {
+    "id": 63,
+    "parentId": 1
+   },
+   {
+    "id": 59,
+    "parentId": 2
+   },
+   {
+    "id": 60,
+    "parentId": 3
+   }
+  ]
  },
  "version": 0.4
 }

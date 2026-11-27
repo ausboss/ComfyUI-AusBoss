@@ -125,6 +125,7 @@ test("a panel that should follow the node's height never declares computeSize", 
     "show_text",
     "step_preview",
     "workflow_note",
+    "strength_curve",
   ]);
   // Fixed by design: a toolbar - content whose height is a constant, not a
   // viewport onto something bigger.
@@ -402,6 +403,7 @@ test("every panel root class carries border-box and an overflow clip", () => {
     seed: ".ausboss-seed{",
     run_timer: ".ausboss-timer{",
     workflow_switches: ".ausboss-ws{",
+    strength_curve: ".ausboss-curve{",
   };
   for (const { name, source } of domWidgetEntries()) {
     const marker = roots[name];

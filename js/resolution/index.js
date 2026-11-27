@@ -32,17 +32,20 @@ import { WIDGET_FRAME, fillNodeHeight, holdVueNodeMinWidth } from "../shared/pan
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
 import { liftSlot, markSocketless } from "../shared/widget_card_math.mjs";
 import { makeScrubInput } from "../shared/scrub_input.mjs";
+import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import {
   closeSettingsMenu,
   gearIconSvg,
   loadSettings,
   openSettingsMenu,
+  saveSetting,
 } from "../shared/settings_menu.mjs";
 import {
   DEFAULT_RAIL,
   DEFAULT_SNAP,
   DIM_MAX,
   DIM_MIN,
+  RAIL_MAX,
   SNAP_STEPS,
   applyRatioAtBudget,
   chipMatch,
@@ -54,12 +57,16 @@ import {
   offGrid,
   orientRatio,
   parseRail,
+  parseRatioToken,
   parseWorkflowSizes,
+  railEntries,
+  railText,
+  ratioKey,
   readWorkflowPolicy,
   savedWorkflowPolicy,
   workflowRatios,
   quickSizes,
-  ratioLabel,
+  railRatioLabel,
   reduceRatio,
   scrubDim,
   sizeForMegapixels,
@@ -102,9 +109,11 @@ const SETTINGS_SCHEMA = [
       + "to that ratio's ~1MP size.",
   },
   {
-    key: "rail", label: "Ratio rail", type: "text",
-    default: DEFAULT_RAIL, placeholder: DEFAULT_RAIL,
-    hint: "Comma-separated ratios shown as chips, e.g. \"1:1, 21:9\".",
+    // Stored as text ("1:1, 16:9, -21:9"); the gear shows it as a list
+    // editor (editRatioRail), never as this text field.
+    key: "rail", label: "Ratio chips", type: "text",
+    default: DEFAULT_RAIL,
+    hint: "Which ratios show as chips. Switch them on or off, or add your own, like 21:9.",
   },
   { section: "Latent output" },
   {
@@ -146,6 +155,25 @@ function installStyles() {
   .ausboss-size-dialog [role=alert]{color:#ffd49e}
   .ausboss-size-dialog p{color:#adc1be;font:12px/1.45 system-ui;margin:7px 0 12px}
   .ausboss-size-dialog footer{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+  .ausboss-size-dialog footer .grow{margin-right:auto}
+  .ausboss-rail-list{list-style:none;margin:0;padding:0;max-height:min(320px,50vh);overflow:auto;
+    border:1px solid #2a3a3a;border-radius:8px;background:#111819}
+  .ausboss-rail-row{display:flex;align-items:center;gap:10px;height:32px;padding:0 6px 0 10px;
+    border-bottom:1px solid #1f2b2b;cursor:pointer}
+  .ausboss-rail-row:last-child{border-bottom:0}
+  .ausboss-rail-row.off{color:#6f8482}
+  .ausboss-rail-row .box{width:24px;height:16px;display:flex;align-items:center;justify-content:center;flex:none}
+  .ausboss-rail-row .box span{display:block;border:1.4px solid currentColor;border-radius:2px;box-sizing:border-box}
+  .ausboss-rail-row .name{font:12px ${MONO};min-width:44px}
+  .ausboss-rail-row .size{flex:1;color:#7f9795;font:11px ${MONO}}
+  .ausboss-rail-row.off .size{color:#4f6260}
+  .ausboss-rail-del{width:24px;height:24px;border:0;border-radius:5px;background:none;color:#7f9795;
+    cursor:pointer;font:15px/1 system-ui}
+  .ausboss-rail-del:hover{background:#3a2424;color:#ffb4a8}
+  .ausboss-rail-add{display:flex;align-items:center;gap:8px;margin-top:10px}
+  .ausboss-rail-add input{flex:1;min-width:0;box-sizing:border-box;height:28px;padding:0 8px;
+    border:1px solid #345554;border-radius:6px;background:#0f1516;color:#d7e4e3;font:12px ${MONO}}
+  .ausboss-rail-add input:focus{outline:none;border-color:#00b4aa}
   .ausboss-res-sec { flex: none; background: #141515; border: 1px solid #252727;
     border-radius: 8px; padding: 6px 8px 8px; }
   .ausboss-res-sechead { display: flex; align-items: baseline;
@@ -517,6 +545,146 @@ function editWorkflowSizes(state) {
   dialog.showModal();
 }
 
+// The gear's "Ratio chips" list: every saved ratio with a switch, a delete
+// button, an add box and a way back to the shipped list. One list for every
+// Latent Size node in this browser, like the gear's other display options.
+function editRatioRail(state) {
+  closeSettingsMenu();
+  let entries = railEntries(state.settings?.rail);
+  const dialog = el("dialog", "ausboss-size-dialog");
+  dialog.setAttribute("aria-label", "Ratio chips");
+  const heading = el("label", "", "Ratio chips");
+  const hint = el("p", "", "Ticked ratios show as chips on every Latent Size node. "
+    + "The flip button on the node turns any of them portrait.");
+  const list = el("ul", "ausboss-rail-list");
+  const addRow = el("div", "ausboss-rail-add");
+  const input = el("input");
+  input.type = "text";
+  input.placeholder = "Add a ratio, like 21:9";
+  input.setAttribute("aria-label", "New ratio");
+  const add = compactAction("Add");
+  addRow.append(input, add);
+  const error = el("div");
+  error.setAttribute("role", "alert");
+
+  const render = () => {
+    list.textContent = "";
+    const snap = currentSnap(state);
+    for (const entry of entries) {
+      const row = el("li", `ausboss-rail-row${entry.on ? "" : " off"}`);
+      const check = el("input");
+      check.type = "checkbox";
+      check.checked = entry.on;
+      check.setAttribute("aria-label", `Show ${entry.label}`);
+      const box = el("span", "box");
+      const glyph = el("span");
+      const fitted = fitRectInBox(entry.x, entry.y, 22, 14);
+      glyph.style.width = `${fitted.w.toFixed(1)}px`;
+      glyph.style.height = `${fitted.h.toFixed(1)}px`;
+      box.append(glyph);
+      const size = defaultSizeForRatio(entry, snap);
+      const del = el("button", "ausboss-rail-del", "×");
+      del.type = "button";
+      del.title = `Remove ${entry.label}`;
+      del.setAttribute("aria-label", `Remove ${entry.label}`);
+      const toggle = () => {
+        entry.on = !entry.on;
+        error.textContent = "";
+        render();
+      };
+      check.addEventListener("click", (event) => { event.stopPropagation(); toggle(); });
+      row.addEventListener("click", (event) => { if (event.target !== del) toggle(); });
+      del.addEventListener("click", (event) => {
+        event.stopPropagation();
+        entries = entries.filter(other => other !== entry);
+        error.textContent = "";
+        render();
+      });
+      row.append(check, box, el("span", "name", entry.label),
+        el("span", "size", `${size.width} × ${size.height}`), del);
+      list.append(row);
+    }
+    add.disabled = entries.length >= RAIL_MAX;
+  };
+
+  const addTyped = () => {
+    const ratio = parseRatioToken(input.value);
+    if (!ratio) {
+      error.textContent = "Type a ratio as two whole numbers, like 21:9 or 5:4.";
+      input.focus();
+      return;
+    }
+    const existing = entries.find(entry => ratioKey(entry) === ratioKey(ratio));
+    if (existing) {
+      existing.on = true;
+      error.textContent = `${existing.label} is already in the list, so it is switched on.`;
+    } else if (entries.length >= RAIL_MAX) {
+      error.textContent = `The list holds up to ${RAIL_MAX} ratios. Remove one first.`;
+      return;
+    } else {
+      entries.push({ ...ratio, on: true });
+      error.textContent = "";
+    }
+    input.value = "";
+    render();
+    list.lastElementChild?.scrollIntoView?.({ block: "nearest" });
+    input.focus();
+  };
+  add.onclick = addTyped;
+  input.addEventListener("keydown", (event) => {
+    keepKeyInField(event);
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    addTyped();
+  });
+
+  const footer = el("footer");
+  const reset = compactAction("Reset to defaults");
+  reset.classList.add("grow");
+  reset.title = "Back to the shipped list: six chips on, 5:4 and 21:9 off";
+  reset.onclick = () => {
+    entries = railEntries(DEFAULT_RAIL);
+    error.textContent = "";
+    render();
+  };
+  const cancel = compactAction("Cancel");
+  const save = compactAction("Save");
+  cancel.onclick = () => dialog.close();
+  save.onclick = () => {
+    if (!entries.some(entry => entry.on)) {
+      error.textContent = "Keep at least one ratio switched on.";
+      return;
+    }
+    const rail = railText(entries);
+    saveSetting(SETTINGS_SCOPE, SETTINGS_SCHEMA, "rail", rail);
+    for (const other of latentSizeStates()) {
+      other.settings = { ...other.settings, rail };
+      buildPanel(other);
+      fitNode(other);
+    }
+    dialog.close();
+  };
+  footer.append(reset, cancel, save);
+  dialog.append(heading, hint, list, addRow, error, footer);
+  document.body.append(dialog);
+  dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  render();
+  dialog.showModal();
+}
+
+// Every live Latent Size panel, in the open graph and the one on screen
+// (a subgraph), so a changed chip list shows everywhere at once.
+function latentSizeStates() {
+  const states = new Set();
+  for (const graph of [app.graph, app.canvas?.graph]) {
+    for (const node of graph?.nodes ?? graph?._nodes ?? []) {
+      const state = node?.__ausbossResolution;
+      if (state && !state.disposed) states.add(state);
+    }
+  }
+  return states;
+}
+
 function repaint(state) {
   const { width, height } = getSize(state);
   const snap = currentSnap(state);
@@ -525,7 +693,7 @@ function repaint(state) {
 
   state.dimLabel.textContent = `${width} × ${height}`;
   state.subMp.textContent = `${megapixels(width, height).toFixed(2)} MP`;
-  state.subRatio.textContent = state.strict ? `${ratio.x}:${ratio.y}` : ratioLabel(width, height);
+  state.subRatio.textContent = state.strict ? `${ratio.x}:${ratio.y}` : railRatioLabel(width, height, state.railRatios);
   state.offGridDot.style.display = !state.strict && offGrid(width, height, snap) ? "" : "none";
   state.dots.style.display = state.settings?.show_grid === false ? "none" : "";
 
@@ -606,7 +774,7 @@ function repaint(state) {
     state.quickHint.textContent = state.policyError ? "Invalid list · edit in settings"
       : linked && state.strict ? "Linked size checked at run"
       : state.strict ? `Allowed · ${ratio.x}:${ratio.y}` : picks ? "Workflow recommendations"
-      : onRail ? `for ${ratioLabel(width, height)} · /${snap}` : `custom · /${snap}`;
+      : onRail ? `for ${railRatioLabel(width, height, state.railRatios)} · /${snap}` : `custom · /${snap}`;
   }
   state.quickButtons.forEach(({ button, size }) => {
     button.disabled = linked;
@@ -901,6 +1069,10 @@ function buildPanel(state) {
         key: "workflow_sizes", type: "action", label: "Workflow resolutions", button: "Edit list",
         onAction: () => editWorkflowSizes(state),
       }, ...SETTINGS_SCHEMA.filter(e => !state.strict || !["default_snap", "chips_keep_budget", "rail"].includes(e.key)).map((entry) => {
+        if (entry.key === "rail") {
+          return { key: "rail_list", type: "action", label: entry.label, hint: entry.hint,
+            button: "Edit list", onAction: () => editRatioRail(state) };
+        }
         const input = entry.key === "latent" ? "latent" : entry.key === "batch" ? "batch_size" : null;
         return input && axisLinked(state, input) ? { section: `${entry.label} is linked` } : entry;
       })],
@@ -912,7 +1084,10 @@ function buildPanel(state) {
         batch: Number(state.batchWidget?.value ?? 1),
       },
       onChange: (values, key) => {
-        state.settings = values;
+        // The menu's values lack the rail (its row is the list editor), so
+        // keep the stored one; after a Reset that is the shipped list.
+        state.settings = { ...loadSettings(SETTINGS_SCOPE, SETTINGS_SCHEMA), ...values };
+        delete state.settings.rail_list;
         if (key === "latent" && state.latentWidget) {
           state.latentWidget.value = values.latent;
           state.latentWidget.callback?.(values.latent);
