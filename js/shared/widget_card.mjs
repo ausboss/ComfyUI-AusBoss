@@ -40,7 +40,7 @@ import { limitsLabel, narrowedRange } from "./wired_limits.mjs";
 import { hideWidget } from "./widget_visibility.mjs";
 import {
   CARD_PADDING, GROUP_HEIGHT, ROW_GAP, ROW_HEIGHT, SECTION_HEIGHT, SLOT_OFFSET, UNIT_SLOT_WIDTH,
-  cardChangeRestore, cardHeight, choiceLabel, commitWidgetValue, comboValues, rowHeight, rowInLook, rowKind, rowMuted, rowTops, scrubSteps, socketWidgetY, visibleRows,
+  cardChangeRestore, cardHeight, choiceLabel, commitWidgetValue, comboValues, rowHeight, rowInLook, rowKind, rowMuted, rowTops, savedHeightGives, scrubSteps, socketWidgetY, visibleRows,
   liftSocket, widgetTooltip,
 } from "./widget_card_math.mjs";
 
@@ -240,7 +240,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
   ensureCardCss();
   const root = el("div", "ausboss-card");
   const managed = [];
-  const state = { node, root, rows: [], groups: {}, height: 0, widget: null, rowTop: new Map(), rowSpan: new Map(), socketed: [], pickers: [], observers: [], look: "" };
+  const state = { node, root, rows: [], groups: {}, height: 0, widget: null, rowTop: new Map(), rowSpan: new Map(), socketed: [], pickers: [], observers: [], look: "", given: new Map() };
   node.__ausbossCard = state;
 
   const values = () => Object.fromEntries((node.widgets ?? []).map((widget) => [widget.name, widget.value]));
@@ -774,21 +774,32 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       // takes its height in this look.
       for (const entry of state.rows) {
         if (entry.row.kind !== "textarea" && !entry.row.looks) continue;
-        const height = `${rowHeight(entry.row, look)}px`;
-        if (entry.row.grow) entry.element.style.minHeight = height;
-        else entry.element.style.height = height;
+        if (entry.row.grow) entry.element.style.minHeight = `${rowHeight(entry.row, look) - (state.given.get(entry.row) ?? 0)}px`;
+        else entry.element.style.height = `${rowHeight(entry.row, look)}px`;
       }
     }
     const groups = {};
     for (const entry of state.rows) if (entry.header) groups[entry.row.group] = groupOpen(entry.row.group);
     const visible = visibleRows(state.rows.map((entry) => entry.row), vals, groups, node);
     const visibleSet = new Set(visible);
-    const tops = rowTops(visible, look);
+    if (state.restoring) {
+      // A node saved by a release whose card was shorter sits under today's
+      // floor. Its growing rows give up the difference, so it keeps the
+      // height it was saved at and covers nothing below it.
+      const before = state.height;
+      state.height = cardHeight(visible, look);
+      state.given = savedHeightGives(visible, look, Number(node.computeSize?.()[1]) - state.savedHeight);
+      state.height = before;
+      for (const entry of state.rows) {
+        if (entry.row.grow) entry.element.style.minHeight = `${rowHeight(entry.row, look) - (state.given.get(entry.row) ?? 0)}px`;
+      }
+    }
+    const tops = rowTops(visible, look, state.given);
     state.rowTop = new Map();
     state.rowSpan = new Map();
     visible.forEach((row, index) => {
       const entry = state.rows.find((item) => item.row === row);
-      for (const name of entry?.names ?? []) { state.rowTop.set(name, tops[index]); state.rowSpan.set(name, rowHeight(row, look)); }
+      for (const name of entry?.names ?? []) { state.rowTop.set(name, tops[index]); state.rowSpan.set(name, rowHeight(row, look) - (state.given.get(row) ?? 0)); }
       if (entry?.header) { state.rowTop.set(`group:${row.group}`, tops[index]); }
     });
     // A row folded under a closed group: its socket rides the header.
@@ -822,7 +833,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       for (const sync of entry.syncs) sync(vals, linked);
     }
     if (tools?.sync) root.style.setProperty("--ausboss-card-corner", `${Math.max(0, Number(tools.sync(vals)) || 0)}px`);
-    const height = cardHeight(visible, look);
+    const height = cardHeight(visible, look, state.given);
     if (height !== state.height) {
       const first = !state.height;
       const change = first ? 0 : height - state.height;

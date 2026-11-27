@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   CARD_PADDING, GROUP_HEIGHT, ROW_GAP, ROW_HEIGHT, SECTION_HEIGHT, SLOT_OFFSET, SOCKETLESS_CHOICE, SOCKETLESS_TEXT,
-  cardHeight, choiceLabel, commitWidgetValue, holdsUnknownValue, liftSlot, liftSocket, markSocketless, resetUnknownValues, rowHeight, rowInLook, rowKind, rowMuted, rowTops,
+  GROW_FLOOR, cardHeight, choiceLabel, commitWidgetValue, holdsUnknownValue, liftSlot, liftSocket, markSocketless, resetUnknownValues, rowHeight, rowInLook, rowKind, rowMuted, rowTops, savedHeightGives,
   scrubSteps, segmentFits, socketWidgetY, visibleRows, widgetTooltip,
 } from "../js/shared/widget_card_math.mjs";
 
@@ -465,4 +465,40 @@ test("every group a card folds rows into has a header that opens it", () => {
     }
     for (const group of folded) assert.ok(headers.has(group), `${id} folds rows into "${group}" with no header row to open it`);
   }
+});
+
+// A face that gains a row gets a taller floor. A node saved by an earlier
+// release sits under that floor, and lifting it covers what is below it.
+const face = [{ panel: () => {}, height: 30 }, { widget: "script", kind: "textarea", height: 118, grow: true }, { widget: "seconds" }];
+
+test("a growing row gives up what a saved node is short of", () => {
+  const given = savedHeightGives(face, null, 35);
+  assert.equal(given.get(face[1]), 35);
+  assert.equal(given.size, 1);
+  assert.equal(cardHeight(face, null, given), cardHeight(face) - 35);
+});
+
+test("the rows under a growing row move up by what it gave", () => {
+  const given = savedHeightGives(face, null, 35);
+  assert.deepEqual(rowTops(face, null, given), [CARD_PADDING, CARD_PADDING + 30 + ROW_GAP, CARD_PADDING + 30 + ROW_GAP + 83 + ROW_GAP]);
+});
+
+test("a growing row never gives so much that it goes under its own floor", () => {
+  const given = savedHeightGives(face, null, 200);
+  assert.equal(given.get(face[1]), 118 - GROW_FLOOR);
+});
+
+test("nothing is given when the saved node is tall enough, or its height is unknown", () => {
+  for (const short of [0, -40, NaN, undefined]) assert.equal(savedHeightGives(face, null, short).size, 0);
+});
+
+test("a card with no growing row gives nothing", () => {
+  assert.equal(savedHeightGives([{ widget: "a" }, { widget: "b" }], null, 35).size, 0);
+});
+
+test("two growing rows give in order, the first one first", () => {
+  const rows = [{ widget: "a", kind: "textarea", height: 100, grow: true }, { widget: "b", kind: "textarea", height: 96, grow: true }];
+  const given = savedHeightGives(rows, null, 40);
+  assert.equal(given.get(rows[0]), 28);
+  assert.equal(given.get(rows[1]), 12);
 });
