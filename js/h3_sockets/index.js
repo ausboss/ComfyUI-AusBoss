@@ -69,6 +69,8 @@ export function applySockets(node) {
     wiredInputs: plainInputs(node).filter((slot) => slot.link != null).map((slot) => slot.name),
     wiredOutputs: node.outputs.filter(outputWired).map((slot) => slot.name),
     showAll: showAll(),
+    inputNames: plainInputs(node).map((slot) => slot.name),
+    outputNames: node.outputs.map((slot) => slot.name),
   });
   const hiddenKeys = [];
   node.inputs.forEach((slot, index) => {

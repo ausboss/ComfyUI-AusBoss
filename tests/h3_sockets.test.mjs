@@ -173,3 +173,24 @@ test('an output can take more than one wire, so a shown one of the kind is the t
   assert.equal(dropTarget(outputs(), 2), 2, 'an input takes one wire only');
   assert.equal(dropTarget(outputs(), 1, { shared: true }), 1, 'no picture output shows: the wire stays where it landed');
 });
+
+// Another branch gives the node pictures 5 to 8, added at the end of its lists.
+const EIGHT_IN = [...INPUT_NAMES, 'picture_5', 'picture_6', 'picture_7', 'picture_8'];
+const EIGHT_OUT = [...OUTPUT_NAMES, 'picture_5', 'picture_6', 'picture_7', 'picture_8'];
+const eight = (wiredInputs) => {
+  const { inputs, outputs } = socketsToShow({ wiredInputs, inputNames: EIGHT_IN, outputNames: EIGHT_OUT });
+  return { inputs: sorted(inputs), outputs: sorted(outputs) };
+};
+
+test('a node with more picture sockets grows them one at a time too', () => {
+  assert.deepEqual(eight([]).inputs, sorted(BASE_IN));
+  const four = ['picture_1', 'picture_2', 'picture_3', 'picture_4'];
+  assert.deepEqual(eight(four).inputs, sorted([...BASE_IN, ...four, 'picture_5']));
+  assert.deepEqual(eight([...four, 'picture_5']).outputs, sorted([...BASE_OUT, ...four, 'picture_5']));
+});
+
+test('a socket the rule does not know is always shown', () => {
+  const { inputs, outputs } = socketsToShow({ inputNames: [...INPUT_NAMES, 'new_input'], outputNames: [...OUTPUT_NAMES, 'new_output'] });
+  assert.ok(inputs.has('new_input'));
+  assert.ok(outputs.has('new_output'));
+});

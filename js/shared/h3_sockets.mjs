@@ -16,25 +16,34 @@ export const OUTPUT_NAMES = [
 // The setting that shows every socket, and every picture chip, all the time.
 export const SHOW_ALL = "AusBoss.H3PromptWriter.ShowEverySocket";
 
-const ALWAYS_IN = ["clip", "video", "voice", "song"];
-const ALWAYS_OUT = ["prompt", "frames", "width", "height"];
+// The sockets that come and go. Every other socket always shows, and so
+// does one this rule does not know (a later release may add some).
+const PICTURE = /^picture_(\d+)$/;
+const inOrder = (names) => names.filter((name) => PICTURE.test(name))
+  .sort((a, b) => Number(a.match(PICTURE)[1]) - Number(b.match(PICTURE)[1]));
+const COMES_AND_GOES_OUT = ["video", "video_sound", "voice", "song", "song_under", "keeps_clip_sound"];
 // An output that shows once the input of the same name has a wire.
 const FOLLOWS_ITS_INPUT = ["video", "video_sound", "voice", "song"];
 
 // The names of the sockets to draw. A socket with a wire on it always shows.
-export function socketsToShow({ wiredInputs = [], wiredOutputs = [], showAll = false } = {}) {
-  if (showAll) return { inputs: new Set(INPUT_NAMES), outputs: new Set(OUTPUT_NAMES) };
+// `inputNames` and `outputNames` are the node's own sockets: a node with more
+// pictures than four follows the same rule.
+export function socketsToShow({
+  wiredInputs = [], wiredOutputs = [], showAll = false, inputNames = INPUT_NAMES, outputNames = OUTPUT_NAMES,
+} = {}) {
+  if (showAll) return { inputs: new Set(inputNames), outputs: new Set(outputNames) };
   const wired = new Set(wiredInputs);
-  const inputs = new Set([...ALWAYS_IN, ...wired]);
-  const outputs = new Set([...ALWAYS_OUT, ...wiredOutputs]);
+  const inputs = new Set([...inputNames.filter((name) => !PICTURE.test(name) && name !== "video_sound"), ...wired]);
+  const outputs = new Set([...outputNames.filter((name) => !PICTURE.test(name) && !COMES_AND_GOES_OUT.includes(name)), ...wiredOutputs]);
 
   // Every picture up to the last wired one, and the next free one after it.
-  const lastWired = PICTURES.reduce((last, name, index) => (wired.has(name) ? index : last), -1);
-  PICTURES.slice(0, lastWired + 2).forEach((name) => inputs.add(name));
+  const pictures = inOrder(inputNames);
+  const lastWired = pictures.reduce((last, name, index) => (wired.has(name) ? index : last), -1);
+  pictures.slice(0, lastWired + 2).forEach((name) => inputs.add(name));
   // The pictures come out in order, so two wired pictures are outputs 1 and
   // 2 whichever inputs they are on.
-  const pictures = PICTURES.filter((name) => wired.has(name)).length;
-  PICTURES.slice(0, pictures).forEach((name) => outputs.add(name));
+  const count = pictures.filter((name) => wired.has(name)).length;
+  inOrder(outputNames).slice(0, count).forEach((name) => outputs.add(name));
 
   if (wired.has("video")) inputs.add("video_sound");
   FOLLOWS_ITS_INPUT.filter((name) => wired.has(name)).forEach((name) => outputs.add(name));
