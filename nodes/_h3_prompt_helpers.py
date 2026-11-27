@@ -101,6 +101,8 @@ def spoken_line(speaker, words, language, voice_label, on_screen, number=1, lips
     the way H3 needs it: moving and then closed on screen, closed in a
     voiceover. lips names a video whose lip movement the words land on."""
     line = f"<d>[{language}] {words}</d>"
+    if speaker is None:  # The typed line around it already says who speaks.
+        return line
     said = f"says {delivery}" if delivery else "says"
     if not speaker.startswith("<"):  # A thing off screen, like a card reader.
         return f"{speaker} (S{number}) {said} from off screen, {line} Nobody on screen moves their lips to these words."
@@ -323,6 +325,7 @@ def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="E
             script, jobs = put_on_from_pictures(script, jobs)
         jobs = things_that_perform(script, jobs, video)
         cast = Cast(number_pictures(jobs, video), video)
+        cast.voiced = bool(voice)
         script, cast.appearances = swap_appearances(script, jobs, video)
         scene = read_script(script)
         cast.notice_people(" ".join(moment.text for moment in scene.moments))

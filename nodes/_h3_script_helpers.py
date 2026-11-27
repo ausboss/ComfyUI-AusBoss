@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 import re
 
 from ._h3_cast_helpers import (
+    SAYS_AFTER,
     EDIT,
     KEEP,
     MAIN,
@@ -31,7 +32,6 @@ from ._h3_cast_helpers import (
     TOKEN,
     things_that_perform,
     ONE_GOES,
-    SPOTS,
     Cast,
     lower_first,
     number_pictures,
@@ -43,7 +43,13 @@ from ._h3_cast_helpers import (
 QUOTES = {"“": '"', "”": '"', "‘": "'", "’": "'", "—": " - ", "–": " - ", "…": "..."}
 
 # A word that starts a new moment inside a line. It goes, the order says it.
-THEN = r"(?:,?\s*(?:and\s+)?then\b|,?\s*and\s+after\s+that\b|,?\s*after\s+that\b|,?\s*afterwards?\b|,\s*next\b|,\s*later\b|,?\s*moments?\s+later\b)"
+# "Back then" and "next to her" are not one. "then" starts a moment unless it is part of a phrase like "by then";
+# "next" and "later" only after a comma, before who acts.
+WHO_ACTS = r"(?=\s*,|\s+(?:she|he|they|it|we|i|you|@\d|the|a|an|everyone|both)\b)"
+THEN = (
+    r"(?:^\s*then\b,?|,\s*(?:and\s+)?then\b|\s+and\s+then\b|(?<!\bback)(?<!\bsince)(?<!\buntil)(?<!\btill)(?<!\bby)(?<!\bjust)(?<!\beven)(?<!\bonly)(?<!\bright)(?<!\bnow)\s+then\b|,?\s*and\s+after\s+that\b|,?\s*after\s+that\b"
+    r"|,?\s*afterwards?\b|,\s*next" + WHO_ACTS + r"|,\s*later" + WHO_ACTS + r"|,?\s*moments?\s+later\b)"
+)
 # A word that starts a new moment and stays in it.
 # Only after a comma or an "and": "She suddenly turns" and "The dance ends with a spin" stay one moment.
 TURN = (
@@ -53,18 +59,23 @@ TURN = (
 # Where a line breaks into sentences: a full stop that is not a title, the end of a quote, or a semicolon.
 # After a quote, a new sentence starts with a capital or an @: in '"Get a job." @1 looks up' the @1 is a new moment,
 # or its own words are lost behind the first quote's. So is '"Hi" and @2 says "Bye"': one moment holds one quote.
-SENTENCE = r"(?<!\bMr\.)(?<!\bMs\.)(?<!\bDr\.)(?<!\bSt\.)(?<!\bMrs\.)(?<=[.!?])\s+(?=\S)|(?<=\x00)\s+(?=[A-Z@])|(?<=\x00),?\s+(?:and|but|while)\s+(?=@\d)|\s*;\s*"
-CUT_WORDS = re.compile(r"^(?:hard\s+)?(?:cut|cuts|smash\s+cut|jump\s+cut)\s+to\b[:,]?\s*", re.I)
+# "U.S." and "e.g." are not the end of a sentence. Two quotes in one sentence are two moments, in the order typed.
+SENTENCE = (
+    r"(?<!\bMr\.)(?<!\bMs\.)(?<!\bDr\.)(?<!\bSt\.)(?<!\bMrs\.)(?<!\b[A-Z]\.[A-Z]\.)(?<!\be\.g\.)(?<!\bi\.e\.)(?<!\bvs\.)"
+    r"(?<=[.!?])\s+(?=\S)|(?<=\x00)\s+(?=[A-Z@])|(?<=\x00),?\s+(?:and|but|while|as)\s+(?=@\d|[^\x00]*\x00)|\s*;\s*"
+)
+CUT_WORDS = re.compile(r"^(?:hard\s+)?(?:cut|cuts|smash\s+cut|jump\s+cut)\s+(?P<back>back\s+)?to\b[:,]?\s*", re.I)
 NEW_SHOT = re.compile(r"^(?:new\s+shot|next\s+shot|shot\s+\d+)\b[:,.\-]?\s*", re.I)
 START = re.compile(r"^(?:it\s+|the\s+(?:clip|video|scene|shot)\s+)?(?:starts?|begins?|opens?)(?:\s+with\b[:,]?|\s+(?:on|in|as)\b(?!\s+(?:\d|(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|a\s+few)\s+(?:seconds?|minutes?|hours?|days?)\b))[:,]?|\s+at\b(?!\s+(?:\d|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|noon|midnight)\b)[:,]?|\s*:)\s*", re.I)
 END = re.compile(r"^(?:it\s+|the\s+(?:clip|video|scene|shot)\s+)?(?:ends?|ending|finish(?:es)?|closes?)(?:\s+(?:with|on|in|at|as)\b[:,]?|\s*:)\s*", re.I)
 FINALLY = re.compile(r"^(?:finally|at\s+the\s+end|in\s+the\s+end)\b(?!\s+of\b)[:,]?\s*", re.I)
 UNIT = r"(?:seconds?|secs?|s)\b"
 TIMED = re.compile(
-    r"^\[?(?:at\s+)?(?:(\d+):(\d\d(?:\.\d+)?)|(\d+(?:\.\d+)?)\s*(?:" + UNIT + r"|(?=-\s*\d)))"
-    r"(?:\s*-\s*\d+(?:\.\d+)?\s*(?:" + UNIT + r")?)?\]?\s*[:,\-]?\s*",
+    r"^(?P<open>\[\s*|at\s+)?(?:(?P<min>\d+):(?P<sec>\d\d(?:\.\d+)?)|(?P<num>\d+(?:\.\d+)?)\s*(?:" + UNIT + r"|(?=-\s*\d)))"
+    r"(?:\s*-\s*(?:\d+:\d\d(?:\.\d+)?|\d+(?:\.\d+)?)\s*(?:" + UNIT + r")?)?(?P<close>\s*\]\s*[:,\-]?|\s*[:,\-](?!\d))?\s*",
     re.I,
 )
+COMPACT_TIME = re.compile(r"\d+(?:\.\d+)?(?:s|secs?)\b", re.I)
 NUMBER = re.compile(
     r"^\s*(?:\d+[.):](?!\d)|[-*•]|(?:first|second|third|fourth|fifth|sixth)(?:ly)?\b(?!-|\s+(?:person|aid|time|times|thing|things|place"
     r"|day|days|date|look|light|class|floor|base|step|steps|frame|shot|half|row|line|lady|gear|kiss|snow|impression|of)\b)[:,]?"
@@ -99,10 +110,14 @@ SIDE_NOTE = re.compile(
     r"|(?:muted|mute\s+(?:the\s+)?)(?:audio|sound))\s*[.!]?\s*$",
     re.I,
 )
-VOICEOVER = re.compile(r"\b(?:voice-?\s?over|narrator|(?<!looks\s)(?<!glances\s)(?<!stares\s)(?<!points\s)off-?\s?(?:screen|camera)|behind\s+the\s+camera|a\s+voice(?!\s+crack))\b|\((?:o\.?s|v\.?o)\.?\)", re.I)
+VOICEOVER = re.compile(r"\b(?:voice-?\s?over|narrator|v\.?o\.?(?=\s*:)|(?<!looks\s)(?<!glances\s)(?<!stares\s)(?<!points\s)off-?\s?(?:screen|camera)|behind\s+the\s+camera|a\s+voice(?!\s+crack))\b|\((?:o\.?s|v\.?o)\.?\)", re.I)
 # Where a voice comes from, said beside who it is: "A woman off screen says", "Mom (O.S.):".
 FROM_OFF_SCREEN = re.compile(
     r"\b(?:(?:(?:in|as)\s+(?:an?\s+)?(?:off-?\s?screen\s+)?)?voice-?\s?over|off-?\s?(?:screen|camera)|behind\s+the\s+camera)\b|\((?:o\.?s|v\.?o)\.?\)", re.I
+)
+AFTER_VOICEOVER = re.compile(
+    r"^\s*[,.]?\s*(?:(?:(?:in|as)\s+(?:an?\s+)?(?:off-?\s?screen\s+)?voice-?\s?over|from\s+off-?\s?(?:screen|camera))\b|\((?:o\.?s|v\.?o)\.?\))\.?",
+    re.I,
 )
 PRONOUN = re.compile(r"\b(?:he|she|they|him|her|them)\b", re.I)
 PERSON_WORDS = re.compile(
@@ -135,7 +150,7 @@ NAMED = {PLACE: "the place", OUTFIT: "the outfit", THING: "the thing"}  # What @
 
 WORDS_A_SECOND = 3  # How fast H3 speaks.
 # Words that trail off ("I never thought...") keep going: across the next cut, or past the end of the clip.
-TRAILS_OFF = re.compile(r"(?:\.\.\.|\u2026|\u2014|--)\s*$")
+TRAILS_OFF = re.compile(r"(?:\.\.\.|\u2026|\u2014|--|\s-)\s*$")
 LINE_CARRIES = "<scenetrans> The line from the previous shot continues seamlessly across the cut, and the words are not repeated."
 CUT_OFF = "The line is cut off by the end of the video. <cutoff>"
 
@@ -201,7 +216,6 @@ VIDEO_LOOKS = {
     REVOICE: "The target video keeps the look, light and camera of <Video 1>.",
     EDIT: "Retain the look of <Video 1>.",
 }
-NAMES_A_SPOT = re.compile(r"\b(?:left|right|behind|in\s+front|foreground|background)\b", re.I)
 OPENS_ON_THEM = re.compile(r"^(?:She|He)\b")
 FOLLOWS_A_COMMA = re.compile(r"^(?:A|An|The|She|He|They|It|Her|His|Their|Its|This|That|These|Those|There|Someone|Everyone|Nobody)\b")
 
@@ -263,6 +277,7 @@ class Moment:
     voice: str = ""  # Who says the words when it is nobody on screen: "The card reader".
     delivery: str = ""  # How a swap line is said: "in a flat robot voice".
     other: bool = False  # Said by someone who is in no picture, like the man at the counter.
+    back: bool = False  # "cut back to": a place already seen.
 
 
 @dataclass
@@ -276,9 +291,26 @@ class Script:
     one_take: bool = False
 
 
+SINGLE_QUOTED = re.compile(
+    r"\b((?:says?|said|asks?|asked|whispers?|whispered|shouts?|shouted|yells?|yelled|screams?|mutters?|sings?|replies|replied"
+    r"|answers?|calls?\s+out|cries)\s*[:,]?\s*)'([^'\n\x01]+?)'(?!\w)",
+    re.I,
+)
+
+
 def clean(text):
     for old, new in QUOTES.items():
         text = text.replace(old, new)
+    # Words already in double quotes stay as typed, so a quote inside them can't move their ends.
+    kept = []
+
+    def keep(match):
+        kept.append(match.group(0))
+        return f"\x01{len(kept) - 1}\x01"
+
+    text = re.sub(r'"[^"\n]*"', keep, text)
+    text = SINGLE_QUOTED.sub(lambda match: f'{match.group(1)}"{match.group(2)}"', text)
+    text = re.sub(r"\x01(\d+)\x01", lambda match: kept[int(match.group(1))], text)
     return text.replace("\r\n", "\n").replace("\r", "\n").strip()
 
 
@@ -372,29 +404,40 @@ def quoted_words(moment):
         sign = None  # "holds up a sign and shouts": the shout is the last thing done, so it is said.
     if not (sign or (words.isupper() and not spoken)):
         moment.speech = words
-        moment.voiceover = VOICEOVER.search(before) is not None
+        moment.voiceover = VOICEOVER.search(before) is not None or AFTER_VOICEOVER.match(moment.text[match.end() :]) is not None
         moment.voice = voice_of(before, moment.voiceover)
+
+
+def one_or_more(text, match):
+    """What an opening or an ending is on: two words or more, or one when it is
+    set apart with a colon or is black or white ("Start on black.")."""
+    rest = text[match.end() :].strip(" .")
+    return len(rest.split()) > 1 or (bool(rest) and (match.group(0).rstrip().endswith(":") or rest.lower() in ("black", "white")))
 
 
 def read_moment(moment):
     text = moment.text
     timed = TIMED.match(text)
+    marked = timed and (timed.group("open") or timed.group("close") or timed.group("min") is not None or COMPACT_TIME.match(text))
+    if timed and not marked:
+        timed = None  # "7 seconds remain on the clock" is something that happens; "3s she waves" is a time.
     if timed:
-        if timed.group(1) is not None:
-            moment.at = int(timed.group(1)) * 60 + float(timed.group(2))
+        if timed.group("min") is not None:
+            moment.at = int(timed.group("min")) * 60 + float(timed.group("sec"))
         else:
-            moment.at = float(timed.group(3))
+            moment.at = float(timed.group("num"))
         text = text[timed.end() :]
     cut = CUT_WORDS.match(text) or NEW_SHOT.match(text)
     if cut:
         moment.cut = True
+        moment.back = bool(cut.groupdict().get("back"))
         text = text[cut.end() :]
     start = START.match(text)
     end = END.match(text) or FINALLY.match(text)
-    if start and len(text[start.end() :].split()) > 1:
+    if start and one_or_more(text, start):
         moment.start = True
         text = text[start.end() :]
-    elif end and len(text[end.end() :].split()) > 1:
+    elif end and one_or_more(text, end):
         moment.end = True
         text = text[end.end() :]
     text = re.sub(r"\s+", " ", text).strip(" ,.")
@@ -437,6 +480,15 @@ def read_script(text):
         count = len(script.moments)
         whole_clip = script.camera, script.sound
         script.camera = script.sound = ""
+        shot = count  # Where the shot that camera: and sound: lines belong to starts.
+
+        def hand_on(shot):
+            """camera: and sound: typed so far go to the shot they were typed in."""
+            if shot < len(script.moments) and (script.camera or script.sound):
+                moment = script.moments[shot]
+                moment.camera, moment.sound = script.camera or moment.camera, script.sound or moment.sound
+                script.camera = script.sound = ""
+
         for offset, raw in enumerate(block.split("\n")):
             line = raw.strip()
             if not line or take_label(line, script):
@@ -451,15 +503,19 @@ def read_script(text):
                     continue
                 moment = Moment(piece, cut=after_gap, line=opens)
                 opens = None
-                after_gap = False
                 read_moment(moment)
-                if moment.text:
-                    script.moments.append(moment)
+                if not moment.text:
+                    after_gap = after_gap or moment.cut  # "Shot 2:" on its own line cuts before the next moment.
+                    continue
+                after_gap = False
+                if moment.cut and len(script.moments) > count:  # "Shot 2:" inside a block starts a shot of its own.
+                    hand_on(shot)
+                    shot = len(script.moments)
+                script.moments.append(moment)
+        hand_on(shot)
         typed = script.camera, script.sound
         script.camera, script.sound = whole_clip
-        if len(script.moments) > count:
-            script.moments[count].camera, script.moments[count].sound = typed
-        else:
+        if len(script.moments) == count:
             script.camera, script.sound = typed[0] or script.camera, typed[1] or script.sound
     put_in_order(script)
     if script.one_take or not any(moment.cut for moment in script.moments):
@@ -629,10 +685,21 @@ def without_speech(moment):
         before = action[: linked.start()] if linked else action.rpartition(",")[0]
     if VOICEOVER.search(before):
         before = ""
+    after = AFTER_VOICEOVER.sub("", after)
     return " ".join(part.strip(" ,:") for part in (before, after) if part.strip(" ,:."))
 
 
 def moment_words(moment, say, cast):
+    if moment.speech and cast.as_typed and not moment.voice and f'"{moment.speech}"' in moment.text:
+        # More than one person: the line as typed, with only the words put in H3's speech tag.
+        typed = with_labels(moment.text.replace(f'"{moment.speech}"', "\x02", 1), cast)
+        if moment.start:
+            typed = "The shot opens on " + lower_first(typed)
+        elif moment.end:
+            typed = "The shot ends on " + lower_first(typed)
+        typed = typed.strip()
+        typed = typed if typed.endswith("\x02") else sentence(typed)
+        return typed.replace("\x02", say(moment.speech, not moment.voiceover, bare=True))
     words = with_labels(without_speech(moment), cast)
     if moment.start:
         words = "The shot opens on " + lower_first(words)
@@ -645,10 +712,18 @@ def moment_words(moment, say, cast):
 
 
 def speaker_of(moment, cast):
-    """Who says a moment's words: an off-screen voice, the first person it names, or the main person."""
+    """Who says a moment's words: an off-screen voice, the person named right
+    before them ("@2 says"), the first person the moment names, or the main
+    person. With more than one person and no voice, as_typed means nobody is
+    picked at all."""
     if moment.voice:
         return moment.voice
     people = {picture.slot for picture in cast.people}
+    quote = moment.text.find('"')
+    before = moment.text[:quote] if quote >= 0 else moment.text
+    named = [slot for slot in SAYS_AFTER.findall(before) if int(slot) in people]
+    if named:
+        return cast.subjects[int(named[-1])]
     for slot in TOKEN.findall(moment.text):
         if int(slot) in people:
             return cast.subjects[int(slot)]
@@ -659,8 +734,8 @@ def speakers(moments, cast):
     """Everyone who speaks, in the order H3 numbers them."""
     found = []
     for moment in moments:
-        who = speaker_of(moment, cast)
-        if moment.speech and who not in found:
+        who = moment.voice if cast.as_typed else speaker_of(moment, cast)
+        if moment.speech and who and who not in found:
             found.append(who)
     # A voice from off screen, like a card reader, comes after the people, who keep the low numbers.
     return [who for who in found if who.startswith("<")] + [who for who in found if not who.startswith("<")]
@@ -731,9 +806,9 @@ def before_the_action(number, text, cast, wearers):
     if places and not any(place in text for place in places):
         notes.append(IN_THE_PLACE.format(place=places[0]))
     people = people_in(text, cast)
-    if len(people) > 1 and not NAMES_A_SPOT.search(text) and cast.video != SWAP:  # A swap's people stand where the video has them.
-        spots = [f"{person} is on the {spot}" for person, spot in zip(people, SPOTS[len(people)])]
-        notes.append(sentence(", ".join(spots[:-1]) + f" and {spots[-1]} of the frame"))
+    if len(people) > 1 and not any(person in text for person in people) and cast.video != SWAP:
+        # "They sit down" names nobody, so H3 is told who they are. Where they stand is the script's to say.
+        notes.append(f"{', '.join(people[:-1])} and {people[-1]} are in the shot.")
     for slot, wearer in wearers.items():
         outfit = cast.subjects[slot]
         # An edit has no person picture: the person in the video wears an outfit that no line names.
@@ -758,8 +833,10 @@ def after_the_action(text, cast):
     return notes
 
 
-def cut_to(words, text, cast):
+def cut_to(words, text, cast, back=False):
     """How a later shot opens, and what is left of its first moment to say."""
+    if back:
+        return f"the camera cuts back to {lower_first(words)}", ""
     if FRAME_WORDS.match(words):
         return f"the camera cuts to {lower_first(words)}", ""
     places = [subject_label(picture.subject) for picture in cast.of(PLACE)]
@@ -785,7 +862,9 @@ def shot_lines(script, seconds, say, cast, wearers, move="", hold=""):
         for index in shot:
             moment = script.moments[index]
 
-            def speak(words, on_screen=True, moment=moment):
+            def speak(words, on_screen=True, moment=moment, bare=False):
+                if bare:  # Only the speech tag: the typed line around it says who.
+                    return say(words, on_screen, None)
                 who = speaker_of(moment, cast)
                 if moment.delivery:
                     return say(words, on_screen, who, talking.index(who) + 1, delivery=moment.delivery)
@@ -800,7 +879,7 @@ def shot_lines(script, seconds, say, cast, wearers, move="", hold=""):
             said.append(words)
         text = " ".join(said)
         first = shot[0]
-        head, said[0] = (cut_to(said[0], text, cast) if number > 1 else ("", said[0]))
+        head, said[0] = (cut_to(said[0], text, cast, script.moments[first].back) if number > 1 else ("", said[0]))
         if not head and starts[first] > 0:  # A swap's first words can start late in the video.
             said[0] = f"At {stamp(starts[first])}, {after_comma(said[0])}"
         for place, index in enumerate(shot[1:], 1):
@@ -868,8 +947,11 @@ def summary_of(script, cast, new_places, soundtrack):
         return f"[{tag}] The target video continues directly from the end of <Video 1>{where}."
     talking = [who for who in speakers(script.moments, cast) if who.startswith("<")]
     who_speaks = f"{' and '.join(talking)} speak" if len(talking) > 1 else f"{cast.main} speaks"
-    opening = with_labels(without_speech(script.moments[0]), cast) or who_speaks
-    later = [with_labels(without_speech(script.moments[shot[0]]), cast) for shot in shots_of(script)[1:]]
+    # With more than one person the summary keeps the typed line and only stands
+    # "a line" in for the words, which the description already carries once.
+    said = (lambda moment: re.sub(r'"[^"]*"', "a line", moment.text)) if cast.as_typed else without_speech
+    opening = with_labels(said(script.moments[0]), cast) or who_speaks
+    later = [with_labels(said(script.moments[shot[0]]), cast) for shot in shots_of(script)[1:]]
     if cast.opens and cast.ends:
         moving = f"moving from {picture_label(cast.opens.picture)} to {picture_label(cast.ends.picture)}"
         return f"[{task}] In the target video, {lower_first(opening.rstrip('.!? '))}, {moving}."
@@ -899,8 +981,8 @@ def script_parts(script, seconds, camera="", look="", sound="", say=None, cast=N
     lines = shot_lines(script, seconds, say, cast, wearers, move, hold)
     last = len(lines)
     cuts = [script.moments[shot[0]] for shot in shots_of(script)[1:]]
-    moved = any(not FRAME_WORDS.match(without_speech(moment)) for moment in cuts)
-    new_places = last > 1 and not cast.of(PLACE) and moved and all(not FRAME_WORDS.match(without_speech(moment)) for moment in cuts)
+    new_view = [not moment.back and not FRAME_WORDS.match(without_speech(moment)) for moment in cuts]
+    new_places = last > 1 and not cast.of(PLACE) and any(new_view) and all(new_view)
     # Only a place, a start frame or a person sets the look; an outfit, a thing or a style never does.
     first = next(iter(cast.of(PLACE) or cast.of(START_JOB) or cast.of(PERSON, SHEET, PERFORMER, END_JOB)), None)
     if not style and cast.video == EDIT and not cast.of(PLACE):

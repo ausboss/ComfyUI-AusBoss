@@ -10,6 +10,15 @@ All notable changes to ComfyUI-AusBoss are documented here.
   person view" keeps its first word, a shirt or sign that says something
   stays written on it, and a "no music" said inside quotes stays part of
   the line.
+- **H3 Prompt Writer 🆎 follows your layout more closely.** A `camera:` or
+  `sound:` line belongs to the shot it is typed under, `Shot 2:` on its own
+  line starts the next shot, and two people quoted in one sentence each get
+  their line. Single quotes after "says" count as speech, "in voiceover"
+  after a quote keeps the lips closed, `Cut back to` returns to a place,
+  and `Start on black.` works. A number such as "7 seconds remain" stays
+  part of the action, and two people are no longer placed left and right
+  unless the script says where they stand. With two or more people, a
+  spoken line reaches H3 as you typed it.
 - **New node: Strength Curve 🆎.** Draw how strong something should be
   from the start of a run to the end, and wire it into a node that follows
   it step by step. Drag the points or start from a preset (flat, fade out,

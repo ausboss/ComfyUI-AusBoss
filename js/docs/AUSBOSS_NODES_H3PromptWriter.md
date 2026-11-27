@@ -144,11 +144,14 @@ workflows and scripts keep their previous behavior when it is absent.
 - **A cut in the same place**: start the line with a kind of shot, like
   `a close-up of her hand`. Any other line after a blank line goes to a new
   place.
+- **A cut back**: `Cut back to the hallway.` returns to a place you have
+  already shown.
 - **One long take**: type `no cuts` and blank lines stop being cuts.
 - **An ending**: start a line with `ends on`, wherever it sits:
   `ends on her sitting by the window`.
-- **Speech**: put the words in quotes: `@1 says "we are late."` Each person
-  keeps their own voice.
+- **Speech**: put the words in quotes: `She says "we are late."` With two or
+  more people, your sentence goes to H3 as you typed it, so write it the way
+  you would tell a person: `@1 listens as @2 says "we are late."`
 - **Talking over a cut**: end the words with `...` and the line keeps going
   into the next shot, said once. On the last line, `...` means the clip ends
   mid-sentence.
@@ -184,7 +187,8 @@ text is sent instead.
   speech timing when **Clip's own sound** is on. To keep source audio in a swap
   or **change something**, route the original loader's audio to the save node.
 - **voice**: a clip of someone talking, about 10 seconds, plus words in quotes
-  in your script. It goes to whoever speaks first. It works with your own voice,
+  in your script. It goes to whoever speaks first. With two or more people,
+  put the speaker right before the words: `@2 says "hello."` It works with your own voice,
   or one you have permission to use. Put the spoken line last: with time left
   after it, H3 tends to keep talking.
 - **song**: your music. It is cut to the length of the clip and plays as it is,
