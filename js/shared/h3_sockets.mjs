@@ -50,3 +50,29 @@ export function dropTarget(inputs, landed) {
   const free = inputs.findIndex((other, index) => index !== landed && other.shown && !other.wired && other.type === slot.type);
   return free === -1 ? landed : free;
 }
+
+// A socket with a position of its own gets no row: the frontend only stacks
+// the ones without (and writes the position into the saved file, which
+// js/h3_sockets/index.js takes out again).
+const PARKED = [0, -4000];
+const noDraw = () => {};
+
+// Hide or show one socket of a live node. Returns false, and changes
+// nothing, when it cannot be done here: a frontend whose sockets do not draw
+// themselves, or a socket that was placed by someone else.
+export function setSocketHidden(slot, hidden) {
+  if (!slot || typeof slot.draw !== "function") return false;
+  if (!slot._ausbossHidden && slot.pos) return false;
+  if (hidden === Boolean(slot._ausbossHidden)) return true;
+  slot._ausbossHidden = hidden;
+  if (hidden) {
+    slot.pos = PARKED;
+    slot.draw = noDraw;
+    slot.drawCollapsed = noDraw;
+  } else {
+    delete slot.pos;
+    delete slot.draw;
+    delete slot.drawCollapsed;
+  }
+  return true;
+}

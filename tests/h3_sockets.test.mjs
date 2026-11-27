@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { INPUT_NAMES, OUTPUT_NAMES, dropTarget, socketsToShow } from '../js/shared/h3_sockets.mjs';
+import { INPUT_NAMES, OUTPUT_NAMES, dropTarget, setSocketHidden, socketsToShow } from '../js/shared/h3_sockets.mjs';
 
 const BASE_IN = ['clip', 'picture_1', 'video', 'voice', 'song'];
 const BASE_OUT = ['prompt', 'frames', 'width', 'height'];
@@ -68,4 +68,46 @@ test('a dropped wire stays put when nothing shown is free, or when it landed on 
   assert.equal(dropTarget(audioInputs({ voice: true, song: true }), 1), 1);
   assert.equal(dropTarget(audioInputs({ videoSoundShown: true }), 1), 1);
   assert.equal(dropTarget(audioInputs(), 9), 9);
+});
+
+// A socket as the frontend makes it: draw and drawCollapsed live on its class.
+class Socket {
+  constructor(name) { this.name = name; }
+  draw() { return 'drawn'; }
+  drawCollapsed() { return 'drawn collapsed'; }
+}
+const own = (slot, key) => Object.prototype.hasOwnProperty.call(slot, key);
+
+test('hiding a socket parks it and silences its drawing', () => {
+  const slot = new Socket('picture_2');
+  assert.equal(setSocketHidden(slot, true), true);
+  assert.equal(slot._ausbossHidden, true);
+  assert.ok(Array.isArray(slot.pos), 'a position takes the socket out of the stacked rows');
+  assert.equal(slot.draw(), undefined);
+  assert.equal(slot.drawCollapsed(), undefined);
+});
+
+test('showing a socket again leaves it exactly as the frontend made it', () => {
+  const slot = new Socket('picture_2');
+  setSocketHidden(slot, true);
+  assert.equal(setSocketHidden(slot, false), true);
+  assert.equal(slot._ausbossHidden, false);
+  for (const key of ['pos', 'draw', 'drawCollapsed']) assert.equal(own(slot, key), false, key);
+  assert.equal(slot.draw(), 'drawn');
+});
+
+test('a socket with no draw of its own kind is left alone and stays visible', () => {
+  const slot = { name: 'x' };
+  assert.equal(setSocketHidden(slot, true), false);
+  assert.equal(own(slot, 'pos'), false);
+  assert.equal(Boolean(slot._ausbossHidden), false);
+});
+
+test('a socket that came with its own position is never hidden and keeps it', () => {
+  const slot = new Socket('placed');
+  slot.pos = [10, 20];
+  assert.equal(setSocketHidden(slot, true), false);
+  assert.deepEqual(slot.pos, [10, 20]);
+  setSocketHidden(slot, false);
+  assert.deepEqual(slot.pos, [10, 20]);
 });
