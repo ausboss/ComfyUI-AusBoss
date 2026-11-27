@@ -4,6 +4,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Mask Refine 🆎's guided and matting edges follow the picture.** Both
+  edge modes now look further from the mask's edge and snap to the real
+  edge in the guide image, so hair and thin parts a rough mask missed come
+  back. Two new settings under More, Detail range and Fix threshold, tune
+  them. Workflows that use guided or matting will give a cleaner, different
+  edge after updating. The node can also run on its own now, to check a
+  mask before the rest of the graph. Thanks to kajan988.
 - **LoRA Loader 🆎 leaves out a skipped LoRA's trigger words on a flat
   curve too.** With Stop on missing LoRA off, a row whose file is missing is
   skipped and its trigger words stay out of `triggers`. That broke when the
@@ -23,13 +30,6 @@ All notable changes to ComfyUI-AusBoss are documented here.
   cut, less hum and hiss, and an even volume that never clips. A video model
   that copies the sound it is given copies its noise too, so this helps a
   phone recording. It is off by default, so saved workflows are unchanged.
-- **Mask Refine 🆎's guided and matting edges follow the picture.** Both
-  edge modes now look further from the mask's edge and snap to the real
-  edge in the guide image, so hair and thin parts a rough mask missed come
-  back. Two new settings under More, Detail range and Fix threshold, tune
-  them. Workflows that use guided or matting will give a cleaner, different
-  edge after updating. The node can also run on its own now, to check a
-  mask before the rest of the graph. Thanks to kajan988.
 - **H3 Prompt Writer 🆎 keeps to what you wrote.** It lays your notes out
   for H3 and adds no sounds or settings you didn't type. Notes are read more
   carefully too: "muted colours" no longer turns the sound off, "First
