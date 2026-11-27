@@ -678,6 +678,14 @@ app.registerExtension({
       },
     };
   },
+  // R (refresh model lists) gives a choice new options after the cards
+  // were drawn: each card draws again, so a new model file gets its button.
+  async refreshComboInNodes() {
+    const root = app.rootGraph ?? app.graph;
+    for (const graph of [root, ...(root?.subgraphs?.values?.() ?? [])]) {
+      for (const node of graph?._nodes ?? []) node.__ausbossCard?.refresh?.();
+    }
+  },
   beforeRegisterNodeDef(nodeType, nodeData) {
     const config = CARDS[nodeData?.name];
     if (!config) return;

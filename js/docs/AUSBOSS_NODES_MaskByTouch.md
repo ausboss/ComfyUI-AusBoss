@@ -195,6 +195,34 @@ used ComfyUI's Remove Background template, you already have it.
 A workflow that already has Fine edges on tells ComfyUI which file it needs,
 so ComfyUI lists it under **Missing Models** with a download button.
 
+### RMBG-3.0: softer hair, bigger and slower
+
+Bria's RMBG-3.0 keeps loose strands, fur and lace that BiRefNet cuts into a
+hard edge. Once its files are in place, **Fine edges** offers **RMBG-3.0**
+next to **BiRefNet**, and **Subject** and **Background** use the one you pick.
+Fine edges still starts at **off**, and while it is off, Subject and
+Background use BiRefNet.
+
+It costs more: about 14 GB of files, about 14 GB of graphics memory, and
+about 2 seconds a picture once it is loaded, where BiRefNet takes under one.
+The first picture also waits while it loads. Its licence
+is non-commercial (CC BY-NC 4.0): for paid work, Bria sells a licence. Keep
+BiRefNet for that.
+
+From the Hugging Face page `briaai/RMBG-3.0-Comfy`:
+
+1. `diffusion_models/rmbg3_int8_convrot.safetensors` into
+   `ComfyUI/models/diffusion_models`.
+2. `text_encoders/qwen3vl_4b_int8_convrot.safetensors` into
+   `ComfyUI/models/text_encoders`.
+3. `vae/flux2-vae.safetensors` into `ComfyUI/models/vae`.
+4. Press **R**, then set **Fine edges** to **RMBG-3.0**.
+
+It needs ComfyUI 0.43 or newer. Keep the model's file name starting with
+`rmbg3`: that is how the node knows it. After moving a file into a
+subfolder, pick it again under Fine edges. With both of Bria's copies (int8
+and bf16), Fine edges says which is which.
+
 Good to know:
 
 - Fine edges works on the outline of the main subject: a person's hair
@@ -424,6 +452,15 @@ no browser:
   run of the workflow with a line saying what to do. While you click on the
   node, the plain edge is shown instead, with the same line.
 - **Free VRAM** unloads this model as well.
+
+With RMBG-3.0 the subject comes from ComfyUI's own nodes, run the way Comfy's
+RMBG-3.0 template runs them: its fixed matting instruction, 4 steps, cfg 1,
+euler, simple, seed 42. The picture is stretched (never cropped) to about one
+megapixel in steps of 16 pixels, and the red channel of what it paints is
+scaled back to the picture's size, so the matte lines up pixel for pixel. Its
+model, text reader and VAE are loaded once and kept, and Free VRAM unloads all
+three. One copy is held at a time, and it is unloaded before BiRefNet runs.
+Each picture of a batch is worked out once per run, however long the batch.
 
 ### The things that light up
 

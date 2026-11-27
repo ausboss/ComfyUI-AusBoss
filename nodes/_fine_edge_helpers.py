@@ -68,6 +68,42 @@ NOT_A_MODEL = (
     "Use birefnet.safetensors from the Hugging Face page Comfy-Org/BiRefNet."
 )
 
+# RMBG-3.0 (Bria): a picture model that paints the subject's matte in four
+# steps. Its files sit in ComfyUI's usual model folders, so it is found by
+# name: the model in diffusion_models, its text reader and its VAE beside it.
+RMBG3_FOLDER = "diffusion_models"
+RMBG3_PREFIX = "rmbg3"
+# Text readers and VAEs it works with, best first: the files Bria's ComfyUI
+# page lists, then any Qwen3-VL 4B or FLUX.2 VAE file.
+RMBG3_TEXT = ("qwen3vl_4b_int8_convrot.safetensors", "qwen3vl_4b_bf16.safetensors")
+RMBG3_VAE = ("flux2-vae.safetensors",)
+# The instruction it was trained with, as Comfy's RMBG-3.0 template sends it.
+RMBG3_ASK = (
+    '{"edit_instruction": "Generate a detailed grayscale alpha matte. Map the opaque foreground '
+    "to white and the background to black. Produce soft, anti-aliased grayscale gradients at the "
+    'edges of the subject to represent fine details and transparency."}'
+)
+# Its sampling: four steps, no guidance, one fixed seed, as the template.
+RMBG3_STEPS = 4
+RMBG3_SEED = 42
+# It paints about one megapixel, in steps of 16 pixels.
+RMBG3_AREA = 1024 * 1024
+NEEDS_RMBG3_PARTS = (
+    "Fine edges with RMBG-3.0 also needs its text reader and VAE: {missing}. "
+    "Get them from the Hugging Face page briaai/RMBG-3.0-Comfy "
+    "(text_encoders/qwen3vl_4b_int8_convrot.safetensors into ComfyUI/models/text_encoders, "
+    "vae/flux2-vae.safetensors into ComfyUI/models/vae), press R, and try again."
+)
+RMBG3_NOT_FOUND = (
+    "Fine edges: the RMBG-3.0 file '{name}' is not in ComfyUI/models/diffusion_models. "
+    "Get rmbg3_int8_convrot.safetensors from the Hugging Face page briaai/RMBG-3.0-Comfy, "
+    "put it there and press R, or pick another file under Fine edges."
+)
+NEEDS_FIBO2 = (
+    "Fine edges with RMBG-3.0 needs ComfyUI 0.43 or newer (it runs on ComfyUI's "
+    "FIBO 2.0 nodes). Update ComfyUI, or pick BiRefNet under Fine edges."
+)
+
 # The band and its tests are worked out on a copy this long at most. They
 # are about areas, not about single pixels, so a big picture loses nothing.
 WORK_SIDE = 1024
@@ -125,6 +161,15 @@ CLEAN_FOR = 1440
 
 _MODELS = OrderedDict()
 _SUBJECTS = OrderedDict()
+# Raised to the batch at hand: a run asks about each picture twice (the
+# picks, then the fine edge), and RMBG-3.0 takes seconds a picture.
+_subjects_kept = SUBJECTS_KEPT
+
+
+def keep_subjects_for(pictures: int) -> None:
+    """Remember the subject of at least this many pictures (one batch)."""
+    global _subjects_kept
+    _subjects_kept = max(SUBJECTS_KEPT, int(pictures))
 
 
 # ---------------------------------------------------------------------------
@@ -140,9 +185,31 @@ def list_subject_models() -> list[str]:
     return list(folder_paths.get_filename_list(MODEL_FOLDER))
 
 
+def _folder_files(folder: str) -> list[str]:
+    if folder_paths is None or folder not in getattr(folder_paths, "folder_names_and_paths", {}):
+        return []
+    return list(folder_paths.get_filename_list(folder))
+
+
+def _base(name: str) -> str:
+    return str(name).replace("\\", "/").rsplit("/", 1)[-1].lower()
+
+
+def list_rmbg3_models() -> list[str]:
+    """RMBG-3.0 model files in diffusion_models (their names start with rmbg3)."""
+    return [name for name in _folder_files(RMBG3_FOLDER) if _base(name).startswith(RMBG3_PREFIX)]
+
+
+def is_rmbg3(name) -> bool:
+    """An RMBG-3.0 choice, by its file name, whether or not this ComfyUI has
+    it. A background-removal file stays one, whatever it is called."""
+    return _base(name).startswith(RMBG3_PREFIX) and str(name).strip() not in list_subject_models()
+
+
 def fine_edge_choices() -> list[str]:
-    """What the Fine edges input offers: off, then every model file."""
-    return [OFF, *list_subject_models()]
+    """What the Fine edges input offers: off, then every model file, then
+    every RMBG-3.0 model."""
+    return [OFF, *list_subject_models(), *list_rmbg3_models()]
 
 
 def wants_fine_edges(choice) -> bool:
@@ -163,11 +230,12 @@ def subject_model_name(choice) -> str:
     raise FileNotFoundError(NEEDS_MODEL)
 
 
-def _core_node(key: str):
-    """One of ComfyUI's own node classes. None outside ComfyUI, or before 0.21."""
+def _core_node(key: str, method: str = "execute"):
+    """One of ComfyUI's own node classes, when it has `method`. None outside
+    ComfyUI, or on a ComfyUI without that node."""
     mappings = getattr(sys.modules.get("nodes"), "NODE_CLASS_MAPPINGS", None)
     node = mappings.get(key) if isinstance(mappings, dict) else None
-    return node if hasattr(node, "execute") else None
+    return node if hasattr(node, method) else None
 
 
 def _load(name: str):
@@ -194,9 +262,136 @@ def _load(name: str):
     return model
 
 
+def _pick_file(folder: str, preferred: tuple, fits) -> str | None:
+    files = _folder_files(folder)
+    for wanted in preferred:
+        for name in files:
+            if _base(name) == wanted:
+                return name
+    return next((name for name in files if fits(_base(name))), None)
+
+
+def _rmbg3_parts(name: str):
+    """RMBG-3.0's model, text reader and VAE, through ComfyUI's own loader
+    nodes, as its template loads them. Kept while the files do not change."""
+    unet_loader = _core_node("UNETLoader", "load_unet")
+    clip_loader = _core_node("CLIPLoader", "load_clip")
+    vae_loader = _core_node("VAELoader", "load_vae")
+    if None in (unet_loader, clip_loader, vae_loader, _core_node("TextEncodeFibo2"),
+                _core_node("KSampler", "sample"), _core_node("VAEDecode", "decode")):
+        raise RuntimeError(NEEDS_FIBO2)
+    if folder_paths is None or not folder_paths.get_full_path(RMBG3_FOLDER, name):
+        raise FileNotFoundError(RMBG3_NOT_FOUND.format(name=name))
+    text = _pick_file("text_encoders", RMBG3_TEXT, lambda base: "qwen3vl_4b" in base or "qwen3-vl-4b" in base)
+    # A decoder-only or encoder-only copy of the VAE cannot do the job.
+    vae = _pick_file("vae", RMBG3_VAE, lambda base: "flux2" in base and "vae" in base and "decoder" not in base and "encoder" not in base)
+    # A file that is listed but cannot be opened (a broken link) counts as missing.
+    if text and not folder_paths.get_full_path("text_encoders", text):
+        text = None
+    if vae and not folder_paths.get_full_path("vae", vae):
+        vae = None
+    missing = [what for what, found in (("qwen3vl_4b_int8_convrot.safetensors", text), ("flux2-vae.safetensors", vae)) if not found]
+    if missing:
+        raise FileNotFoundError(NEEDS_RMBG3_PARTS.format(missing=" and ".join(missing)))
+    paths = [folder_paths.get_full_path(folder, file) for folder, file in ((RMBG3_FOLDER, name), ("text_encoders", text), ("vae", vae))]
+    stamp = tuple((path, os.path.getmtime(path), os.path.getsize(path)) for path in paths)
+    kept = _MODELS.get(name)
+    if kept is not None and kept[0] == stamp:
+        _MODELS.move_to_end(name)
+        return kept[1]
+    # One RMBG-3.0 at a time: another copy (int8 after bf16) goes first.
+    _drop_rmbg3()
+    parts = (
+        unet_loader().load_unet(unet_name=name, weight_dtype="default")[0],
+        clip_loader().load_clip(clip_name=text, type="fibo2", device="default")[0],
+        vae_loader().load_vae(vae_name=vae)[0],
+    )
+    _MODELS[name] = (stamp, parts)
+    while len(_MODELS) > MODELS_KEPT:
+        _MODELS.popitem(last=False)
+    return parts
+
+
+def rmbg3_size(width: int, height: int) -> tuple[int, int]:
+    """The size RMBG-3.0 paints a picture at: its shape, about one megapixel,
+    each side a multiple of 16. The picture is stretched to it, never cut, so
+    the matte lines up with every pixel once it is scaled back."""
+    scale = (RMBG3_AREA / max(1, width * height)) ** 0.5
+    return max(16, round(width * scale / 16) * 16), max(16, round(height * scale / 16) * 16)
+
+
+def _rmbg3_matte(frame: torch.Tensor, name: str) -> torch.Tensor:
+    """RMBG-3.0's matte for one picture (H x W, 0..1), made the way its
+    template makes it: the fixed instruction, four steps, no guidance."""
+    model, clip, vae = _rmbg3_parts(name)
+    height, width = int(frame.shape[1]), int(frame.shape[2])
+    paint_w, paint_h = rmbg3_size(width, height)
+    picture = frame[..., :3].float().movedim(-1, 1)
+    picture = F.interpolate(picture, size=(paint_h, paint_w), mode="bicubic", align_corners=False, antialias=True)
+    picture = picture.clamp(0.0, 1.0).movedim(1, -1)
+    raise_if_interrupted()
+    positive, negative, latent = _core_node("TextEncodeFibo2").execute(
+        clip=clip, prompt=RMBG3_ASK, negative_prompt="", vae=vae, images={"image_1": picture},
+        width=paint_w, height=paint_h, batch_size=1,
+    ).result
+    painted = _core_node("KSampler", "sample")().sample(
+        model=model, seed=RMBG3_SEED, steps=RMBG3_STEPS, cfg=1.0, sampler_name="euler", scheduler="simple",
+        positive=positive, negative=negative, latent_image=latent, denoise=1.0,
+    )[0]
+    raise_if_interrupted()
+    decoded = _core_node("VAEDecode", "decode")().decode(vae=vae, samples=painted)[0]
+    if not isinstance(decoded, torch.Tensor) or decoded.ndim != 4:
+        raise ValueError("RMBG-3.0's answer is not a picture")
+    matte = decoded[:1, :, :, 0].detach().float().cpu()  # its red channel, as the template reads it
+    matte = F.interpolate(matte[:, None], size=(height, width), mode="bilinear", align_corners=False)[0, 0]
+    return matte.clamp(0.0, 1.0)
+
+
+def _drop_rmbg3() -> None:
+    """Take RMBG-3.0 out of memory before BiRefNet runs. ComfyUI's own
+    background-removal node makes room for its model but not for the work it
+    does, and RMBG-3.0 holds about 20 GB: left in, BiRefNet runs out of
+    graphics memory on all but the biggest cards. Best effort, with
+    ComfyUI's own unload of one model, as Free VRAM does it."""
+    held = [name for name, (_, model) in _MODELS.items() if isinstance(model, tuple)]
+    if not held:
+        return
+    management = sys.modules.get("comfy.model_management")
+    unload = getattr(management, "unload_model_and_clones", None)
+    for name in held:
+        unet, clip, vae = _MODELS.pop(name)[1]
+        for patcher in (unet, getattr(clip, "patcher", None), getattr(vae, "patcher", None)):
+            if unload is None or patcher is None:
+                continue
+            try:
+                unload(patcher)
+            except Exception:  # noqa: BLE001 - making room never fails a run
+                pass
+    empty = getattr(management, "soft_empty_cache", None)
+    if empty is not None:
+        try:
+            empty()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+class _Unloadable:
+    """Gives Free VRAM a `patcher` for a model that is its own patcher."""
+
+    def __init__(self, patcher):
+        self.patcher = patcher
+
+
 def loaded_subject_models() -> list:
     """The models this module holds, for Free VRAM."""
-    return [model for _, model in _MODELS.values()]
+    held = []
+    for _, model in _MODELS.values():
+        if isinstance(model, tuple):  # RMBG-3.0: its model, text reader and VAE
+            unet, clip, vae = model
+            held.extend((_Unloadable(unet), clip, vae))
+        else:
+            held.append(model)
+    return held
 
 
 def subject_matte(frame: torch.Tensor, choice, key: str | None = None) -> torch.Tensor:
@@ -210,16 +405,20 @@ def subject_matte(frame: torch.Tensor, choice, key: str | None = None) -> torch.
     if key is not None and slot in _SUBJECTS:
         _SUBJECTS.move_to_end(slot)
         return _SUBJECTS[slot].float() / 255.0
-    model = _load(name)
-    raise_if_interrupted()
-    answer = _core_node("RemoveBackground").execute(bg_removal_model=model, image=frame[..., :3]).result[0]
-    height, width = int(frame.shape[1]), int(frame.shape[2])
-    if not isinstance(answer, torch.Tensor) or answer.ndim != 3 or tuple(answer.shape[1:]) != (height, width):
-        raise ValueError("the background-removal model's answer is not one mask the size of the picture")
-    matte = answer[0].detach().float().clamp(0.0, 1.0).cpu()
+    if is_rmbg3(name):
+        matte = _rmbg3_matte(frame, name)
+    else:
+        _drop_rmbg3()
+        model = _load(name)
+        raise_if_interrupted()
+        answer = _core_node("RemoveBackground").execute(bg_removal_model=model, image=frame[..., :3]).result[0]
+        height, width = int(frame.shape[1]), int(frame.shape[2])
+        if not isinstance(answer, torch.Tensor) or answer.ndim != 3 or tuple(answer.shape[1:]) != (height, width):
+            raise ValueError("the background-removal model's answer is not one mask the size of the picture")
+        matte = answer[0].detach().float().clamp(0.0, 1.0).cpu()
     if key is not None:
         _SUBJECTS[slot] = (matte * 255.0).round().to(torch.uint8)
-        while len(_SUBJECTS) > SUBJECTS_KEPT:
+        while len(_SUBJECTS) > _subjects_kept:
             _SUBJECTS.popitem(last=False)
     return matte
 

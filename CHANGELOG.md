@@ -4,6 +4,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Mask by Touch 🆎 can use RMBG-3.0 for soft edges.** With Bria's
+  RMBG-3.0 files in place, Fine edges offers RMBG-3.0 next to BiRefNet, and
+  Subject and Background use it too. It keeps loose hair, fur and lace that
+  BiRefNet cuts hard, at about 14 GB of files and about 2 seconds a picture
+  once loaded. Its licence is non-commercial. Fine edges still starts at off,
+  and Subject and Background then use BiRefNet. The ? page says where to get
+  the files.
 - **Mask Refine 🆎's guided and matting edges follow the picture.** Both
   edge modes now look further from the mask's edge and snap to the real
   edge in the guide image, so hair and thin parts a rough mask missed come

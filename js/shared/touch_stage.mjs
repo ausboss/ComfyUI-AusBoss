@@ -712,6 +712,9 @@ function requestRun(face, ask) {
     return false;
   }
   const run = { ask, stamp: face.stamp, epoch: face.sourceEpoch, queued: false };
+  // The Subject and Background picks come back from the model Fine edges
+  // names at the time (BiRefNet while it is off).
+  face.askedFine = settings(face).fine;
   // Runs of this node that are at a picture it no longer has. The one that
   // is running ends by itself once the next job waits; the ones that still
   // wait in the queue would each run for nothing, one after the other, so
@@ -830,6 +833,17 @@ function wantFine(face) {
     pic.fineAsks += 1;
     requestRun(face, "look");
   }, FINE_WAIT_MS);
+}
+
+// Subject and Background are worked out by the model Fine edges names, and
+// by BiRefNet while it is off. Turned off after RMBG-3.0, the picks on show
+// are RMBG-3.0's while the next run makes BiRefNet's, so they are asked for
+// again. (Turned to a model, the fine edge asks anyway.)
+function wantSubjectAgain(face) {
+  const now = settings(face).fine;
+  if (!face.alive || !face.pic || face.pic.provisional || now || face.askedFine === undefined || face.askedFine === now) return;
+  if (!face.items.some((item) => item.t === "subject" || item.t === "background")) return;
+  requestRun(face, "look");
 }
 
 function draw(face) {
@@ -3193,6 +3207,7 @@ export function mountTouchStage(node, host) {
     paintSwatch(face);
     draw(face);
     wantFine(face);
+    wantSubjectAgain(face);
   };
   // The widget's text was changed from outside (a loaded workflow, an undo).
   face.resync = () => {

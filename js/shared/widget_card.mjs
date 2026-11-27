@@ -348,10 +348,19 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       button.addEventListener("click", () => setWidget(name, value));
       seg.append(button); buttons.set(value, button);
     };
-    const values = comboValues(widget);
-    for (const value of values) add(value, values);
+    // Built again when the choices change: R (refresh model lists) can bring
+    // a new model file after the card was drawn.
+    let built = [];
+    const build = () => {
+      seg.textContent = ""; buttons.clear();
+      built = comboValues(widget);
+      for (const value of built) add(value, built);
+    };
+    build();
     into.append(seg);
     return (vals) => {
+      const values = comboValues(widget);
+      if (values.length !== built.length || values.some((value, index) => value !== built[index])) build();
       // A value the list does not offer (a model file this machine does not
       // have) still shows as what is chosen, as it does in a list.
       const current = vals[name];

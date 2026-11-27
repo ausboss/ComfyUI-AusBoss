@@ -1190,11 +1190,24 @@ export function fineChoice(value) {
 }
 
 // The words for a Fine edges choice on the node's card: off, and on while
-// there is one model file. With more files, each goes by its own name.
+// there is one model file. With more files, each goes by its own name, and
+// the two known models by theirs (BiRefNet, RMBG-3.0). RMBG-3.0 always goes
+// by its name: it is never the model Subject uses while Fine edges is off,
+// and the help page says to pick it by name. Two copies of it (int8, bf16)
+// also show which is which.
+const fileName = (value) => String(value).split(/[\\/]/).pop().replace(/\.safetensors$/i, "");
+const isRmbg3 = (value) => /^rmbg3/i.test(fileName(value));
 export function fineEdgeLabel(value, values = []) {
   if (fineChoice(value) === "") return "off";
+  const name = fileName(value);
+  if (isRmbg3(value)) {
+    if (values.filter(isRmbg3).length <= 1) return "RMBG-3.0";
+    const variant = name.replace(/^rmbg3[-_]?/i, "").split(/[-_]/)[0];
+    return variant ? `RMBG-3.0 ${variant}` : "RMBG-3.0";
+  }
   if (values.filter((other) => fineChoice(other) !== "").length <= 1) return "on";
-  return String(value).split(/[\\/]/).pop().replace(/\.safetensors$/i, "");
+  if (/^birefnet$/i.test(name)) return "BiRefNet";
+  return name;
 }
 
 // The settings a fine edge was made with, as one line. The node writes the

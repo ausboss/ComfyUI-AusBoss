@@ -506,5 +506,232 @@ class ColourTests(unittest.TestCase):
         self.assertTrue(bool(torch.isfinite(solid).all()))
 
 
+class Shelves:
+    """A stand-in for ComfyUI's folder_paths with several model folders."""
+
+    def __init__(self, root: Path, names=("background_removal", "diffusion_models", "text_encoders", "vae")):
+        self.root = root
+        self.folder_names_and_paths = {}
+        for name in names:
+            (root / name).mkdir(exist_ok=True)
+            self.folder_names_and_paths[name] = ([str(root / name)], {".safetensors"})
+
+    def get_filename_list(self, name):
+        return sorted(path.name for path in (self.root / name).iterdir())
+
+    def get_full_path(self, name, file):
+        path = self.root / name / file
+        return str(path) if path.is_file() else None
+
+
+class Painter:
+    """Stand-ins for the ComfyUI nodes RMBG-3.0 runs on, recording their calls."""
+
+    calls = []
+
+    class UNETLoader:
+        def load_unet(self, unet_name, weight_dtype):
+            Painter.calls.append(("unet", unet_name, weight_dtype))
+            return ({"unet": unet_name},)
+
+    class CLIPLoader:
+        def load_clip(self, clip_name, type, device):  # noqa: A002 - ComfyUI's own input name
+            Painter.calls.append(("clip", clip_name, type))
+            return (types.SimpleNamespace(patcher="clip patcher", name=clip_name),)
+
+    class VAELoader:
+        def load_vae(self, vae_name):
+            Painter.calls.append(("vae", vae_name))
+            return (types.SimpleNamespace(patcher="vae patcher", name=vae_name),)
+
+    class TextEncodeFibo2:
+        @classmethod
+        def execute(cls, clip, prompt, negative_prompt, vae, images, width, height, batch_size):
+            Painter.calls.append(("encode", prompt, tuple(images["image_1"].shape), width, height))
+            return Output("positive", "negative", {"samples": torch.zeros(1, 128, height // 16, width // 16)})
+
+    class KSampler:
+        def sample(self, model, seed, steps, cfg, sampler_name, scheduler, positive, negative, latent_image, denoise):
+            Painter.calls.append(("sample", seed, steps, cfg, sampler_name, scheduler, denoise))
+            return (latent_image,)
+
+    class VAEDecode:
+        def decode(self, vae, samples):
+            height, width = samples["samples"].shape[2] * 16, samples["samples"].shape[3] * 16
+            red = torch.linspace(0, 1, width).expand(height, width)
+            Painter.calls.append(("decode", height, width))
+            return (torch.stack([red, torch.zeros_like(red), torch.ones_like(red)], dim=-1)[None],)
+
+
+class Rmbg3Tests(unittest.TestCase):
+    MODEL = "rmbg3_int8_convrot.safetensors"
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp(prefix="ausboss_rmbg3_test_"))
+        self.addCleanup(__import__("shutil").rmtree, self.root, True)
+        self.addCleanup(setattr, fine, "folder_paths", fine.folder_paths)
+        fine.folder_paths = Shelves(self.root)
+        Painter.calls = []
+        nodes = types.ModuleType("nodes")
+        nodes.NODE_CLASS_MAPPINGS = {
+            "LoadBackgroundRemovalModel": Loader, "RemoveBackground": Remover,
+            **{key: getattr(Painter, key) for key in ("UNETLoader", "CLIPLoader", "VAELoader", "TextEncodeFibo2", "KSampler", "VAEDecode")},
+        }
+        self.addCleanup(sys.modules.__setitem__, "nodes", sys.modules.get("nodes")) if "nodes" in sys.modules else self.addCleanup(sys.modules.pop, "nodes", None)
+        sys.modules["nodes"] = nodes
+        self.nodes = nodes
+        fine.forget_subjects()
+        self.addCleanup(fine.forget_subjects)
+
+    def put(self, folder, name):
+        (self.root / folder / name).write_text("weights")
+
+    def all_parts(self):
+        self.put("diffusion_models", self.MODEL)
+        self.put("text_encoders", "qwen3vl_4b_int8_convrot.safetensors")
+        self.put("vae", "flux2-vae.safetensors")
+
+    def test_an_rmbg3_model_joins_the_choices_after_comfyuis_own_folder(self):
+        self.put("background_removal", "birefnet.safetensors")
+        self.put("diffusion_models", "some_other_model.safetensors")
+        self.assertEqual(fine_edge_choices(), [OFF, "birefnet.safetensors"])
+        self.put("diffusion_models", self.MODEL)
+        self.assertEqual(fine_edge_choices(), [OFF, "birefnet.safetensors", self.MODEL])
+
+    def test_off_never_picks_rmbg3_for_the_subject(self):
+        self.put("background_removal", "birefnet.safetensors")
+        self.all_parts()
+        self.assertEqual(subject_model_name(OFF), "birefnet.safetensors")
+
+    def test_it_paints_at_about_one_megapixel_in_steps_of_16_keeping_the_shape(self):
+        for width, height in ((1024, 1024), (912, 1152), (1920, 1080), (300, 200), (4000, 3000)):
+            paint_w, paint_h = fine.rmbg3_size(width, height)
+            self.assertEqual((paint_w % 16, paint_h % 16), (0, 0))
+            self.assertLess(abs(paint_w * paint_h / fine.RMBG3_AREA - 1), 0.05, (width, height))
+            self.assertLess(abs(paint_w / paint_h / (width / height) - 1), 0.02, (width, height))
+
+    def test_the_matte_is_made_the_way_its_template_makes_it_and_fits_the_picture(self):
+        self.all_parts()
+        frame = torch.rand(1, 90, 160, 4)
+        matte = subject_matte(frame, self.MODEL)
+        self.assertEqual((tuple(matte.shape), matte.dtype), ((90, 160), torch.float32))
+        # The stand-in decodes red rising 0 -> 1, green 0, blue 1: only the red
+        # channel runs from black on the left to white on the right.
+        self.assertLess(float(matte[:, :3].mean()), 0.1, "the red channel, scaled back")
+        self.assertGreater(float(matte[:, -3:].mean()), 0.9, "the red channel, scaled back")
+        paint_w, paint_h = fine.rmbg3_size(160, 90)
+        kinds = [call[0] for call in Painter.calls]
+        self.assertEqual(kinds, ["unet", "clip", "vae", "encode", "sample", "decode"])
+        self.assertEqual(Painter.calls[1], ("clip", "qwen3vl_4b_int8_convrot.safetensors", "fibo2"))
+        encode = Painter.calls[3]
+        # Word for word the instruction in Bria's ComfyUI template.
+        self.assertEqual(encode[1], '{"edit_instruction": "Generate a detailed grayscale alpha matte. Map the opaque '
+                         'foreground to white and the background to black. Produce soft, anti-aliased grayscale '
+                         'gradients at the edges of the subject to represent fine details and transparency."}')
+        self.assertEqual(encode[2:], ((1, paint_h, paint_w, 3), paint_w, paint_h), "stretched to the painted size, never cut")
+        self.assertEqual(Painter.calls[4], ("sample", 42, 4, 1.0, "euler", "simple", 1.0))
+
+    def test_its_parts_are_loaded_once_and_a_picture_asked_once(self):
+        self.all_parts()
+        frame = torch.rand(1, 64, 64, 3)
+        subject_matte(frame, self.MODEL, key="one")
+        subject_matte(frame, self.MODEL, key="one")
+        subject_matte(frame, self.MODEL, key="two")
+        kinds = [call[0] for call in Painter.calls]
+        self.assertEqual((kinds.count("unet"), kinds.count("sample")), (1, 2))
+
+    def test_free_vram_can_unload_all_three_parts(self):
+        self.all_parts()
+        subject_matte(torch.rand(1, 32, 32, 3), self.MODEL)
+        patchers = [getattr(model, "patcher", None) for model in fine.loaded_subject_models()]
+        self.assertEqual(patchers, [{"unet": self.MODEL}, "clip patcher", "vae patcher"])
+
+    def test_birefnet_after_rmbg3_first_takes_rmbg3_out_of_memory(self):
+        self.all_parts()
+        self.put("background_removal", "birefnet.safetensors")
+        unloaded = []
+        management = types.ModuleType("comfy.model_management")
+        management.unload_model_and_clones = unloaded.append
+        management.soft_empty_cache = lambda: unloaded.append("emptied")
+        self.addCleanup(sys.modules.__setitem__, "comfy.model_management", sys.modules.get("comfy.model_management")) if "comfy.model_management" in sys.modules else self.addCleanup(sys.modules.pop, "comfy.model_management", None)
+        sys.modules["comfy.model_management"] = management
+        frame = torch.rand(1, 32, 32, 3)
+        subject_matte(frame, self.MODEL)
+        self.assertEqual(unloaded, [], "RMBG-3.0 on its own unloads nothing")
+        subject_matte(frame, "birefnet.safetensors")
+        self.assertEqual(unloaded, [{"unet": self.MODEL}, "clip patcher", "vae patcher", "emptied"])
+        self.assertEqual(len(fine.loaded_subject_models()), 1, "only BiRefNet is held now")
+        subject_matte(frame, "birefnet.safetensors")
+        self.assertEqual(len(unloaded), 4, "nothing more to drop")
+
+    def watch_unloads(self):
+        unloaded = []
+        management = types.ModuleType("comfy.model_management")
+        management.unload_model_and_clones = unloaded.append
+        management.soft_empty_cache = lambda: unloaded.append("emptied")
+        self.addCleanup(sys.modules.__setitem__, "comfy.model_management", sys.modules.get("comfy.model_management")) if "comfy.model_management" in sys.modules else self.addCleanup(sys.modules.pop, "comfy.model_management", None)
+        sys.modules["comfy.model_management"] = management
+        return unloaded
+
+    def test_a_second_copy_of_rmbg3_takes_the_first_out_of_memory(self):
+        self.all_parts()
+        self.put("diffusion_models", "rmbg3_bf16.safetensors")
+        unloaded = self.watch_unloads()
+        frame = torch.rand(1, 32, 32, 3)
+        subject_matte(frame, self.MODEL)
+        subject_matte(frame, "rmbg3_bf16.safetensors")
+        self.assertEqual(unloaded, [{"unet": self.MODEL}, "clip patcher", "vae patcher", "emptied"])
+        self.assertEqual(len(fine.loaded_subject_models()), 3, "one copy's three parts")
+
+    def test_a_whole_batch_is_asked_about_once_however_long(self):
+        self.all_parts()
+        frames = [torch.rand(1, 24, 24, 3) for _ in range(12)]
+        fine.keep_subjects_for(len(frames))
+        self.addCleanup(fine.keep_subjects_for, 0)
+        for _ in range(2):  # the picks, then the fine edge
+            for index, frame in enumerate(frames):
+                subject_matte(frame, self.MODEL, key=f"frame {index}")
+        self.assertEqual([call[0] for call in Painter.calls].count("sample"), 12)
+
+    def test_a_background_removal_file_named_rmbg3_stays_one(self):
+        self.put("background_removal", "rmbg3-backup.safetensors")
+        self.assertFalse(fine.is_rmbg3("rmbg3-backup.safetensors"))
+        self.assertTrue(fine.is_rmbg3(self.MODEL), "a diffusion file, or a workflow's name for one")
+        matte = subject_matte(torch.rand(1, 16, 16, 3), "rmbg3-backup.safetensors")
+        self.assertEqual(tuple(matte.shape), (16, 16))
+        self.assertNotIn("unet", [call[0] for call in Painter.calls])
+
+    def test_a_broken_link_or_a_decoder_only_vae_counts_as_missing(self):
+        self.put("diffusion_models", self.MODEL)
+        self.put("text_encoders", "qwen3vl_4b_int8_convrot.safetensors")
+        self.put("vae", "flux2-vae-decoder.safetensors")
+        (self.root / "vae" / "flux2-vae.safetensors").symlink_to(self.root / "vae" / "gone.safetensors")
+        with self.assertRaises(FileNotFoundError) as raised:
+            subject_matte(torch.rand(1, 32, 32, 3), self.MODEL)
+        message = str(raised.exception)
+        self.assertIn("flux2-vae.safetensors", message)
+        self.assertNotIn("diffusion_models", message, "the model file is there; the VAE is what is missing")
+
+    def test_a_missing_text_reader_or_vae_is_named_with_where_to_get_it(self):
+        self.put("diffusion_models", self.MODEL)
+        with self.assertRaises(FileNotFoundError) as raised:
+            subject_matte(torch.rand(1, 32, 32, 3), self.MODEL)
+        message = str(raised.exception)
+        for part in ("qwen3vl_4b_int8_convrot.safetensors", "flux2-vae.safetensors", "briaai/RMBG-3.0-Comfy"):
+            self.assertIn(part, message)
+
+    def test_a_workflow_naming_an_rmbg3_file_this_machine_lacks_says_where_it_goes(self):
+        with self.assertRaises(FileNotFoundError) as raised:
+            subject_matte(torch.rand(1, 32, 32, 3), self.MODEL)
+        self.assertIn("diffusion_models", str(raised.exception))
+
+    def test_a_comfyui_without_fibo2_gets_a_plain_message(self):
+        self.all_parts()
+        del self.nodes.NODE_CLASS_MAPPINGS["TextEncodeFibo2"]
+        with self.assertRaises(RuntimeError) as raised:
+            subject_matte(torch.rand(1, 32, 32, 3), self.MODEL)
+        self.assertEqual(str(raised.exception), fine.NEEDS_FIBO2)
+
+
 if __name__ == "__main__":
     unittest.main()
