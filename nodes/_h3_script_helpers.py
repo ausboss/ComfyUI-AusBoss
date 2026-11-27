@@ -56,7 +56,7 @@ TURN = (
 SENTENCE = r"(?<!\bMr\.)(?<!\bMs\.)(?<!\bDr\.)(?<!\bSt\.)(?<!\bMrs\.)(?<=[.!?])\s+(?=\S)|(?<=\x00)\s+(?=[A-Z@])|(?<=\x00),?\s+(?:and|but|while)\s+(?=@\d)|\s*;\s*"
 CUT_WORDS = re.compile(r"^(?:hard\s+)?(?:cut|cuts|smash\s+cut|jump\s+cut)\s+to\b[:,]?\s*", re.I)
 NEW_SHOT = re.compile(r"^(?:new\s+shot|next\s+shot|shot\s+\d+)\b[:,.\-]?\s*", re.I)
-START = re.compile(r"^(?:it\s+|the\s+(?:clip|video|scene|shot)\s+)?(?:starts?|begins?|opens?)(?:\s+(?:with|on|in|as)\b[:,]?|\s+at\b(?!\s+(?:\d|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|noon|midnight)\b)[:,]?|\s*:)\s*", re.I)
+START = re.compile(r"^(?:it\s+|the\s+(?:clip|video|scene|shot)\s+)?(?:starts?|begins?|opens?)(?:\s+with\b[:,]?|\s+(?:on|in|as)\b(?!\s+(?:\d|(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|a\s+few)\s+(?:seconds?|minutes?|hours?|days?)\b))[:,]?|\s+at\b(?!\s+(?:\d|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|noon|midnight)\b)[:,]?|\s*:)\s*", re.I)
 END = re.compile(r"^(?:it\s+|the\s+(?:clip|video|scene|shot)\s+)?(?:ends?|ending|finish(?:es)?|closes?)(?:\s+(?:with|on|in|at|as)\b[:,]?|\s*:)\s*", re.I)
 FINALLY = re.compile(r"^(?:finally|at\s+the\s+end|in\s+the\s+end)\b(?!\s+of\b)[:,]?\s*", re.I)
 UNIT = r"(?:seconds?|secs?|s)\b"

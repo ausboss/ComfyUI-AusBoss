@@ -630,6 +630,8 @@ class EverydayLineTests(unittest.TestCase):
             ("At the end of the pier she waves.", ["At the end of the pier she waves"]),
             ("It starts at nine every day.", ["It starts at nine every day"]),
             ("It starts at 9 every day.", ["It starts at 9 every day"]),
+            ("It starts in ten seconds.", ["It starts in ten seconds"]),
+            ("It starts on 3 March.", ["It starts on 3 March"]),
             ("She smiles, smash cut to black.", ["She smiles", "Black"]),
         ):
             self.assertEqual([moment.text for moment in read_script(line).moments], moments, line)
@@ -638,6 +640,8 @@ class EverydayLineTests(unittest.TestCase):
         script = read_script("She walks away.\nStarts with two people sitting at a table.")
         self.assertEqual([moment.text for moment in script.moments], ["Two people sitting at a table", "She walks away"])
         self.assertTrue(script.moments[0].start)
+        script = read_script("She walks away.\nIt starts on one knee by the window.")
+        self.assertEqual([moment.text for moment in script.moments], ["One knee by the window", "She walks away"])
 
     def test_clip_notes_mean_only_what_they_say(self):
         self.assertFalse(read_script("She walks through a field, muted colours.").silent)
