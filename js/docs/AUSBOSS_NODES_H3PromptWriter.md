@@ -18,10 +18,13 @@ The node shows only the sockets you are using, so its face stays small.
   two picture outputs show. **prompt**, **frames**, **width** and **height**
   are always there.
 - A socket with a wire on it always shows.
+- The picture chips under the words work the same way: a chip shows for each
+  picture or video you plugged in. If its loader is turned off, the chip
+  turns faint and says **off**.
 
 Nothing changes in a workflow you already saved: every wire stays where it
-was and the node sends the same things. To see every socket all the time,
-turn on **Settings → 🆎 AusBoss → H3 Prompt Writer → Show every socket**.
+was and the node sends the same things. To see every socket and chip all the
+time, turn on **Settings → 🆎 AusBoss → H3 Prompt Writer → Show every socket**.
 
 ## How to write it
 
@@ -251,7 +254,7 @@ as not plugged in.
   the clip. Clay and 3D don't work from words, so change your picture first with
   an edit model.
 - **Picture 1** to **Picture 4** (`job_1` to `job_4`): what each picture is
-  for, on the picture chips under the bar. An empty slot shows as a faint `+ @3`.
+  for, on the picture chips under the bar. A chip shows once its picture is plugged in.
 - **Video** (`video_job`): what the video is for, on the video chip.
 - **Song starts at** (`song_start`, under **More**): the second of the song to
   start from, so the clip gets the good part.

@@ -362,6 +362,61 @@ await check("setting", async () => {
   return problems;
 });
 
+// The row of picture chips under "Pictures and settings": a chip only for a
+// picture or a video that is plugged in.
+await check("chips", async () => {
+  const SETTING = "AusBoss.H3PromptWriter.ShowEverySocket";
+  const result = await evalJs(`(async () => {
+    const h = window.__h3; const settings = window.app.extensionManager.setting;
+    const chips = async (node, ms = 1400) => {
+      await h.wait(ms);
+      const row = node.__ausbossCard?.root?.querySelector(".ausboss-chips");
+      const list = [...(row?.querySelectorAll(".ausboss-chip") ?? [])];
+      return {
+        row: Boolean(row),
+        height: Math.round(row?.getBoundingClientRect().height ?? 0),
+        on: list.filter((chip) => !chip.classList.contains("off")).map((chip) => chip.querySelector("b")?.textContent ?? ""),
+        off: list.filter((chip) => chip.classList.contains("off")).map((chip) => chip.textContent.trim()),
+      };
+    };
+    const node = await h.fresh();
+    const empty = await chips(node);
+    const one = h.add("LoadImage", -420, -60), two = h.add("LoadImage", -420, 320), clip = h.add("LoadImage", -420, 700);
+    one.connect(0, node, h.input(node, "picture_1"));
+    const first = await chips(node);
+    two.connect(0, node, h.input(node, "picture_2"));
+    clip.connect(0, node, h.input(node, "video"));
+    const three = await chips(node);
+    two.mode = 4;
+    const off = await chips(node);
+    two.mode = 0;
+    node.disconnectInput(h.input(node, "picture_2"));
+    node.disconnectInput(h.input(node, "video"));
+    node.disconnectInput(h.input(node, "picture_1"));
+    const gone = await chips(node);
+    await settings.set(${JSON.stringify(SETTING)}, true);
+    const all = await chips(node);
+    await settings.set(${JSON.stringify(SETTING)}, false);
+    const back = await chips(node);
+    return { empty, first, three, off, gone, all, back };
+  })()`);
+  const problems = [];
+  const said = (state) => `${state.on.join(", ") || "no chip"}${state.off.length ? ` and faint ${state.off.join(", ")}` : ""}${state.height ? "" : " (row not on the screen)"}`;
+  const expectChips = (label, state, on, off, rowShown) => {
+    if (!state.row) { problems.push(`${label}: the card has no chip row`); return; }
+    if (JSON.stringify(state.on) !== JSON.stringify(on) || JSON.stringify(state.off) !== JSON.stringify(off)) problems.push(`${label}: shows ${said(state)}; expected ${on.join(", ") || "no chip"}${off.length ? ` and faint ${off.join(", ")}` : ""}`);
+    if (Boolean(state.height) !== rowShown) problems.push(`${label}: the chip row is ${state.height ? "on the screen" : "not on the screen"}`);
+  };
+  expectChips("a new node", result.empty, [], [], false);
+  expectChips("one picture", result.first, ["@1"], [], true);
+  expectChips("two pictures and a video", result.three, ["@1", "@2", "video"], [], true);
+  expectChips("the second picture's loader turned off", result.off, ["@1", "video"], ["@2 off"], true);
+  expectChips("every wire pulled off", result.gone, [], [], false);
+  expectChips("with the setting on", result.all, [], ["+ @1", "+ @2", "+ @3", "+ @4", "+ video"], true);
+  expectChips("with the setting off again", result.back, [], [], false);
+  return problems;
+});
+
 const live = (process.env.H3_LIVE_WORKFLOWS ?? "").split(delimiter).filter(Boolean);
 if (!live.length) skip("live workflows", "set H3_LIVE_WORKFLOWS to check saved workflows");
 for (const file of live) {

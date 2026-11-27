@@ -1,10 +1,13 @@
 // The row of chips on H3 Prompt Writer: each picture plugged in, with its @
-// name, a small copy of it and its job, then the video and its job. A slot with nothing plugged in is a faint
-// dashed chip, so it reads as optional. The widgets underneath stay the
-// source of truth: a chip only changes their value.
+// name, a small copy of it and its job, then the video and its job. A slot
+// with nothing plugged in has no chip (js/shared/h3_sockets.mjs holds the
+// rule). A picture whose loader is turned off keeps a faint dashed chip that
+// says so. The widgets underneath stay the source of truth: a chip only
+// changes their value.
 import { app } from "../../../scripts/app.js";
 import { BRAND, chainCallback } from "./index.mjs";
 import { THEME as T, FONT_UI } from "./theme.mjs";
+import { SHOW_ALL, chipsToShow } from "./h3_sockets.mjs";
 import { liftSocket } from "./widget_card.mjs";
 import { commitWidgetValue, comboValues } from "./widget_card_math.mjs";
 
@@ -45,6 +48,19 @@ function linkSource(node, name) {
   const link = graph?.links?.[slot.link] ?? graph?._links?.get?.(slot.link);
   const source = graph?.getNodeById?.(link?.origin_id);
   return (source?.mode ?? 0) === 0 ? source ?? {} : null;
+}
+
+const hasWire = (node, name) => {
+  const slot = node.inputs?.find((input) => !input?.widget && input?.name === name);
+  return slot?.link !== null && slot?.link !== undefined;
+};
+
+// The names of the chips this node draws now: picture_1 to picture_4, video.
+export function castChipNames(node) {
+  return chipsToShow({
+    wiredInputs: ["picture_1", "picture_2", "picture_3", "picture_4", "video"].filter((name) => hasWire(node, name)),
+    showAll: Boolean(app.extensionManager?.setting?.get?.(SHOW_ALL)),
+  });
 }
 
 const widgetOf = (node, name) => node.widgets?.find((widget) => widget.name === name) ?? null;
@@ -192,13 +208,21 @@ export function castChips(node) {
     if (openMenu && element.contains(openMenu.owner)) openMenu.close();
     element.textContent = "";
     syncs = [];
+    const names = castChipNames(node);
+    // A faint chip: a socket with nothing in it (only with every socket
+    // shown), or a picture whose loader is turned off.
+    const faint = (name, label, plugIn) => {
+      const empty = chip("off");
+      const off = hasWire(node, name);
+      empty.textContent = off ? `${label} off` : `+ ${label}`;
+      empty.title = off ? `The loader on ${name} is turned off, so it is not used.` : plugIn;
+      element.append(empty);
+    };
     for (const number of [1, 2, 3, 4]) {
+      if (!names.includes(`picture_${number}`)) continue;
       const source = linkSource(node, `picture_${number}`);
       if (!source) {
-        const empty = chip("off");
-        empty.textContent = `+ @${number}`;
-        empty.title = `Plug a picture into picture_${number} to name it @${number} in your lines.`;
-        element.append(empty);
+        faint(`picture_${number}`, `@${number}`, `Plug a picture into picture_${number} to name it @${number} in your lines.`);
         continue;
       }
       const item = chip();
@@ -215,20 +239,17 @@ export function castChips(node) {
       if (linkSource(node, "video_job")) add(item, "span", "job from its wire");
       else syncs.push(choice(node, "video_job", item));
       element.append(item);
-    } else {
-      const empty = chip("off");
-      empty.textContent = "+ video";
-      empty.title = "Plug a video into video to copy its moves, swap the person, keep it going or give it a new voice.";
-      element.append(empty);
+    } else if (names.includes("video")) {
+      faint("video", "video", "Plug a video into video to copy its moves, swap the person, keep it going or give it a new voice.");
     }
 
     for (const run of syncs) run(values);
   };
 
-  const shapeOf = () => JSON.stringify(["picture_1", "picture_2", "picture_3", "picture_4", "video", ...JOBS].map((name) => {
+  const shapeOf = () => JSON.stringify([castChipNames(node), ...["picture_1", "picture_2", "picture_3", "picture_4", "video", ...JOBS].map((name) => {
     const source = linkSource(node, name);
     return source ? [source.id ?? 1, source.imgs?.[0]?.src ?? ""] : 0;
-  }));
+  })]);
   const sync = (values) => {
     latest = values;
     const now = shapeOf();

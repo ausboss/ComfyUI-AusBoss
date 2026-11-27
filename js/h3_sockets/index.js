@@ -14,11 +14,10 @@
 import { app } from "../../../scripts/app.js";
 import { chainCallback } from "../shared/index.mjs";
 import { lookupLink } from "../shared/graph_links.mjs";
-import { dropTarget, setSocketHidden, socketsToShow } from "../shared/h3_sockets.mjs";
+import { SHOW_ALL, dropTarget, setSocketHidden, socketsToShow } from "../shared/h3_sockets.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_H3PromptWriter";
 const STYLE_ID = "ausboss-h3-sockets";
-const SHOW_ALL = "AusBoss.H3PromptWriter.ShowEverySocket";
 
 const showAll = () => Boolean(app.extensionManager?.setting?.get?.(SHOW_ALL));
 
@@ -121,9 +120,10 @@ app.registerExtension({
       defaultValue: false,
       category: ["🆎 AusBoss", "H3 Prompt Writer", "Show every socket"],
       tooltip:
-        "H3 Prompt Writer shows only the sockets you are using. "
+        "H3 Prompt Writer shows only the sockets and picture chips you are using. "
         + "Turn this on to see all of them all the time.",
-      onChange: safely(() => writerNodes().forEach(applySockets)),
+      // The card redraws too: its row of picture chips follows the setting.
+      onChange: safely(() => writerNodes().forEach((node) => { applySockets(node); node.__ausbossCard?.refresh?.(); })),
     },
   ],
   beforeRegisterNodeDef(nodeType, nodeData) {

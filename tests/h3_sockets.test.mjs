@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { INPUT_NAMES, OUTPUT_NAMES, dropTarget, setSocketHidden, socketsToShow } from '../js/shared/h3_sockets.mjs';
+import { INPUT_NAMES, OUTPUT_NAMES, SHOW_ALL, chipsToShow, dropTarget, setSocketHidden, socketsToShow } from '../js/shared/h3_sockets.mjs';
 
 const BASE_IN = ['clip', 'picture_1', 'video', 'voice', 'song'];
 const BASE_OUT = ['prompt', 'frames', 'width', 'height'];
@@ -110,4 +110,26 @@ test('a socket that came with its own position is never hidden and keeps it', ()
   assert.deepEqual(slot.pos, [10, 20]);
   setSocketHidden(slot, false);
   assert.deepEqual(slot.pos, [10, 20]);
+});
+
+test('a new node has no picture chip', () => {
+  assert.deepEqual(chipsToShow({ wiredInputs: [] }), []);
+  assert.deepEqual(chipsToShow(), []);
+});
+
+test('a chip shows for each picture and video with a wire, in the node\'s order', () => {
+  assert.deepEqual(chipsToShow({ wiredInputs: ['picture_1'] }), ['picture_1']);
+  assert.deepEqual(chipsToShow({ wiredInputs: ['video', 'picture_3', 'picture_1'] }), ['picture_1', 'picture_3', 'video']);
+});
+
+test('a voice, a song or a text model gets no chip', () => {
+  assert.deepEqual(chipsToShow({ wiredInputs: ['clip', 'voice', 'song', 'video_sound'] }), []);
+});
+
+test('show all gives every picture chip and the video chip', () => {
+  assert.deepEqual(chipsToShow({ wiredInputs: ['picture_2'], showAll: true }), ['picture_1', 'picture_2', 'picture_3', 'picture_4', 'video']);
+});
+
+test('the setting has the id the settings page lists it under', () => {
+  assert.equal(SHOW_ALL, 'AusBoss.H3PromptWriter.ShowEverySocket');
 });

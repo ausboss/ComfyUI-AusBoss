@@ -13,6 +13,9 @@ export const OUTPUT_NAMES = [
   "frames", "width", "height", "keeps_clip_sound",
 ];
 
+// The setting that shows every socket, and every picture chip, all the time.
+export const SHOW_ALL = "AusBoss.H3PromptWriter.ShowEverySocket";
+
 const ALWAYS_IN = ["clip", "video", "voice", "song"];
 const ALWAYS_OUT = ["prompt", "frames", "width", "height"];
 // An output that shows once the input of the same name has a wire.
@@ -38,6 +41,13 @@ export function socketsToShow({ wiredInputs = [], wiredOutputs = [], showAll = f
   if (wired.has("voice") && wired.has("song")) outputs.add("song_under");
   if (wired.has("video")) outputs.add("keeps_clip_sound");
   return { inputs, outputs };
+}
+
+// The chips to draw under "Pictures and settings": one for each picture and
+// for the video that has a wire, in the node's order.
+export function chipsToShow({ wiredInputs = [], showAll = false } = {}) {
+  const wired = new Set(wiredInputs);
+  return [...PICTURES, "video"].filter((name) => showAll || wired.has(name));
 }
 
 // Where a wire dropped on the node's body should go. `inputs` is the node's
