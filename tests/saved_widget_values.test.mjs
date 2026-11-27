@@ -170,7 +170,7 @@ const APPENDED_SINCE = {
   AUSBOSS_NODES_LaMaInpaint: { preview: "toggle" },
   // Film Grain's Auto, appended after its preview switch.
   AUSBOSS_NODES_FilmGrain: { auto: "toggle", auto_amount: "number", auto_size: "number", grain_from: "socket", auto_color: "number" },
-  AUSBOSS_NODES_RefineMask: { preview: "toggle", max_hole_size: "number" },
+  AUSBOSS_NODES_RefineMask: { preview: "toggle", max_hole_size: "number", detail_range: "number", fix_threshold: "number" },
   AUSBOSS_NODES_SelectFrame: { preview: "toggle" },
   AUSBOSS_NODES_LoraLoader: { on_missing: "combo", curve: "socket" },
   // Sockets, which hold no saved value.

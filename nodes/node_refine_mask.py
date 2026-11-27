@@ -15,7 +15,9 @@ class AusBossRefineMask:
         "without feathering), feather with a gaussian blur, edge-refine "
         "against the optional guide_image (guided filter or alpha matting), "
         "then remap levels with black_point/white_point to clear gray haze. "
-        "Returns the refined mask and its inverse."
+        "detail_range and fix_threshold (under More) tune the edge-refine pass. "
+        "Returns the refined mask and its inverse. An output node, so it can run "
+        "on its own to check the mask before anything downstream."
     )
     # "refine mask" first: the node shipped under that display name, so the
     # phrase people already know has to keep finding it. The name itself now
@@ -27,6 +29,8 @@ class AusBossRefineMask:
         "fill holes", "smooth", "levels", "guided filter", "alpha matting",
         "mask blur", "mask fix", "ausboss",
     ]
+    # An output node, so the node can run on its own.
+    OUTPUT_NODE = True
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -139,6 +143,30 @@ class AusBossRefineMask:
                         ),
                     },
                 ),
+                "detail_range": (
+                    "INT",
+                    {
+                        "default": 12,
+                        "min": 1,
+                        "max": 256,
+                        "step": 1,
+                        "tooltip": "How far from the mask's edge to look for the real "
+                        "edge in the guide picture. Raise it for hair or a loose mask, "
+                        "lower it for a small subject. Used only while Edge is on.",
+                    },
+                ),
+                "fix_threshold": (
+                    "FLOAT",
+                    {
+                        "default": 0.01,
+                        "min": 0.01,
+                        "max": 0.99,
+                        "step": 0.01,
+                        "tooltip": "How much of the softened edge matting may rework. "
+                        "Low (the default) lets it fix the whole edge; higher trims "
+                        "the mask inward. Used only while Edge is matting.",
+                    },
+                ),
             },
         }
 
@@ -168,6 +196,8 @@ class AusBossRefineMask:
         guide_image=None,
         preview=True,
         max_hole_size=0.0,
+        detail_range=12,
+        fix_threshold=0.01,
     ):
         refined, inverted = refine_mask(
             mask,
@@ -180,6 +210,8 @@ class AusBossRefineMask:
             edge_refine=str(edge_refine),
             guide_image=guide_image,
             max_hole_size=float(max_hole_size),
+            detail_range=int(detail_range),
+            fix_threshold=float(fix_threshold),
         )
         # The refined mask itself is the preview. Before this the panel showed
         # whatever fed the mask input, and a segmentation node upstream has no

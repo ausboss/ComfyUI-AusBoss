@@ -1083,7 +1083,9 @@
     "optional": [
       "preview",
       "guide_image",
-      "max_hole_size"
+      "max_hole_size",
+      "detail_range",
+      "fix_threshold"
     ],
     "outputs": [
       [

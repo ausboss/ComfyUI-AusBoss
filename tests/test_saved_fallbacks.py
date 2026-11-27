@@ -84,7 +84,7 @@ class SavedFallbackTests(unittest.TestCase):
     def test_the_known_fallbacks_are_read(self):
         self.assertEqual(self.fallbacks["AUSBOSS_NODES_StitchInpaint"], {"seam": "classic", "paste_onto": "crop", "follow_changes": False})
         self.assertEqual(self.fallbacks["AUSBOSS_NODES_CropForInpaint"], {"keep_inside": True})
-        self.assertEqual(self.fallbacks["AUSBOSS_NODES_RefineMask"], {"preview": True, "max_hole_size": 0})
+        self.assertEqual(self.fallbacks["AUSBOSS_NODES_RefineMask"], {"preview": True, "max_hole_size": 0, "detail_range": 12, "fix_threshold": 0.01})
         for node_id in ("AUSBOSS_NODES_LaMaInpaint", "AUSBOSS_NODES_SelectFrame"):
             self.assertEqual(self.fallbacks[node_id], {"preview": True})
         self.assertEqual(self.fallbacks["AUSBOSS_NODES_LoraLoader"], {"on_missing": "error"})

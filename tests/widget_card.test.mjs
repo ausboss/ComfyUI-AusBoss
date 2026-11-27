@@ -281,12 +281,16 @@ test("Mask Refine saved before Max hole size opens with no limit, as an API prom
   const maxHole = widgets.find((widget) => widget.name === "max_hole_size");
   assert.equal(maxHole.value, "", "the old save hands max_hole_size the card's empty value");
 
-  assert.deepEqual(resetUnknownValues(widgets, cardFallbacks("AUSBOSS_NODES_RefineMask")), ["max_hole_size"]);
+  // Detail range and Fix threshold came later still, so the old save resets them too.
+  assert.deepEqual(resetUnknownValues(widgets, cardFallbacks("AUSBOSS_NODES_RefineMask")), ["max_hole_size", "detail_range", "fix_threshold"]);
+  assert.equal(widgets.find((widget) => widget.name === "detail_range").value, 12);
+  assert.equal(widgets.find((widget) => widget.name === "fix_threshold").value, 0.01);
   const defaults = maxHoleSizeDefaults();
   assert.equal(maxHole.value, 0);
   assert.equal(maxHole.value, defaults.widget, "a new node's default");
   assert.equal(maxHole.value, defaults.argument, "what an API prompt without max_hole_size runs with");
-  const others = widgets.filter((widget) => widget.name !== "max_hole_size" && widget.name !== "ausboss_widget_card");
+  const appended = ["max_hole_size", "detail_range", "fix_threshold", "ausboss_widget_card"];
+  const others = widgets.filter((widget) => !appended.includes(widget.name));
   assert.deepEqual(others.map((widget) => widget.value), REFINE_BEFORE_MAX_HOLE.slice(0, 8));
 });
 
@@ -296,7 +300,7 @@ test("Mask Refine saved since keeps its Max hole size", () => {
   for (const size of [0, 2, 0.5]) {
     const widgets = restoreByPosition(names, [...REFINE_BEFORE_MAX_HOLE.slice(0, 8), size], REFINE_TYPES);
     widgets.find((widget) => widget.name === "edge_refine").options = { values: ["off", "guided filter", "matting"] };
-    assert.deepEqual(resetUnknownValues(widgets, fallbacks), []);
+    assert.deepEqual(resetUnknownValues(widgets, fallbacks), ["detail_range", "fix_threshold"]);
     assert.equal(widgets.find((widget) => widget.name === "max_hole_size").value, size);
   }
 });

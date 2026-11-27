@@ -1272,6 +1272,12 @@
       },
       "max_hole_size": {
         "name": "最大空洞尺寸"
+      },
+      "detail_range": {
+        "name": "细节范围"
+      },
+      "fix_threshold": {
+        "name": "修正阈值"
       }
     },
     "outputs": {
