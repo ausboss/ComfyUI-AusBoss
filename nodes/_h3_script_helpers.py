@@ -45,23 +45,32 @@ QUOTES = {"“": '"', "”": '"', "‘": "'", "’": "'", "—": " - ", "–": "
 # A word that starts a new moment inside a line. It goes, the order says it.
 THEN = r"(?:,?\s*(?:and\s+)?then\b|,?\s*and\s+after\s+that\b|,?\s*after\s+that\b|,?\s*afterwards?\b|,\s*next\b|,\s*later\b|,?\s*moments?\s+later\b)"
 # A word that starts a new moment and stays in it.
-TURN = r"(?=,?\s*\b(?:suddenly|all\s+of\s+a\s+sudden|out\s+of\s+nowhere|finally|at\s+last|(?:hard\s+)?cut\s+to|(?:it\s+|and\s+|(?<!\bit\s))ends?\s+(?:with|on|in|as)|ending\s+(?:with|on|in))\b)"
+# Only after a comma or an "and": "She suddenly turns" and "The dance ends with a spin" stay one moment.
+TURN = (
+    r"(?=(?:,\s*(?:and\s+)?|\s+and\s+)(?:suddenly|all\s+of\s+a\s+sudden|out\s+of\s+nowhere|finally|at\s+last"
+    r"|(?:(?:hard|smash|jump)\s+)?cut\s+to|(?:it\s+)?ends?\s+(?:with|on|in|as)|ending\s+(?:with|on|in))\b)"
+)
 # Where a line breaks into sentences: a full stop that is not a title, the end of a quote, or a semicolon.
 # After a quote, a new sentence starts with a capital or an @: in '"Get a job." @1 looks up' the @1 is a new moment,
 # or its own words are lost behind the first quote's. So is '"Hi" and @2 says "Bye"': one moment holds one quote.
 SENTENCE = r"(?<!\bMr\.)(?<!\bMs\.)(?<!\bDr\.)(?<!\bSt\.)(?<!\bMrs\.)(?<=[.!?])\s+(?=\S)|(?<=\x00)\s+(?=[A-Z@])|(?<=\x00),?\s+(?:and|but|while)\s+(?=@\d)|\s*;\s*"
 CUT_WORDS = re.compile(r"^(?:hard\s+)?(?:cut|cuts|smash\s+cut|jump\s+cut)\s+to\b[:,]?\s*", re.I)
 NEW_SHOT = re.compile(r"^(?:new\s+shot|next\s+shot|shot\s+\d+)\b[:,.\-]?\s*", re.I)
-START = re.compile(r"^(?:it\s+|the\s+(?:clip|video|scene|shot)\s+)?(?:starts?|begins?|opens?)(?:\s+(?:with|on|in|at|as)\b[:,]?|\s*:)\s*", re.I)
+START = re.compile(r"^(?:it\s+|the\s+(?:clip|video|scene|shot)\s+)?(?:starts?|begins?|opens?)(?:\s+(?:with|on|in|at|as)\b(?!\s+(?:\d|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|noon|midnight)\b)[:,]?|\s*:)\s*", re.I)
 END = re.compile(r"^(?:it\s+|the\s+(?:clip|video|scene|shot)\s+)?(?:ends?|ending|finish(?:es)?|closes?)(?:\s+(?:with|on|in|at|as)\b[:,]?|\s*:)\s*", re.I)
-FINALLY = re.compile(r"^(?:finally|at\s+the\s+end|in\s+the\s+end)\b[:,]?\s*", re.I)
+FINALLY = re.compile(r"^(?:finally|at\s+the\s+end|in\s+the\s+end)\b(?!\s+of\b)[:,]?\s*", re.I)
 UNIT = r"(?:seconds?|secs?|s)\b"
 TIMED = re.compile(
     r"^\[?(?:at\s+)?(?:(\d+):(\d\d(?:\.\d+)?)|(\d+(?:\.\d+)?)\s*(?:" + UNIT + r"|(?=-\s*\d)))"
     r"(?:\s*-\s*\d+(?:\.\d+)?\s*(?:" + UNIT + r")?)?\]?\s*[:,\-]?\s*",
     re.I,
 )
-NUMBER = re.compile(r"^\s*(?:\d+[.)](?!\d)|[-*•]|(?:first|second|third|fourth|fifth|sixth)(?:ly)?\b[:,]?|step\s+\d+[:.]?)\s*", re.I)
+NUMBER = re.compile(
+    r"^\s*(?:\d+[.):](?!\d)|[-*•]|(?:first|second|third|fourth|fifth|sixth)(?:ly)?\b(?!-|\s+(?:person|aid|time|times|thing|things|place"
+    r"|day|days|date|look|light|class|floor|base|step|steps|frame|shot|half|row|line|lady|gear|kiss|snow|impression|of)\b)[:,]?"
+    r"|step\s+\d+\s*[:.),])\s*",
+    re.I,
+)
 LABEL = re.compile(r"^(camera|style|look|sound|sounds|audio|music)\s*:\s*(.*)$", re.I)
 SPEECH_CUE = re.compile(
     r"\b(?:says?|said|asks?|whispers?|shouts?|yells?|screams?|mutters?|sings?|raps?|chants?|announces?|calls?\s+out|cries"
@@ -69,19 +78,26 @@ SPEECH_CUE = re.compile(
     re.I,
 )
 SIGN_CUE = re.compile(
-    r"\b(?:title|titled|called|named|sign|signs|text|caption|card(?!\s+reader)|poster|reads?|saying|logo|banner|headline|words?)\b"
+    r"(\b(?:title|titled|called|named|sign|signs|text|caption|card(?!\s+reader)|poster|logo|banner|headline)\b"
+    r"|\breads?\b(?![^\"]*\b(?:aloud|out\s+loud)\b)|\b(?:with|in|reads?|reading)\s+the\s+words?\b|\bthe\s+word\b"
+    r"|\b(?:t-?shirt|shirt|hoodie|jacket|mug|cap|hat|tattoo|label|note|board|sticker)\s+(?:(?!and\b|while\b)\w+\s+){0,2}?(?:says|reads|saying)\b"
+    r"|\b(?:sign|banner|card|poster|text|caption)\s+(?:(?!and\b|while\b)\w+\s+){0,2}?saying\b)"
     r"[^\"]{0,24}$",
     re.I,
 )
-NO_MUSIC = re.compile(r"\b(?:no|without|skip)\s+(?:any\s+)?(?:music|soundtrack|score)\b|\bjust\s+(?:the\s+)?(?:ambien\w+|sound of|natural sound)\b", re.I)
-NO_SOUND = re.compile(r"\b(?:no\s+sound|no\s+audio|silent\s+(?:film|movie|clip|video)|completely\s+silent|total\s+silence|mute(?:d)?\b)", re.I)
-ONE_TAKE = re.compile(r"\b(?:one|single|continuous|unbroken)\s+(?:long\s+)?(?:shot|take)\b|\b(?:no|without)\s+cuts?\b", re.I)
+NO_MUSIC = re.compile(r"\b(?:no|without|skip)\s+(?:any\s+)?(?:background\s+)?(?:music|soundtrack|score)\b|\bjust\s+(?:the\s+)?(?:ambien\w+|sound of|natural sound)\b", re.I)
+NO_SOUND = re.compile(
+    r"\b(?:(?:no|without)\s+(?:any\s+)?(?:sound|audio)\b|silent\s+(?:film|movie|clip|video)\b|completely\s+silent\b|total\s+silence\b"
+    r"|muted\s+(?:audio|sound)\b|on\s+mute\b|mute\s+(?:the\s+)?(?:audio|sound)\b)",
+    re.I,
+)
+ONE_TAKE = re.compile(r"\b(?:one|single|continuous|unbroken)\s+(?:long\s+)?(?:shot|take)\b(?!\s+(?:of|at)\b)|\b(?:no|without)\s+(?:camera\s+)?cuts?\b", re.I)
 SIDE_NOTE = re.compile(
-    r"^\s*(?:(?:no|without)\s+(?:any\s+)?(?:music|soundtrack|score|sound|audio|cuts?)(?:\s*,?\s*(?:just|only)\s+(?P<only>.+?))?"
+    r"^\s*(?:(?:no|without)\s+(?:any\s+)?(?:background\s+|camera\s+)?(?:music|soundtrack|score|sound|audio|cuts?)(?:\s*,?\s*(?:just|only)\s+(?P<only>.+?))?"
     r"|one\s+(?:long\s+)?(?:shot|take)|single\s+(?:shot|take)|continuous\s+(?:shot|take))\s*[.!]?\s*$",
     re.I,
 )
-VOICEOVER = re.compile(r"\b(?:voice-?\s?over|narrator|off-?\s?(?:screen|camera)|behind\s+the\s+camera|a\s+voice)\b|\((?:o\.?s|v\.?o)\.?\)", re.I)
+VOICEOVER = re.compile(r"\b(?:voice-?\s?over|narrator|(?<!looks\s)(?<!glances\s)(?<!stares\s)(?<!points\s)off-?\s?(?:screen|camera)|behind\s+the\s+camera|a\s+voice(?!\s+crack))\b|\((?:o\.?s|v\.?o)\.?\)", re.I)
 # Where a voice comes from, said beside who it is: "A woman off screen says", "Mom (O.S.):".
 FROM_OFF_SCREEN = re.compile(
     r"\b(?:(?:(?:in|as)\s+(?:an?\s+)?(?:off-?\s?screen\s+)?)?voice-?\s?over|off-?\s?(?:screen|camera)|behind\s+the\s+camera)\b|\((?:o\.?s|v\.?o)\.?\)", re.I
@@ -147,7 +163,7 @@ OWN_COLOURS = "Each place keeps its own light and colours."
 ONE_SHOT = "One continuous shot with no cuts."
 EVERY_PLACE = "Every shot is a new place."
 AND_THEN = "Then {line}"
-STILL_MOVING = "the camera keeps moving forward."
+STILL_MOVING = "the camera keeps moving the same way."
 QUIET = "{speaker} stays silent with the lips closed."
 ONE_LINE = "No other words are spoken."
 PLACE_SOUND = "The steady sound of the place continues throughout."
@@ -229,56 +245,6 @@ LOOKS = {
     ),
 }
 
-# What a moment sounds like, said where it happens. H3 leaves a clip close to
-# silent between big events unless each sound is named in its own moment.
-MOMENT_SOUNDS = tuple(
-    (re.compile(pattern, re.I), line)
-    for pattern, line in (
-        (r"\b(?:lights?|lamps?|bulbs?|neon)\b.*\b(?:flicker\w*|buzz\w*|go(?:es)?\s+(?:out|off|dark)|dim\w*)\b", "The lights buzz and crackle."),
-        (r"\b(?:screens?|tvs?|televisions?|monitors?)\b.*\b(?:flicker\w*|static|glitch\w*|go(?:es)?\s+(?:black|dark|off)|turn\w*\s+(?:on|off|to))\b", "Static hisses and crackles."),
-        (r"\b(?:thunder|lightning)\b", "Thunder cracks loudly."),
-        (r"\b(?:rain|rainy|raining|downpour)\b", "Rain hisses on the ground."),
-        (r"\b(?:wind|windy|gusts?|gale)\b", "The wind howls."),
-        (r"\b(?:the|ocean|sea|big|huge|giant|crashing|breaking|rolling)\s+(?:\w+\s+)?waves\b|\bwaves\s+(?:crash|break|roll|pound|hit|rise|swell)\w*\b|\bsurf\b", "The water crashes and roars."),
-        (r"\b(?:splash\w*|puddles?)\b", "Water splashes."),
-        (r"\b(?:explo[ds]\w*|blasts?)\b", "A deep boom shakes the air."),
-        (r"\b(?:fire|flames?|burns?|burning)\b", "Flames crackle and roar."),
-        (r"(?<!a )\b(?:breaks?|breaking)\b(?!\s+(?:into|down|out|free|away|up|off|through))|\b(?:shatter\w*|smash\w*)\b", "Something shatters with a loud crack."),
-        (r"\bdoors?\b.*\b(?:opens?|opening|closes?|closing|slams?|swings?|swung|shuts?)\b(?!-)|\b(?:opens?|opening|closes?|closing|slams?|shuts?)\b(?!-).*\bdoors?\b", "The door creaks and thuds."),
-        (r"\b(?:engine|motorbike|motorcycle)\b|\b(?:car|truck)\b.*\b(?:speeds?|drives?|races?|pulls?\s+away)\b", "The engine roars."),
-        (r"\btrains?\b", "The train rumbles on the rails."),
-        (r"\bflash(?:es)?\b(?!\s+(?:a|her|his|their)\b)|\bshutter\b|\btakes? a (?:photo|picture)\b", "The camera shutter clicks loudly."),
-        (r"\b(?:birds?|crows?)\b", "Wings flap."),
-        (r"\b(?:runs?|running)\b(?!\s+(?:her|his|their|one|a)\b)|\b(?:sprints?|sprinting|flees?|fleeing)\b", "Fast footsteps hit the ground."),
-        (r"\b(?:walks?|walking|strides?|striding)\b", "Footsteps sound on the ground."),
-        (r"(?<!night )(?<!snow )(?<!hair )(?<!tears )(?<!silence )(?<!darkness )\b(?:falls?|falling)\b(?!\s+(?:asleep|silent|quiet|still|in\s+love))|\b(?:drops?|dropping|crash(?:es)?|collapses?|slams?)\b", "It lands with a heavy thud."),
-    )
-)
-# What stays once it has happened: how it starts, what would change it, what to
-# say as it happens, and the line that holds it. H3 draws each moment on its
-# own, so the lights come back on in the next moment unless that moment says not.
-LASTING = tuple(
-    (re.compile(started, re.I), re.compile(topic, re.I), now, line)
-    for started, topic, now, line in (
-        (
-            r"\blights?\b.*\b(?:go(?:es)?\s+(?:out|off|dark)|die|dies|cut\s+out)\b|\bblackout\b|\b(?:goes|go|went)\s+dark\b",
-            r"\b(?:lights?|lamps?|bulbs?|dark\w*)\b",
-            "The whole place goes dark.",
-            "The lights stay off.",
-        ),
-        (r"\b(?:rain|raining|downpour)\b", r"\b(?:rain|raining)\b", "", "The rain keeps falling."),
-        (r"(?<!static )(?<!tv )\bsnow(?:s|ing|fall|storms?)?\b", r"\bsnow", "", "The snow keeps falling."),
-        (
-            r"\b(?:screens?|tvs?|televisions?|monitors?)\b.*\b(?:go(?:es)?\s+(?:black|dark|off)|turn\w*\s+(?:black|off))\b",
-            r"\b(?:screens?|tvs?|televisions?|monitors?)\b",
-            "",
-            "The screens stay dark.",
-        ),
-        (r"\bon\s+fire\b|\bcatch(?:es)?\s+fire\b|\bbursts?\s+into\s+flames\b", r"\b(?:fire|flames?)\b", "", "The fire keeps burning."),
-    )
-)
-NAMES_A_SOUND = re.compile(r"\b(?:sounds?|hears?|heard|noises?|loud\w*|silen\w*|quiet\w*|rumbl\w*|bangs?|booms?|roars?|hiss\w*|creak\w*|buzz\w*|howl\w*)\b", re.I)
-
 
 @dataclass
 class Moment:
@@ -336,6 +302,7 @@ def split_line(line):
     for part in re.split(SENTENCE, masked):
         for bit in re.split(THEN + r"\s+|" + TURN, part, flags=re.I):
             bit = re.sub(r"[\s,;]*\band$", "", bit, flags=re.I)
+            bit = re.sub(r"^[\s,;]*and\s+", "", bit, flags=re.I)
             if bit and bit.strip(" ,.;"):
                 pieces.append(unmask(bit.strip(" ,;"), found))
     return pieces
@@ -359,6 +326,7 @@ def take_label(line, script):
 
 
 def read_notes(text, script):
+    text = mask_quotes(text)[0]
     if NO_SOUND.search(text):
         script.silent = True
     if NO_MUSIC.search(text):
@@ -397,7 +365,10 @@ def quoted_words(moment):
         return
     before = moment.text[: match.start()]
     words = match.group(1).strip()
-    if not (SIGN_CUE.search(before) or (words.isupper() and not SPEECH_CUE.search(before))):
+    sign, spoken = SIGN_CUE.search(before), SPEECH_CUE.search(before)
+    if sign and spoken and re.search(r",|\b(?:and|while|then)\b", before[sign.end(1) : spoken.start()]):
+        sign = None  # "holds up a sign and shouts": the shout is the last thing done, so it is said.
+    if not (sign or (words.isupper() and not spoken)):
         moment.speech = words
         moment.voiceover = VOICEOVER.search(before) is not None
         moment.voice = voice_of(before, moment.voiceover)
@@ -672,35 +643,6 @@ def moment_words(moment, say, cast):
     return line
 
 
-def moment_sound(moment, script):
-    """The sound of a moment, unless its words or the sound of the place already say it."""
-    words = without_speech(moment)
-    if NAMES_A_SOUND.search(words):
-        return ""
-    for pattern, line in MOMENT_SOUNDS:
-        if pattern.search(words):
-            return "" if pattern.search(script.sound) else line
-    return ""
-
-
-def still_true(moments):
-    """For each moment, the lines that hold what earlier moments changed. A
-    moment that speaks of the same thing again decides for itself, and a new
-    place starts clean."""
-    held, found = {}, []
-    for moment in moments:
-        seen = without_speech(moment)
-        if moment.cut and not FRAME_WORDS.match(seen):
-            held = {}
-        lines = [line for topic, line in held.items() if not topic.search(seen)]
-        for started, topic, now, line in LASTING:
-            if started.search(seen):
-                held[topic] = line
-                lines += [now] if now else []
-        found.append(lines)
-    return found
-
-
 def speaker_of(moment, cast):
     """Who says a moment's words: an off-screen voice, the first person it names, or the main person."""
     if moment.voice:
@@ -826,13 +768,12 @@ def cut_to(words, text, cast):
     return f"the camera cuts to {'a new view' if places else 'a new place'}.", words
 
 
-def shot_lines(script, seconds, say, cast, wearers, move="", hold="", sounds=True):
+def shot_lines(script, seconds, say, cast, wearers, move="", hold=""):
     """One line for each shot. H3 jumps at a timed [Shot] mark whatever the words
     say, so the moments of one take are sentences inside one shot."""
     starts = timeline(script, seconds)
     talking = speakers(script.moments, cast)
     quiet = " ".join(QUIET.format(speaker=speaker) for speaker in talking if speaker.startswith("<"))
-    kept = still_true(script.moments)
     carried, cut_off = speech_runs_on(script, seconds)
     lines = []
     for number, shot in enumerate(shots_of(script), 1):
@@ -852,12 +793,9 @@ def shot_lines(script, seconds, say, cast, wearers, move="", hold="", sounds=Tru
             words = " ".join(
                 [
                     moment_words(moment, speak, cast),
-                    *kept[index],
                     *([quiet] if quiet and not moment.speech else []),
                 ]
             ).strip()
-            if sounds and not script.silent:
-                words = f"{words} {moment_sound(moment, script)}".strip()
             said.append(words)
         text = " ".join(said)
         first = shot[0]
@@ -941,11 +879,10 @@ def summary_of(script, cast, new_places, soundtrack):
     return f"{summary} {EVERY_PLACE}" if new_places else summary
 
 
-def script_parts(script, seconds, camera="", look="", sound="", say=None, cast=None, sounds=True, soundtrack=False):
+def script_parts(script, seconds, camera="", look="", sound="", say=None, cast=None, soundtrack=False):
     """H3's six parts, from a Script. say turns spoken words into H3's line.
-    cast says what each picture and the video are for. sounds says H3 makes
-    the sound, so each moment names its own. soundtrack says a video's own
-    sound is connected."""
+    cast says what each picture and the video are for. soundtrack says a
+    video's own sound is connected."""
     say = say or (lambda words, on_screen=True, speaker="", number=1: words)
     cast = cast or Cast(number_pictures({1: PERSON}))
     style, redraw, hold = LOOKS.get(look, ("", "", ""))
@@ -958,7 +895,7 @@ def script_parts(script, seconds, camera="", look="", sound="", say=None, cast=N
     move = CAMERAS.get(typed, script.camera and sentence(script.camera)) or CAMERAS.get(camera, "")
     move = move.replace("<Subject 1>", cast.main)
     wearers = cast.wearers(script.moments)
-    lines = shot_lines(script, seconds, say, cast, wearers, move, hold, sounds)
+    lines = shot_lines(script, seconds, say, cast, wearers, move, hold)
     last = len(lines)
     cuts = [script.moments[shot[0]] for shot in shots_of(script)[1:]]
     moved = any(not FRAME_WORDS.match(without_speech(moment)) for moment in cuts)

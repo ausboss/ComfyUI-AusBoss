@@ -370,10 +370,7 @@ def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="E
             voiced = voice_label if number == 1 else None
             return spoken_line(who, clean_words(words), language, voiced, on_screen, number, lips, delivery)
 
-        keeps_song = song_beats is not None and not voice  # The song is then all the sound there is.
-        parts = script_parts(
-            scene, seconds, camera=camera, look=look, sound=sound, say=say, cast=cast, sounds=not keeps_song, soundtrack=soundtrack
-        )
+        parts = script_parts(scene, seconds, camera=camera, look=look, sound=sound, say=say, cast=cast, soundtrack=soundtrack)
 
     if written and (video == EDIT or (video == SWAP and clip_sound)):  # The clip's own sound stays in the result.
         parts["summary"] = add_task(parts["summary"], "audio reuse")
