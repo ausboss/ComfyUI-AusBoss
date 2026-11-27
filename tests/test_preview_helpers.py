@@ -255,5 +255,28 @@ class PreviewSwitchTests(unittest.TestCase):
         save.assert_not_called()
 
 
+
+class LiveSourceAlphaTests(unittest.TestCase):
+    def test_a_cut_outs_source_keeps_its_see_through_parts(self):
+        """Cut Out's live preview reads the source's alpha, as the node does."""
+        temp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, temp_dir, True)
+        picture = torch.ones(1, 4, 6, 4)
+        picture[..., 3] = 0.0
+        picture[:, :, :3, 3] = 1.0
+        mask = torch.ones(1, 4, 6)
+        with patch.object(_preview_helpers, "folder_paths", fake_folder_paths(temp_dir)):
+            ui = preview_payload(picture, "t", "Cut Out", (picture,), keep_alpha=True,
+                                 live_sources={"image": picture, "mask": mask})["ui"]
+            plain = preview_payload(picture, "u", "Film Grain", (picture,),
+                                    live_sources={"image": picture})["ui"]
+        saved = ui["ausboss_live"][0]["image"]
+        with Image.open(Path(temp_dir) / saved["subfolder"] / saved["filename"]) as png:
+            self.assertEqual(png.mode, "RGBA")
+            self.assertEqual(png.getpixel((5, 0))[3], 0)
+        kept = plain["ausboss_live"][0]["image"]
+        with Image.open(Path(temp_dir) / kept["subfolder"] / kept["filename"]) as png:
+            self.assertEqual(png.mode, "RGB")
+
 if __name__ == "__main__":
     unittest.main()

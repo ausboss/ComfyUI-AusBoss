@@ -67,7 +67,9 @@ def mask_to_preview_batch(mask: torch.Tensor, source: str = "Preview") -> torch.
     return mask.unsqueeze(-1)
 
 
-def save_temp_preview(image: torch.Tensor, prefix: str, source: str = "Preview", keep_alpha: bool = False) -> dict:
+def save_temp_preview(
+    image: torch.Tensor, prefix: str, source: str = "Preview", keep_alpha: bool = False, compress_level: int = 4
+) -> dict:
     """Write one preview PNG to the temp folder; returns its ui.images entry.
 
     With ``keep_alpha`` a picture with see-through parts is saved with them,
@@ -84,7 +86,7 @@ def save_temp_preview(image: torch.Tensor, prefix: str, source: str = "Preview",
         )
     )
     file = f"{filename}_{counter:05}_.png"
-    preview.save(Path(full_output_folder) / file, compress_level=4)
+    preview.save(Path(full_output_folder) / file, compress_level=compress_level)
     entry = {
         "filename": file,
         "subfolder": subfolder,
@@ -97,26 +99,65 @@ def save_temp_preview(image: torch.Tensor, prefix: str, source: str = "Preview",
     return entry
 
 
-def preview_payload(image: torch.Tensor, prefix: str, source: str, result: tuple) -> dict:
+def save_live_sources(prefix: str, sources: dict, source: str = "Preview", keep_alpha: bool = False) -> dict:
+    """Write the pictures a node worked from to the temp folder, one PNG each,
+    so the node's face can redraw its result while a value is dragged
+    (js/shared/live_stage.mjs). `sources` maps an input name to its IMAGE
+    batch (BHWC) or, for a name that ends in "mask", a MASK (BHW); the first
+    frame of each is kept. With ``keep_alpha`` a picture's see-through parts
+    are kept (Cut Out reads them). Returns { name: ui.images-style entry }; a
+    picture that cannot be written is left out."""
+    found = {}
+    for name, value in sources.items():
+        if value is None:
+            continue
+        try:
+            batch = mask_to_preview_batch(value, source) if str(name).endswith("mask") else value
+            entry = save_temp_preview(batch, f"{prefix}_{name}", source, keep_alpha=keep_alpha, compress_level=1)
+            entry.pop("alpha", None)
+            found[name] = entry
+        except Exception:  # noqa: BLE001 - the live picture is a convenience
+            continue
+    return found
+
+
+def preview_payload(
+    image: torch.Tensor,
+    prefix: str,
+    source: str,
+    result: tuple,
+    keep_alpha: bool = False,
+    extra_ui: dict | None = None,
+    live_sources: dict | None = None,
+) -> dict:
     """The node return that carries both a preview and the real outputs.
 
     A preview is a convenience, never the job: if writing it fails - a full
     disk, a temp folder someone cleaned mid-run - the node still returns its
-    outputs and only the panel goes quiet.
+    outputs and only the panel goes quiet. ``keep_alpha`` keeps a cut-out's
+    see-through parts in the preview (save_temp_preview).
     """
     try:
-        images = [save_temp_preview(image, prefix, source)]
+        images = [save_temp_preview(image, prefix, source, keep_alpha)]
     except Exception as exc:  # noqa: BLE001 - any failure here is non-fatal
         detail = str(exc).encode("ascii", "replace").decode("ascii")
         print(f"[AusBoss] {source}: preview unavailable ({detail}).")
         return {"result": result}
-    return {"ui": {"images": images}, "result": result}
+    ui = {"images": images}
+    if extra_ui:
+        ui.update(extra_ui)
+    if live_sources:
+        found = save_live_sources(prefix, live_sources, source, keep_alpha)
+        if found:
+            ui["ausboss_live"] = [found]
+    return {"ui": ui, "result": result}
 
 
 __all__ = [
     "first_frame_to_pil",
     "mask_to_preview_batch",
     "preview_payload",
+    "save_live_sources",
     "save_temp_preview",
     "temp_prefix",
 ]

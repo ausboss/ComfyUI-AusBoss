@@ -126,6 +126,7 @@ const LAST_GUARDED_INPUT = {
   AUSBOSS_NODES_ColorMatch: "reference_mode",
   AUSBOSS_NODES_Compare: "image_b",
   AUSBOSS_NODES_CropForInpaint: "keep_inside",
+  AUSBOSS_NODES_FilmGrain: "preview",
   AUSBOSS_NODES_Float: "value",
   AUSBOSS_NODES_FrameInterpolate: "batch_size",
   AUSBOSS_NODES_ImageResize: "mask",
@@ -167,6 +168,8 @@ const APPENDED_SINCE = {
   // Frame's from 1.2.0), or the LoRA panel's. Mask Refine's max_hole_size
   // came after 2.4.0; 2.x saves hold the card's value there.
   AUSBOSS_NODES_LaMaInpaint: { preview: "toggle" },
+  // Film Grain's Auto, appended after its preview switch.
+  AUSBOSS_NODES_FilmGrain: { auto: "toggle", auto_amount: "number", auto_size: "number", grain_from: "socket", auto_color: "number" },
   AUSBOSS_NODES_RefineMask: { preview: "toggle", max_hole_size: "number" },
   AUSBOSS_NODES_SelectFrame: { preview: "toggle" },
   AUSBOSS_NODES_LoraLoader: { on_missing: "combo", curve: "socket" },

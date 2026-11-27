@@ -341,6 +341,12 @@ export const ZH = {
   "This LoRA follows the strength curve. Click to keep it steady.": "这个 LoRA 跟随强度曲线。点击改为固定强度。",
   "This LoRA keeps one strength. Click to make it follow the strength curve.": "这个 LoRA 保持同一强度。点击让它跟随强度曲线。",
   "Follow the strength curve": "跟随强度曲线", "Keep a steady strength": "保持固定强度",
+  // ---- image finishing nodes
+  "Auto": "自动", "1 \u00d7 = Auto's pick": "1 \u00d7 = 自动的选择", "1 \u00d7 = the match": "1 \u00d7 = 匹配结果", "match": "匹配",
+  "Amount": "颗粒量", "Roughness": "粗糙度", "Video grain": "视频颗粒", "moving": "逐帧变化",
+  "Clean edges": "清理边缘", "Clear haze": "清除薄雾", "Solid above": "高于此值为实", "Smooth video": "视频平滑",
+  "white part": "白色部分", "black part": "黑色部分",
+  "Detail size": "细节大小", "Detail": "细节", "color + light": "颜色 + 明暗", "light only": "仅明暗", "Edge safe": "保护边缘",
   // ---- Check layout
   "Check layout": "检查布局",
   "Check again": "再检查一次",

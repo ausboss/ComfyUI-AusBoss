@@ -2097,6 +2097,138 @@
       }
     }
   },
+  "AUSBOSS_NODES_FilmGrain": {
+    "display_name": "胶片颗粒 🆎",
+    "description": "给图片或视频加上胶片颗粒。颗粒在中间调最明显，在深暗部和高光处较弱，和胶片一样。尺寸是颗粒的像素大小，粗糙度让颗粒更细、更不均匀，颜色让颗粒从黑白颗粒变成彩色胶片的颗粒。在视频上颗粒可以逐帧变化，也可以保持不动。自动会按图片挑选颗粒量和尺寸：小图和大图看起来一样，并与图片自带的颗粒相匹配；此时颗粒量和尺寸变成它的倍数。在颗粒来源接上一张图片，自动就会复制那张图片的颗粒：强度、大小和颜色。可选的遮罩只在白色处加颗粒。同一个种子总是得到同样的颗粒。",
+    "inputs": {
+      "image": {
+        "name": "图像"
+      },
+      "amount": {
+        "name": "颗粒量"
+      },
+      "size": {
+        "name": "尺寸"
+      },
+      "roughness": {
+        "name": "粗糙度"
+      },
+      "color": {
+        "name": "颜色"
+      },
+      "moving": {
+        "name": "逐帧变化"
+      },
+      "seed": {
+        "name": "种子"
+      },
+      "mask": {
+        "name": "遮罩"
+      },
+      "preview": {
+        "name": "预览"
+      },
+      "auto": {
+        "name": "自动"
+      },
+      "auto_amount": {
+        "name": "自动颗粒量倍数"
+      },
+      "auto_size": {
+        "name": "自动尺寸倍数"
+      },
+      "grain_from": {
+        "name": "颗粒来源"
+      },
+      "auto_color": {
+        "name": "自动颜色倍数"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      }
+    }
+  },
+  "AUSBOSS_NODES_CutOut": {
+    "display_name": "抠图 🆎",
+    "description": "把图片和遮罩变成背景透明的抠图，可以直接存成 PNG，或放到新的背景上。保留遮罩的白色或黑色部分，扩大或缩小它，并柔化边缘。清理边缘会去掉头发和柔和边缘里旧背景的颜色，让抠图放到新背景上时没有光晕；完全保留的像素保持原样。也适用于视频帧。",
+    "inputs": {
+      "image": {
+        "name": "图像"
+      },
+      "mask": {
+        "name": "遮罩"
+      },
+      "keep": {
+        "name": "保留"
+      },
+      "grow": {
+        "name": "扩大"
+      },
+      "feather": {
+        "name": "羽化"
+      },
+      "clean_edges": {
+        "name": "清理边缘"
+      },
+      "clear_haze": {
+        "name": "清除薄雾"
+      },
+      "solid_above": {
+        "name": "高于此值为实"
+      },
+      "smooth_frames": {
+        "name": "视频平滑"
+      },
+      "preview": {
+        "name": "预览"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      },
+      "1": {
+        "name": "透明度"
+      }
+    }
+  },
+  "AUSBOSS_NODES_KeepDetail": {
+    "display_name": "保留细节 🆎",
+    "description": "把原图的细节（皮肤、布料、颗粒）放回修改后的图片上。适合在编辑或重新打光后画面变得太光滑时使用。修改后的图片保留它的形状、光线和颜色，只有小于细节大小的细节来自原图。两张图片必须对齐。仅明暗只带回亮度细节，所以颜色不会变；颜色 + 明暗连细节的颜色一起带回。",
+    "inputs": {
+      "image": {
+        "name": "图像"
+      },
+      "detail_from": {
+        "name": "细节来源"
+      },
+      "detail_size": {
+        "name": "细节大小"
+      },
+      "strength": {
+        "name": "强度"
+      },
+      "color_detail": {
+        "name": "颜色细节"
+      },
+      "edge_safe": {
+        "name": "保护边缘"
+      },
+      "mask": {
+        "name": "遮罩"
+      },
+      "preview": {
+        "name": "预览"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      }
+    }
+  },
   "AUSBOSS_NODES_StrengthCurve": {
     "display_name": "强度曲线 🆎",
     "description": "画出从一次运行开始到结束的强度变化，再把曲线接到会逐步跟随它的节点：LoRA 加载器 🆎 的某一行，或 Krea 2 编码 🆎 的参考图。让风格 LoRA 逐渐淡出，细节就更干净；或者让参考图前期稳住构图、后期放开。在节点上拖动点，或从预设开始。",
