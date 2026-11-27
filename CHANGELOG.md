@@ -9,6 +9,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
   fixes spelling, writes short sentences, and puts each spoken line right
   after whoever says it before the node reads them. Your quoted words are
   never rewritten: they stay exactly as typed. Off by default.
+- **Load Audio 🆎: Clean up.** Turn on **Clean up** for a voice recording
+  and it comes out as one channel, with the quiet bits at the start and end
+  cut, less hum and hiss, and an even volume that never clips. A video model
+  that copies the sound it is given copies its noise too, so this helps a
+  phone recording. It is off by default, so saved workflows are unchanged.
 - **H3 Prompt Writer 🆎 keeps to what you wrote.** It lays your notes out
   for H3 and adds no sounds or settings you didn't type. Notes are read more
   carefully too: "muted colours" no longer turns the sound off, "First
