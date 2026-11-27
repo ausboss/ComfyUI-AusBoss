@@ -17,6 +17,23 @@ All notable changes to ComfyUI-AusBoss are documented here.
   new `reference_curve` input takes a Strength Curve: 1 follows the
   reference as before, 0 ignores it. It also works with Krea 2 Outpaint
   Model Patch 🆎.
+- **Frame Interpolate 🆎 holds cuts between two shots of the same place.**
+  It used to count a cut only when the frame changed more than **Scene
+  cut**, and two shots of one place in the same light can change less
+  than fast movement inside one shot, so it mixed those shots together
+  for a frame or two. A change that jumps out from the frames around it
+  now counts as a cut too. **Scene cut** still works as before, and `0`
+  still turns cut finding off.
+- **Latent Size 🆎: pick which ratio chips show.** The gear's Ratio chips
+  row opens a list of every ratio with its size. Switch each on or off,
+  remove one, add your own such as 21:9, or reset to the shipped list.
+  5:4 and 21:9 now come in the list, switched off. A chip keeps the name
+  it was given, so 21:9 no longer reads 7:3.
+- **Edit Lock 🆎 says what is wrong when the VAE and model don't match.**
+  The readout used to blame the VAE alone. It now says either file can be
+  the wrong one, gives the two channel counts it compared, and points to
+  the model and VAE in the workflow's notes. A GGUF or other converted
+  model is a common cause.
 
 ## 2.28.1 - 2026-11-25
 
