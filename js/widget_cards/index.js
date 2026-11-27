@@ -467,8 +467,8 @@ const CARDS = {
         placeholder: "Type what happens, one line for each thing. Picture 1 is @1. A blank line cuts to a new place.\n\nSwap: leave empty, or name who goes. Optional new look on its own line: @1 looks like a woman with blonde hair and a black hoodie.",
       },
       { panel: momentStrip, height: 76, when: (values, node) => promptTab(node) !== FULL },
-      { widget: "sound", label: "Sound", placeholder: "rain on a window", when: (values, node) => promptTab(node) !== FULL },
-      { widget: "music", label: "Music", placeholder: "slow piano: music makes it louder", when: (values, node) => promptTab(node) !== FULL },
+      { widget: "sound", label: "Sound", placeholder: "(e.g. rain on a window)", when: (values, node) => promptTab(node) !== FULL },
+      { widget: "music", label: "Music", placeholder: "(e.g. slow piano)", when: (values, node) => promptTab(node) !== FULL },
       { section: "Pictures and settings" },
       // The row is there once a picture or a video is plugged in.
       { panel: castChips, height: 30, when: (values, node) => castChipNames(node).length > 0 },
