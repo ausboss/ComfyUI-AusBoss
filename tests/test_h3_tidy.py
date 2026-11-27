@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 import sys
 import unittest
@@ -94,8 +96,40 @@ class HoldTests(unittest.TestCase):
                 self.assertEqual(tidy_script(typed, answering(answer)[0]), (typed, False))
 
     def test_lines_with_no_words_are_tidied_too(self):
-        ask, _ = answering("The cat jumps on the table.")
-        self.assertEqual(tidy_script("teh cat jumps on teh table", ask), ("The cat jumps on the table.", True))
+        ask, _ = answering("The cat jumps on the table.\nThe dog barks.")
+        self.assertEqual(tidy_script("teh cat jumps on teh table\nteh dog barks", ask), ("The cat jumps on the table.\nThe dog barks.", True))
+
+    def test_a_second_quote_the_writer_cant_voice_may_become_its_own_line(self):
+        ask, _ = answering("@1 says SPOKEN1 to @2. @2 says SPOKEN2.")
+        self.assertEqual(tidy_script('@1 says "Hi" to @2, who says "Bye."', ask), ('@1 says "Hi" to @2. @2 says "Bye.".', True))
+
+    def test_a_one_line_idea_is_left_for_the_model_to_fill_out(self):
+        ask, calls = answering("The woman checks a chart. She walks to the door.")
+        self.assertEqual(tidy_script("the woman checks a chart and walks to the door", ask), ("the woman checks a chart and walks to the door", False))
+        self.assertEqual(calls, [])
+
+    def test_a_quote_that_reads_like_a_marker_comes_back_as_typed(self):
+        ask, _ = answering("@1 says SPOKEN1. @2 says SPOKEN2.")
+        self.assertEqual(tidy_script('@1 says "SPOKEN2" and @2 says "Bye."', ask)[0], '@1 says "SPOKEN2". @2 says "Bye.".')
+
+    def test_a_quote_inside_a_quote_stays_held_out(self):
+        ask, calls = answering("@1 says SPOKEN.")
+        typed = '@1 says "She said “secret” yesterday." and @2 nods'
+        tidy_script(typed, ask)
+        self.assertNotIn("secret", calls[0][1])
+
+    def test_a_longer_number_is_not_the_same_person(self):
+        typed = '@1 says "Hi." and @2 waves.'
+        self.assertEqual(tidy_script(typed, answering("@12 says SPOKEN. @2 waves.")[0]), (typed, False))
+
+    def test_a_tidy_that_changes_what_the_writer_reads_is_not_used(self):
+        for typed, answer in (
+            ('@1 says "Hi." and @2 says "Bye."', "@1 says SPOKEN1 to @2, who says SPOKEN2."),  # Bye is no longer spoken
+            ('3s: @1 says "Hi."\n\n@1 waves.', "@1 says SPOKEN. @1 waves."),  # the cut and the timing are gone
+            ('@1 wears a shirt that says "HELLO" and @2 laughs.', "@1 wears a shirt. @1 says SPOKEN. @2 laughs."),  # the shirt now talks
+        ):
+            with self.subTest(typed=typed):
+                self.assertEqual(tidy_script(typed, answering(answer)[0]), (typed, False))
 
 
 class NodeTests(unittest.TestCase):
@@ -113,7 +147,7 @@ class NodeTests(unittest.TestCase):
         tidy = generate.calls[0]
         self.assertEqual((tidy["clip"], tidy["image"], tidy["system_prompt"]), ("the clip", None, TIDY_SYSTEM))
         self.assertEqual(tidy["sampling_mode"], {"sampling_mode": "off"})
-        self.assertIn("No way.", text)
+        self.assertIn("<Subject 2> says <d>[English] No way.</d>", text)
         self.assertNotIn("who goes", text)
 
     def test_tidy_off_never_asks_for_a_tidy(self):
@@ -127,11 +161,25 @@ class NodeTests(unittest.TestCase):
         self.assertEqual(on, off)
 
     def test_tidy_on_an_older_comfyui_keeps_the_lines_and_says_why_in_the_log(self):
-        generate = fake_generate("x", system_prompt=False)
-        on = self.write(generate, "@1 waves", clip="the clip", picture_1=PICTURE, tidy=True)
-        self.assertEqual(on, self.write(fake_generate("x", system_prompt=False), "@1 waves", clip="the clip", picture_1=PICTURE))
-        self.assertIn("0.46.1", TIDY_NEEDS_UPDATE)
+        log = StringIO()
+        with redirect_stdout(log):
+            on = self.write(fake_generate("x", system_prompt=False), "@1 waves\n@1 sits", clip="the clip", picture_1=PICTURE, tidy=True)
+        self.assertEqual(on, self.write(fake_generate("x", system_prompt=False), "@1 waves\n@1 sits", clip="the clip", picture_1=PICTURE))
+        self.assertIn(TIDY_NEEDS_UPDATE, log.getvalue())
         TIDY_NEEDS_UPDATE.encode("ascii")
+
+    def test_tidied_lines_the_writer_turns_down_go_as_typed(self):
+        # Tidied, the line no longer names @2 before the words; as typed it is fine.
+        generate = fake_generate("@1 waves at @2. @1 smiles. SPOKEN is said.")
+        typed = '@1 waves at @2 and says "Hi."'
+        on = self.write(generate, typed, clip="the clip", picture_1=PICTURE, picture_2=PICTURE, tidy=True)
+        self.assertIn("<Subject 1> waves at <Subject 2> and says <d>[English] Hi.</d>", on)
+
+    def test_a_one_line_idea_is_still_filled_out_with_tidy_on(self):
+        generate = fake_generate("She opens the door.\nShe steps outside.")
+        self.write(generate, "@1 checks a chart", clip="the clip", picture_1=PICTURE, tidy=True)
+        self.assertFalse(any(call.get("system_prompt") == TIDY_SYSTEM for call in generate.calls))
+        self.assertTrue(any(call.get("system_prompt") in (None, "") for call in generate.calls))
 
     def test_h3s_own_six_parts_are_not_tidied(self):
         generate = fake_generate("unused")

@@ -29,7 +29,7 @@ JOB_HELP = (
     "best with nobody in the picture. Style gives only the look. Start on it and end on it fix the first or last moment."
 )
 NEEDS_TEXT_GENERATE = "This ComfyUI has no Generate Text node. Update ComfyUI, or disconnect the model on clip."
-TIDY_NEEDS_UPDATE = "[AusBoss] H3 Prompt Writer: Tidy up needs ComfyUI 0.46.1 or later; the lines go as typed."
+TIDY_NEEDS_UPDATE = "[AusBoss] H3 Prompt Writer: this ComfyUI's Generate Text takes no system prompt, so Tidy up is off. Update ComfyUI."
 SAMPLING = {
     "sampling_mode": "on",
     "temperature": 0.5,
@@ -75,7 +75,7 @@ def model_tidier(clip):
     """ask(system, line, longest) for Tidy up: the same Generate Text, with its own instructions and no picture.
 
     Greedy, so the same script tidies the same way every run. None on a ComfyUI whose Generate Text
-    takes no system prompt (before 0.46.1): the rest of the node still works there."""
+    takes no system prompt (older than 0.38): the rest of the node still works there."""
     generate = _core_nodes().get("TextGenerate")
     if generate is None or not hasattr(generate, "execute"):
         raise RuntimeError(NEEDS_TEXT_GENERATE)
@@ -384,8 +384,21 @@ class AusBossH3PromptWriter:
               video_sound=None, voice=None, song=None, camera=AS_TYPED, look=FROM_PICTURE, song_start=0.0, cut_on_beat=True,
               language="English", job_1=PERSON, job_2=PERSON, job_3=PERSON, job_4=THING, video_job=VIDEO_JOBS[0],
               sound="", music="", clip_sound=False, tidy=False):
+        inputs = dict(locals())
+        del inputs["self"], inputs["script"], inputs["tidy"]
         if tidy:
-            script = tidied(script, clip)
+            tidy_text = tidied(script, clip)
+            if tidy_text != script:
+                try:
+                    return self._write(tidy_text, **inputs)
+                except ValueError:
+                    pass  # The writer turns down the tidied lines: it gets them as typed, and says so if they fail too.
+        return self._write(script, **inputs)
+
+    def _write(self, script, seconds, clip=None, picture_1=None, picture_2=None, picture_3=None, picture_4=None, video=None,
+               video_sound=None, voice=None, song=None, camera=AS_TYPED, look=FROM_PICTURE, song_start=0.0, cut_on_beat=True,
+               language="English", job_1=PERSON, job_2=PERSON, job_3=PERSON, job_4=THING, video_job=VIDEO_JOBS[0],
+               sound="", music="", clip_sound=False):
         # A clip that keeps its own sound has no room for a score: the finished clip plays the video's sound.
         if video is not None and (video_job == EDIT or (video_job == SWAP and clip_sound)):
             music = ""
