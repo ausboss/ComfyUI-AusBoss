@@ -790,8 +790,9 @@ class AusBossMaskByTouch:
                             "at the outline of the picture's main subject, that outline "
                             "is taken from ComfyUI's background-removal model. The "
                             "cut-out also loses the colour of the old background. Off "
-                            "keeps the edge as found. The ? page says where to get the "
-                            "model file."
+                            "keeps the edge as found. RMBG-3.0, when you have it, keeps "
+                            "the softest hair but is bigger and slower. The ? page says "
+                            "where to get the model files."
                         ),
                     },
                 ),

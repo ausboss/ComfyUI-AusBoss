@@ -875,6 +875,11 @@ test("the Fine edges choices read off and on, and by name only when there are se
   assert.equal(fineEdgeLabel("small/model.safetensors", several), "model");
   assert.equal(fineEdgeLabel("vitmatte_base.safetensors", several), "vitmatte_base");
   assert.equal(fineEdgeLabel("off", several), "off");
+  // The two known models go by their own names once there is a choice.
+  const known = ["off", "birefnet.safetensors", "rmbg3_int8_convrot.safetensors"];
+  assert.equal(fineEdgeLabel("birefnet.safetensors", known), "BiRefNet");
+  assert.equal(fineEdgeLabel("rmbg3_int8_convrot.safetensors", known), "RMBG-3.0");
+  assert.equal(fineEdgeLabel("rmbg3_int8_convrot.safetensors", ["off", "rmbg3_int8_convrot.safetensors"]), "on");
 });
 
 test("the line of settings a fine edge was made with is the one the node writes", () => {
