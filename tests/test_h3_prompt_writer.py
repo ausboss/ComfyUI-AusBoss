@@ -689,6 +689,10 @@ class EverydayLineTests(unittest.TestCase):
             self.assertTrue(moment.voiceover, line)
         line = parts_of('@1 listens as @2 says "Hi."', jobs={1: "person", 2: "person"})["detailed_description"]
         self.assertIn("<Subject 2> (S1) says", line)
+        line = parts_of('@1 turns to @2 and says "Hello."', jobs={1: "person", 2: "person"})["detailed_description"]
+        self.assertIn("<Subject 1> (S1) says", line)
+        self.assertNotIn("<Subject 2> (S1)", line)
+        self.assertEqual(read_script("She says \"He said 'come here'.\"").moments[0].speech, "He said 'come here'.")
         self.assertNotIn("In voiceover", parts_of('She says "Wait" in voiceover.')["detailed_description"])
 
     def test_a_cut_back_and_a_one_word_ending(self):

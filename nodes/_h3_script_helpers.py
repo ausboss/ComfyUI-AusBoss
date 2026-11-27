@@ -126,6 +126,7 @@ PERSON_WORDS = re.compile(
 )
 # "says in a flat robot voice": how it is said, kept out of who says it.
 SPEECH_VERB = re.compile(r"\b(?:says?|said|asks?|whispers?|shouts?|yells?|screams?|mutters?|sings?|raps?|chants?|announces?|calls?\s+out|cries|replies|answers?)\b", re.I)
+CLAUSE_BREAK = re.compile(r"[.;:!?]|,|\b(?:as|while|when|whereas|then|before|after|until|but)\b", re.I)
 SAID_BY = re.compile(r"^(?:(?:the|a|an)\s+[\w\s-]+|someone|somebody)$", re.I)
 A_NAME = re.compile(r"^[A-Z][\w'.-]*(?:\s+[A-Z][\w'.-]*)?$")
 UNSEEN = re.compile(r"\b(?:feels?|thinks?|remembers?|reali[sz]es?|decides?|wants?|hopes?|wonders?|knows?|understands?|believes?|imagines?)\b", re.I)
@@ -292,7 +293,7 @@ class Script:
 
 SINGLE_QUOTED = re.compile(
     r"\b((?:says?|said|asks?|asked|whispers?|whispered|shouts?|shouted|yells?|yelled|screams?|mutters?|sings?|replies|replied"
-    r"|answers?|calls?\s+out|cries)\s*[:,]?\s*)'([^'\n]+?)'(?!\w)",
+    r"|answers?|calls?\s+out|cries)\s*[:,]?\s*)'([^'\n\x01]+?)'(?!\w)",
     re.I,
 )
 
@@ -300,7 +301,16 @@ SINGLE_QUOTED = re.compile(
 def clean(text):
     for old, new in QUOTES.items():
         text = text.replace(old, new)
+    # Words already in double quotes stay as typed, so a quote inside them can't move their ends.
+    kept = []
+
+    def keep(match):
+        kept.append(match.group(0))
+        return f"\x01{len(kept) - 1}\x01"
+
+    text = re.sub(r'"[^"\n]*"', keep, text)
     text = SINGLE_QUOTED.sub(lambda match: f'{match.group(1)}"{match.group(2)}"', text)
+    text = re.sub(r"\x01(\d+)\x01", lambda match: kept[int(match.group(1))], text)
     return text.replace("\r\n", "\n").replace("\r", "\n").strip()
 
 
@@ -700,9 +710,14 @@ def speaker_of(moment, cast):
     before = moment.text[:quote] if quote >= 0 else moment.text
     verbs = list(SPEECH_VERB.finditer(before))
     if verbs:
-        named = [slot for slot in TOKEN.findall(before[: verbs[-1].start()]) if int(slot) in people]
+        # The speaker opens the part of the sentence the speech verb is in:
+        # "@1 listens as @2 says" is @2, "@1 turns to @2 and says" is @1.
+        lead = before[: verbs[-1].start()]
+        breaks = list(CLAUSE_BREAK.finditer(lead))
+        clause = lead[breaks[-1].end():] if breaks else lead
+        named = [slot for slot in TOKEN.findall(clause) if int(slot) in people]
         if named:
-            return cast.subjects[int(named[-1])]
+            return cast.subjects[int(named[0])]
     for slot in TOKEN.findall(moment.text):
         if int(slot) in people:
             return cast.subjects[int(slot)]
