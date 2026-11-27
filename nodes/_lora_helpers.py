@@ -574,18 +574,21 @@ def apply_lora_stack(
     import comfy.sd
 
     follower = None
+    effective = rows
     if curve is not None and any(row.get("curve") and row["enabled"] for row in rows):
         from ._curve_helpers import keyframe_plan
 
         plan = keyframe_plan(curve)
         if len(plan) == 1:
             # A flat curve is a plain strength: nothing to schedule.
-            rows = [{**row, "strength": clamp_strength(row["strength"] * plan[0][1])}
-                    if row.get("curve") else row for row in rows]
+            # Scaled copies; ``missing`` still gets the caller's own rows, which
+            # the node matches by identity to keep a skipped row's words out.
+            effective = [{**row, "strength": clamp_strength(row["strength"] * plan[0][1])}
+                         if row.get("curve") else row for row in rows]
         else:
             follower = LoraCurve(curve)
 
-    for row in rows:
+    for given, row in zip(rows, effective):
         if not row["enabled"]:
             continue
         strength_clip = row["strength_clip"] if clip is not None else 0.0
@@ -607,7 +610,7 @@ def apply_lora_stack(
                 )
             _warn_missing(row["name"], str(exc))
             if missing is not None:
-                missing.append(row)
+                missing.append(given)
             continue
         try:
             lora_sd = _load_lora_file(path)

@@ -2,6 +2,15 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **LoRA Loader 🆎 leaves out a skipped LoRA's trigger words on a flat
+  curve too.** With Stop on missing LoRA off, a row whose file is missing is
+  skipped and its trigger words stay out of `triggers`. That broke when the
+  row followed a Strength Curve that holds one value the whole run: the LoRA
+  was skipped, but its words still reached the prompt. They stay out now,
+  as they already did with no curve or a curve that moves.
+
 ## 2.29.0 - 2026-11-27
 
 - **H3 Prompt Writer 🆎 can tidy up your lines.** Turn on **More → Tidy up
