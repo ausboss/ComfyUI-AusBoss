@@ -29,7 +29,7 @@ JOB_HELP = (
     "best with nobody in the picture. Style gives only the look. Start on it and end on it fix the first or last moment."
 )
 NEEDS_TEXT_GENERATE = "This ComfyUI has no Generate Text node. Update ComfyUI, or disconnect the model on clip."
-TIDY_NEEDS_UPDATE = "Tidy up needs a newer ComfyUI (0.46.1 or later). Update ComfyUI, or turn tidy off."
+TIDY_NEEDS_UPDATE = "[AusBoss] H3 Prompt Writer: Tidy up needs ComfyUI 0.46.1 or later; the lines go as typed."
 SAMPLING = {
     "sampling_mode": "on",
     "temperature": 0.5,
@@ -74,12 +74,14 @@ def model_asker(clip, image):
 def model_tidier(clip):
     """ask(system, line, longest) for Tidy up: the same Generate Text, with its own instructions and no picture.
 
-    Greedy, so the same script tidies the same way every run."""
+    Greedy, so the same script tidies the same way every run. None on a ComfyUI whose Generate Text
+    takes no system prompt (before 0.46.1): the rest of the node still works there."""
     generate = _core_nodes().get("TextGenerate")
     if generate is None or not hasattr(generate, "execute"):
         raise RuntimeError(NEEDS_TEXT_GENERATE)
     if "system_prompt" not in inspect.signature(generate.execute).parameters:
-        raise RuntimeError(TIDY_NEEDS_UPDATE)
+        print(TIDY_NEEDS_UPDATE)
+        return None
 
     def ask(system, line, longest):
         output = generate.execute(clip=clip, prompt=line, max_length=longest, sampling_mode={"sampling_mode": "off"}, system_prompt=system)
@@ -95,7 +97,8 @@ def tidied(script, clip):
     a workflow can leave Tidy up on and tie it to the switch that turns its small model on."""
     if clip is None or not str(script or "").strip() or split_sections(script) is not None:
         return script
-    return tidy_script(script, model_tidier(clip))[0]
+    ask = model_tidier(clip)
+    return script if ask is None else tidy_script(script, ask)[0]
 
 
 def fill_picture(pictures, jobs):

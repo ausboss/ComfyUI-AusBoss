@@ -126,10 +126,12 @@ class NodeTests(unittest.TestCase):
         off = AusBossH3PromptWriter().write('@1 waves at @2 and says "Hi."', 5, picture_1=PICTURE, picture_2=PICTURE)[0]
         self.assertEqual(on, off)
 
-    def test_tidy_on_an_older_comfyui_says_to_update(self):
-        with self.assertRaisesRegex(RuntimeError, "newer ComfyUI"):
-            self.write(fake_generate("x", system_prompt=False), "she waves", clip="the clip", tidy=True)
+    def test_tidy_on_an_older_comfyui_keeps_the_lines_and_says_why_in_the_log(self):
+        generate = fake_generate("x", system_prompt=False)
+        on = self.write(generate, "@1 waves", clip="the clip", picture_1=PICTURE, tidy=True)
+        self.assertEqual(on, self.write(fake_generate("x", system_prompt=False), "@1 waves", clip="the clip", picture_1=PICTURE))
         self.assertIn("0.46.1", TIDY_NEEDS_UPDATE)
+        TIDY_NEEDS_UPDATE.encode("ascii")
 
     def test_h3s_own_six_parts_are_not_tidied(self):
         generate = fake_generate("unused")

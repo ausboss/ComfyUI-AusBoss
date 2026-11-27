@@ -247,8 +247,8 @@ as not plugged in.
   `@1 stares at @2 who goes "No way."` becomes `@1 stares at @2. @2 says "No way."`
   Your words in quotes never go to the model and come back exactly as typed. If
   its answer loses a line, says one twice or changes who is in it, your lines
-  are used as typed. With nothing on **clip** it does nothing, so a workflow
-  can leave it on. Needs ComfyUI 0.46.1 or later. Starts off.
+  are used as typed. With nothing on **clip**, or on a ComfyUI older than
+  0.46.1, it does nothing, so a workflow can leave it on. Starts off.
 - **Full prompt** (`full_prompt`, on the Full prompt tab): your own edit of the
   finished prompt. Empty means the node's own prompt is sent.
 
