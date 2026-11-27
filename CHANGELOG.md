@@ -17,6 +17,15 @@ All notable changes to ComfyUI-AusBoss are documented here.
   new `reference_curve` input takes a Strength Curve: 1 follows the
   reference as before, 0 ignores it. It also works with Krea 2 Outpaint
   Model Patch 🆎.
+- **Check layout 🆎 shows what makes a workflow hard to read.** Right-click
+  the canvas or use the command palette. It lists overlapping nodes and
+  groups, wires that run backwards or hide behind a node, nodes just under a
+  preview that grows when it runs, nodes outside every group, a saved zoom
+  too small to read and a missing Workflow Note, inside subgraphs too. Click
+  an entry to jump to it. Nothing is moved.
+- **The example workflows are tidied so Check layout finds nothing.** Only
+  node and group positions and sizes, and reroute spots, changed. What each
+  workflow does is the same.
 - **Frame Interpolate 🆎 holds cuts between two shots of the same place.**
   It used to count a cut only when the frame changed more than **Scene
   cut**, and two shots of one place in the same light can change less
