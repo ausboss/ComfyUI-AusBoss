@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import inspect
 import sys
 
 from ._h3_cast_helpers import DESCRIBE_PERSON, add_looks, EDIT, JOBS, KEEP, KEEPS_ITS_LENGTH, PERSON, PLACE, START, SWAP, THING, VIDEO_JOBS
 from ._h3_prompt_helpers import find_beats, find_speech, split_sections, write_prompt
 from ._h3_script_helpers import CAMERAS, LOOKS, script_report
+from ._h3_tidy_helpers import tidy_script
 from ._route_errors import safe_route_error
 
 
@@ -27,6 +29,8 @@ JOB_HELP = (
     "best with nobody in the picture. Style gives only the look. Start on it and end on it fix the first or last moment."
 )
 NEEDS_TEXT_GENERATE = "This ComfyUI has no Generate Text node. Update ComfyUI, or disconnect the model on clip."
+TIDY_NEEDS_CLIP = "Tidy up needs a text model on clip, such as Qwen3-VL 8B. Connect one, or turn tidy off."
+TIDY_NEEDS_UPDATE = "Tidy up needs a newer ComfyUI (0.46.1 or later). Update ComfyUI, or turn tidy off."
 SAMPLING = {
     "sampling_mode": "on",
     "temperature": 0.5,
@@ -66,6 +70,32 @@ def model_asker(clip, image):
         return output.result[0]
 
     return ask
+
+
+def model_tidier(clip):
+    """ask(system, line, longest) for Tidy up: the same Generate Text, with its own instructions and no picture.
+
+    Greedy, so the same script tidies the same way every run."""
+    generate = _core_nodes().get("TextGenerate")
+    if generate is None or not hasattr(generate, "execute"):
+        raise RuntimeError(NEEDS_TEXT_GENERATE)
+    if "system_prompt" not in inspect.signature(generate.execute).parameters:
+        raise RuntimeError(TIDY_NEEDS_UPDATE)
+
+    def ask(system, line, longest):
+        output = generate.execute(clip=clip, prompt=line, max_length=longest, sampling_mode={"sampling_mode": "off"}, system_prompt=system)
+        return output.result[0]
+
+    return ask
+
+
+def tidied(script, clip):
+    """The typed script in plain, ordered sentences, from the model on clip. H3's own six parts go through as they are."""
+    if not str(script or "").strip() or split_sections(script) is not None:
+        return script
+    if clip is None:
+        raise ValueError(TIDY_NEEDS_CLIP)
+    return tidy_script(script, model_tidier(clip))[0]
 
 
 def fill_picture(pictures, jobs):
@@ -298,6 +328,16 @@ class AusBossH3PromptWriter:
                         ),
                     },
                 ),
+                "tidy": (
+                    "BOOLEAN",
+                    {
+                        "default": False,
+                        "tooltip": (
+                            "Turn on to have the model on clip tidy your lines first: spelling, short sentences, and "
+                            "each spoken line next to whoever says it. Your quoted words stay exactly as typed."
+                        ),
+                    },
+                ),
             },
         }
 
@@ -339,7 +379,9 @@ class AusBossH3PromptWriter:
     def write(self, script, seconds, clip=None, picture_1=None, picture_2=None, picture_3=None, picture_4=None, video=None,
               video_sound=None, voice=None, song=None, camera=AS_TYPED, look=FROM_PICTURE, song_start=0.0, cut_on_beat=True,
               language="English", job_1=PERSON, job_2=PERSON, job_3=PERSON, job_4=THING, video_job=VIDEO_JOBS[0],
-              sound="", music="", clip_sound=False):
+              sound="", music="", clip_sound=False, tidy=False):
+        if tidy:
+            script = tidied(script, clip)
         # A clip that keeps its own sound has no room for a score: the finished clip plays the video's sound.
         if video is not None and (video_job == EDIT or (video_job == SWAP and clip_sound)):
             music = ""

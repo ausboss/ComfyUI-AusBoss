@@ -447,7 +447,7 @@ const CARDS = {
     minWidth: 420,
     hide: ["job_1", "job_2", "job_3", "job_4", "video_job", "full_prompt"],
     socketless: ["job_1", "job_2", "job_3", "job_4", "video_job", "full_prompt"],
-    resetUnknown: { sound: "", music: "", clip_sound: false, full_prompt: "" },
+    resetUnknown: { sound: "", music: "", clip_sound: false, full_prompt: "", tidy: false },
     rows: [
       // Simple is the card as it always was; Full prompt shows the prompt the
       // node wrote and sends an edit made there instead (js/shared/h3_full_prompt.mjs).
@@ -474,6 +474,7 @@ const CARDS = {
       { widget: "cut_on_beat", label: "Moments on the beat", group: "more" },
       { widget: "language", label: "Language", group: "more" },
       { widget: "clip_sound", label: "Clip's own sound", group: "more" },
+      { widget: "tidy", label: "Tidy up my lines", group: "more" },
     ],
   },
   // Saved by a 1.x release, these two hold that empty value too and open

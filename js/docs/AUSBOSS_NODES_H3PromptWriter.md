@@ -195,7 +195,8 @@ text is sent instead.
   and each moment moves onto its beat.
 - **clip**: a small text model such as Qwen3-VL 8B. Type one line and it adds
   what happens next, and it names the sound of the place. Your line always stays
-  first.
+  first. Turn on **More → Tidy up my lines** and it also cleans up what you
+  typed before the node reads it (see the controls below).
 
 A voice and a song work together. H3 can't keep a song while someone speaks, so
 the node keeps the song out of H3's way and hands it on as **song_under**, turned
@@ -240,6 +241,14 @@ as not plugged in.
 - **Moments on the beat** (`cut_on_beat`, under **More**): moves each moment onto
   the nearest beat of the song. Off keeps your own seconds.
 - **Language** (`language`, under **More**): the language of the words in quotes.
+- **Tidy up my lines** (`tidy`, under **More**): the model on **clip** rewrites
+  your lines first. It fixes spelling, breaks long lines into short sentences,
+  and puts each spoken line right after whoever says it, so
+  `@1 stares at @2 who goes "No way."` becomes `@1 stares at @2. @2 says "No way."`
+  Your words in quotes never go to the model and come back exactly as typed. If
+  its answer loses a line, says one twice or changes who is in it, your lines
+  are used as typed. Needs a model on **clip** and ComfyUI 0.46.1 or later.
+  Starts off.
 - **Full prompt** (`full_prompt`, on the Full prompt tab): your own edit of the
   finished prompt. Empty means the node's own prompt is sent.
 
@@ -263,7 +272,7 @@ as not plugged in.
 | --- | --- | --- | --- |
 | `script` | input | STRING | What happens, one line for each moment. |
 | `seconds` | input | INT | How long the clip is. |
-| `clip` | input, optional | CLIP | A small text model that fills in a one-line idea. |
+| `clip` | input, optional | CLIP | A small text model that fills in a one-line idea, and tidies your lines when Tidy up is on. |
 | `picture_1` to `picture_4` | input, optional | IMAGE | Your pictures. |
 | `video` | input, optional | IMAGE | The frames of a video. |
 | `video_sound` | input, optional | AUDIO | The video's own sound. |
@@ -297,6 +306,16 @@ a place in your lines the clip stayed there to the end on 2 of 2 tries; without
 that sentence the picture's street came back halfway through on 2 of 2. With no
 place in your lines H3 has nothing else to use, so it stayed in the picture's
 place on 2 of 2.
+
+Tidy up sends the model one call with its own instructions, no picture, and no
+randomness, so the same lines tidy the same way every run. Each quote is swapped
+for a marker (`SPOKEN`, or `SPOKEN1`, `SPOKEN2`), and the answer is used only when
+every marker comes back once, the same `@` numbers are in it, and it is not much
+longer than what you typed. On Qwen3-VL 8B the instructions put the right speaker
+before the words on 38 of 38 lines they were not written for, took about 0.3
+seconds a call once the model was loaded, and passed every check on 77 of 79
+lines. What it still changes: "as" and "while" can become two sentences, and a
+leading `Voiceover:` label is left as typed.
 
 The Full prompt tab is filled from the node's run, so it shows nothing until
 the workflow has run once. The node still writes its own prompt on every run, a
