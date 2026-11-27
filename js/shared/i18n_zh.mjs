@@ -29,7 +29,7 @@ export const ZH = {
   "Empty fill": "空白填充", "Max zoom": "最大缩放", "Every nth": "每隔几帧", "Offset": "偏移", "Split after": "在此之后拆分",
   "Mismatch": "尺寸不一致", "Value": "数值", "Split at": "拆分方式", "Numbering": "编号", "Limit": "数量上限",
   "Length": "长度", "Camera": "镜头", "Look": "风格", "Song starts at": "歌曲起点", "Moments on the beat": "时刻对齐节拍",
-  "Language": "语言", "Clip's own sound": "素材自带声音", "Sound": "声音", "Music": "音乐", "Frame": "帧",
+  "Language": "语言", "Clip's own sound": "素材自带声音", "Tidy up my lines": "整理我的台词", "Sound": "声音", "Music": "音乐", "Frame": "帧",
   "KV cache": "KV 缓存", "VLM reference": "VLM 参考", "Source": "素材", "Width": "宽度", "Height": "高度",
   "Longest side": "最长边", "Ratio": "比例", "Keep": "保留", "Round to": "取整到", "Enlarge": "放大小图",
   "Backdrop": "背景虚化", "Exact padding": "精确扩边", "Left": "左", "Top": "上", "Right": "右", "Bottom": "下",
