@@ -447,11 +447,15 @@ class PictureJobTests(unittest.TestCase):
 
     def test_lines_with_no_numbers_still_work_with_two_people(self):
         parts = parts_of("They sit down on a bench.", jobs={1: "person", 2: "person"})
-        self.assertIn("<Subject 1> is on the left and <Subject 2> is on the right of the frame.", parts["detailed_description"])
+        self.assertIn("<Subject 1> and <Subject 2> are in the shot. They sit down on a bench.", parts["detailed_description"])
+        self.assertNotIn("left", parts["detailed_description"])
         self.assertIn("<Subject 2> (appears in [Shot 1])", parts["retention_analysis"])
 
-    def test_a_line_that_places_them_is_left_alone(self):
+    def test_nobody_is_placed_where_the_script_does_not_say(self):
         self.assertNotIn("of the frame", write_prompt("@1 stands behind @2.", jobs={1: "person", 2: "person"}))
+        text = write_prompt("@1 and @2 stand side by side.", jobs={1: "person", 2: "person"})
+        self.assertNotIn("on the left", text)
+        self.assertNotIn("on the right", text)
 
     def test_she_is_only_the_person_when_there_is_one(self):
         self.assertIn("<Subject 1> runs.", write_prompt("She runs."))
@@ -642,6 +646,58 @@ class EverydayLineTests(unittest.TestCase):
         self.assertTrue(script.moments[0].start)
         script = read_script("She walks away.\nIt starts on one knee by the window.")
         self.assertEqual([moment.text for moment in script.moments], ["One knee by the window", "She walks away"])
+
+    def test_only_a_sequence_word_starts_a_moment(self):
+        for line, moments in (
+            ("She sits, next to her sister.", ["She sits, next to her sister"]),
+            ("Back then people wore hats.", ["Back then people wore hats"]),
+            ("By then she is asleep.", ["By then she is asleep"]),
+            ("She shows her U.S. passport.", ["She shows her U.S. passport"]),
+            ("She smiles then waves.", ["She smiles", "Waves"]),
+            ("She smiles. Then she waves.", ["She smiles", "She waves"]),
+            ("She walks away, later she returns.", ["She walks away", "She returns"]),
+        ):
+            self.assertEqual([moment.text for moment in read_script(line).moments], moments, line)
+
+    def test_a_time_is_a_time_only_when_it_is_marked(self):
+        for line, at in (
+            ("7 seconds remain on the scoreboard.", None),
+            ("3s: she jumps", 3.0),
+            ("3s she jumps", 3.0),
+            ("at 3 seconds the lights go out", 3.0),
+            ("3 seconds: she sits", 3.0),
+            ("[00:02-00:04] She waves.", 2.0),
+        ):
+            moment = read_script(line).moments[-1]
+            self.assertEqual(moment.at, at, line)
+            self.assertNotIn("]", moment.text, line)
+
+    def test_each_shot_keeps_its_own_camera_and_sound(self):
+        script = read_script("Shot 1: She nods.\ncamera: still\nShot 2: She turns.\ncamera: handheld\nsound: rain")
+        self.assertEqual([(moment.camera, moment.sound) for moment in script.moments], [("still", ""), ("handheld", "rain")])
+        script = read_script("She nods.\nShot 2:\nShe turns.")
+        self.assertEqual([moment.cut for moment in script.moments], [False, True])
+        self.assertEqual(read_script("camera: handheld").camera, "handheld")
+
+    def test_every_quote_is_said_by_who_says_it(self):
+        script = read_script('Maya says "Hi" while Ben replies "Bye".')
+        self.assertEqual([moment.speech for moment in script.moments], ["Hi", "Bye"])
+        self.assertEqual(read_script("She says 'come here' and waves.").moments[0].speech, "come here")
+        self.assertEqual(read_script("She can't wait, it's 'late'.").moments[0].speech, "")
+        for line in ('She says "Wait" in voiceover.', 'VO: "Come back."'):
+            moment = read_script(line).moments[0]
+            self.assertTrue(moment.voiceover, line)
+        line = parts_of('@1 listens as @2 says "Hi."', jobs={1: "person", 2: "person"})["detailed_description"]
+        self.assertIn("<Subject 2> (S1) says", line)
+        self.assertNotIn("In voiceover", parts_of('She says "Wait" in voiceover.')["detailed_description"])
+
+    def test_a_cut_back_and_a_one_word_ending(self):
+        lines = shots("She walks into the hallway.\n\nShe sits in the kitchen.\n\nCut back to the hallway.", seconds=9)
+        self.assertIn("the camera cuts back to the hallway.", lines[2])
+        self.assertNotIn("Every shot is a new place.", write_prompt("She walks into the hallway.\n\nCut back to the hallway."))
+        self.assertTrue(read_script("She waves.\nStart on black.").moments[0].start)
+        self.assertTrue(read_script("End: black\nShe waves.").moments[-1].end)
+        self.assertFalse(read_script("It ends.").moments[0].end)
 
     def test_clip_notes_mean_only_what_they_say(self):
         self.assertFalse(read_script("She walks through a field, muted colours.").silent)

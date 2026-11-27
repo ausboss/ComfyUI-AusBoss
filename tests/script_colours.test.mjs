@@ -47,6 +47,8 @@ test("dragging a block types its second into its own line", async () => {
   const { retime, dragRange } = await import("../js/shared/moment_strip_math.mjs");
   assert.equal(retime("@1 walks.\n@1 sits.", 1, 2), "@1 walks.\n2s: @1 sits.");
   assert.equal(retime("@1 walks.\n  3s: @1 sits.", 1, 5), "@1 walks.\n  5s: @1 sits.", "an old time gives way");
+  assert.equal(retime("7 seconds remain on the clock.", 0, 2), "2s: 7 seconds remain on the clock.", "a number that is not a time stays");
+  assert.equal(retime("3s she sits.", 0, 2), "2s: she sits.");
   assert.equal(retime("@1 walks.\nat 4 seconds, she sits", 1, 6), "@1 walks.\n6s: she sits");
   assert.equal(retime("@1 walks.", 7, 2), "@1 walks.", "a line that isn't there changes nothing");
   assert.deepEqual(dragRange([{ start: 0 }, { start: 4 }, { start: 6 }], 1, 8), [1, 5]);

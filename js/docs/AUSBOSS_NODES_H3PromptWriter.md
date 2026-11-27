@@ -144,6 +144,8 @@ workflows and scripts keep their previous behavior when it is absent.
 - **A cut in the same place**: start the line with a kind of shot, like
   `a close-up of her hand`. Any other line after a blank line goes to a new
   place.
+- **A cut back**: `Cut back to the hallway.` returns to a place you have
+  already shown.
 - **One long take**: type `no cuts` and blank lines stop being cuts.
 - **An ending**: start a line with `ends on`, wherever it sits:
   `ends on her sitting by the window`.
