@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **A node saved with an older version opens at the size it was saved at.**
+  When a node's face gained a row in a later release, a saved node opened
+  taller and could cover what sat under it in the workflow. H3 Prompt Writer
+  🆎 in Person Swap opened 35 px taller and ran into the note below. The
+  node's text box now gives up that space, so the node keeps its saved size.
+  Drag the node taller to get the bigger text box back.
 - **Mask Refine 🆎's guided and matting edges follow the picture.** Both
   edge modes now look further from the mask's edge and snap to the real
   edge in the guide image, so hair and thin parts a rough mask missed come

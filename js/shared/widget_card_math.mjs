@@ -72,19 +72,45 @@ export function rowHeight(row, look = null) {
   return height > 0 ? height : ROW_HEIGHT;
 }
 
+// The least height a growing row is squeezed to for a saved node.
+export const GROW_FLOOR = 72;
+
+// What each growing row gives up so a saved node keeps its height. A face
+// that gains a row in a later release gets a taller floor, and a node saved
+// before that sits under it: lifted to the floor it would cover what is
+// below it in the workflow. `short` is how far the saved node is under the
+// floor. The growing rows take that from their own height, in order, down to
+// GROW_FLOOR; anything left over still lifts the node. Returns row -> pixels.
+export function savedHeightGives(rows, look = null, short = 0) {
+  const given = new Map();
+  let left = Number(short);
+  if (!(left > 0)) return given;
+  for (const row of rows) {
+    if (!row.grow) continue;
+    const give = Math.min(left, Math.max(0, rowHeight(row, look) - GROW_FLOOR));
+    if (give > 0) given.set(row, give);
+    left -= give;
+    if (left <= 0) break;
+  }
+  return given;
+}
+
+const heightLeft = (row, look, given) => rowHeight(row, look) - (given?.get(row) ?? 0);
+
 // Card height for a list of visible rows: rows, section captions and group
-// headers each add their own height plus the gap between them.
-export function cardHeight(rows, look = null) {
+// headers each add their own height plus the gap between them. `given` is
+// what savedHeightGives took from the growing rows.
+export function cardHeight(rows, look = null, given = null) {
   if (!rows.length) return CARD_PADDING * 2;
-  return CARD_PADDING * 2 + rows.reduce((sum, row) => sum + rowHeight(row, look), 0) + ROW_GAP * (rows.length - 1);
+  return CARD_PADDING * 2 + rows.reduce((sum, row) => sum + heightLeft(row, look, given), 0) + ROW_GAP * (rows.length - 1);
 }
 
 // Where each visible row starts, measured from the card's top edge.
-export function rowTops(rows, look = null) {
+export function rowTops(rows, look = null, given = null) {
   let y = CARD_PADDING;
   return rows.map((row) => {
     const top = y;
-    y += rowHeight(row, look) + ROW_GAP;
+    y += heightLeft(row, look, given) + ROW_GAP;
     return top;
   });
 }
