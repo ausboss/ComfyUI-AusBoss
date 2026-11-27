@@ -574,6 +574,16 @@ const CARDS = {
       { widget: "save_metadata", label: PANEL_LABELS.embed, onText: PANEL_LABELS.on, offText: PANEL_LABELS.off, when: formatReads("save_metadata"), title: "On embeds the workflow in the video file, so dropping the file back on the canvas restores the graph that made it." },
     ],
   },
+  // The strengths at the top and the bottom of the curve box. The curve
+  // itself (js/strength_curve) sits above the card and owns the hidden
+  // `points` widget.
+  AUSBOSS_NODES_StrengthCurve: {
+    minWidth: 320, hide: ["points"], socketless: ["points"],
+    rows: [
+      { widget: "high", label: "Top", step: 0.05, decimals: 2, title: "The strength at the top of the curve box. 1 is full strength." },
+      { widget: "low", label: "Bottom", step: 0.05, decimals: 2, title: "The strength at the bottom of the curve box. 0 is off." },
+    ],
+  },
   // Film Grain, Cut Out and Keep Detail show their result: the card sits
   // above the preview panel (js/input_preview), which owns the hidden
   // preview switch.

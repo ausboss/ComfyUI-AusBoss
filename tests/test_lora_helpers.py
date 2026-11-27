@@ -665,8 +665,10 @@ class LinkedRowStrengthTests(unittest.TestCase):
         self.assertEqual(optional["strength_rb2"][0], "FLOAT")
         self.assertNotIn("strength_", optional)
         self.assertNotIn("bogus", optional)
-        # The listed inputs are unchanged: saved workflows keep their slots.
-        self.assertEqual(list(optional), ["clip", "trigger_separator", "on_missing"])
+        # The listed inputs are unchanged and new ones come last: saved
+        # workflows keep their slots.
+        self.assertEqual(list(optional), ["clip", "trigger_separator", "on_missing", "curve"])
+        self.assertFalse(_lora_helpers.is_row_strength_input("curve"))
 
     def test_comfyui_hands_a_row_input_to_the_node(self):
         # ComfyUI passes a node only inputs it can look up; this is its own lookup.

@@ -51,6 +51,7 @@ export function normalizeRows(parsed) {
       const group = groupName(entry.group);
       if (group) row.group = group;
       if (group && entry.group_off === true) row.group_off = true;
+      if (entry.curve === true) row.curve = true;
     }
     return row;
   }));
@@ -66,6 +67,28 @@ export function parseRows(raw) {
 
 export function serializeRows(rows) {
   return JSON.stringify(rows);
+}
+
+// ---------- the strength curve ----------
+// A row with `curve` follows the Strength Curve wired into the loader's
+// `curve` input: its model strength is scaled step by step
+// (nodes/_lora_helpers.py). A row without it keeps one strength all the way.
+
+// The rows with these ids made to follow the curve (on) or keep steady.
+export function followCurve(rows, ids, on) {
+  return rows.map((row) => {
+    if (!ids.includes(row.id)) return row;
+    if (on) return { ...row, curve: true };
+    const { curve, ...rest } = row;
+    return rest;
+  });
+}
+
+// A curve wired into a loader where no row follows one yet: every row does.
+// Once any row is marked the person has chosen, and nothing changes.
+export function rowsForNewCurve(rows) {
+  if (rows.some((row) => row.curve)) return rows;
+  return followCurve(rows, rows.map((row) => row.id), true);
 }
 
 export function reorderRows(rows, from, to) {

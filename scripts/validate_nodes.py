@@ -101,6 +101,7 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_SplitBatch",
     "AUSBOSS_NODES_StepPreview",
     "AUSBOSS_NODES_StitchInpaint",
+    "AUSBOSS_NODES_StrengthCurve",
     "AUSBOSS_NODES_TiledUpscaleStitch",
     "AUSBOSS_NODES_Text",
     "AUSBOSS_NODES_TextLines",

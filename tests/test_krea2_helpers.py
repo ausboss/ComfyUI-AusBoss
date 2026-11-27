@@ -380,14 +380,14 @@ class Krea2NodeContractTests(unittest.TestCase):
         self.assertTrue(torch.allclose(seen["vae"][0][0, 10, 90], torch.full((3,), 0.5)))
         self.assertTrue(torch.allclose(seen["vision"][0][0, 10, 90], torch.full((3,), 0.5)))
 
-    def test_the_mask_is_the_last_optional_input(self):
+    def test_new_optional_inputs_only_go_at_the_end(self):
         # Saved workflows keep links by slot: a new input only goes at the end.
         from nodes.node_krea2_encode import NODE_CLASS_MAPPINGS
 
         optional = list(NODE_CLASS_MAPPINGS["AUSBOSS_NODES_Krea2Encode"].INPUT_TYPES()["optional"])
-        self.assertEqual(optional[-1], "mask")
         self.assertEqual(
-            optional[:-1], ["negative_prompt", "vae", "reference", "extra_image", "vlm_reference"]
+            optional,
+            ["negative_prompt", "vae", "reference", "extra_image", "vlm_reference", "mask", "reference_curve"],
         )
 
 

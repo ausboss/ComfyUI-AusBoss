@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from ._krea2_helpers import REFERENCE_MAX_EDGE, build_reference_image, fill_reference_holes
+from ._curve_helpers import as_schedule
+from ._krea2_helpers import (
+    REFERENCE_MAX_EDGE,
+    build_reference_image,
+    fill_reference_holes,
+    reference_strength_hooks,
+)
 
 try:  # Offline tests import this module without ComfyUI.
     import node_helpers
@@ -122,6 +128,17 @@ class AusBossKrea2Encode:
                         )
                     },
                 ),
+                "reference_curve": (
+                    "FLOATS",
+                    {
+                        "tooltip": (
+                            "How strongly the picture follows the references over the "
+                            "run, from Strength Curve 🆎. 1 is the normal strength, 0 "
+                            "ignores them. Hold the layout early and let go late, or "
+                            "the other way round."
+                        )
+                    },
+                ),
             },
         }
 
@@ -143,6 +160,7 @@ class AusBossKrea2Encode:
         extra_image=None,
         vlm_reference=False,
         mask=None,
+        reference_curve=None,
     ):
         if reference is not None and mask is not None:
             # The model and the vision tower both see the refilled picture:
@@ -182,6 +200,16 @@ class AusBossKrea2Encode:
             positive = node_helpers.conditioning_set_values(
                 positive, {"reference_latents": latents}, append=True
             )
+            schedule = as_schedule(reference_curve)
+            if schedule is not None:
+                import comfy.hooks
+
+                positive = comfy.hooks.set_hooks_for_conditioning(
+                    positive, reference_strength_hooks(schedule), append_hooks=True
+                )
+        elif reference_curve is not None:
+            print("[AusBoss] Krea 2 Encode: reference_curve is wired, but no reference "
+                  "reaches the model (wire a VAE and a reference picture).")
 
         negative = clip.encode_from_tokens_scheduled(clip.tokenize(negative_prompt or ""))
         return (positive, negative)

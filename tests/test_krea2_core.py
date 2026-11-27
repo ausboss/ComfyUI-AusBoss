@@ -16,7 +16,11 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 tree = ast.parse((ROOT / "nodes/_krea2_core.py").read_text())
 core = types.ModuleType("nodes._krea2_core")
-core.__dict__.update(torch=torch, F=torch.nn.functional, rearrange=rearrange, hashlib=hashlib)
+from nodes._krea2_helpers import REFERENCE_STRENGTH_KEY, combine_attention_mask, reference_key_bias  # noqa: E402
+
+core.__dict__.update(torch=torch, F=torch.nn.functional, rearrange=rearrange, hashlib=hashlib,
+                     REFERENCE_STRENGTH_KEY=REFERENCE_STRENGTH_KEY, combine_attention_mask=combine_attention_mask,
+                     reference_key_bias=reference_key_bias)
 exec(compile(ast.Module(body=[n for n in tree.body if isinstance(n, ast.FunctionDef)], type_ignores=[]),
              "reference helpers", "exec"), core.__dict__)
 

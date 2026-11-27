@@ -4,6 +4,19 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **New node: Strength Curve 🆎.** Draw how strong something should be
+  from the start of a run to the end, and wire it into a node that follows
+  it step by step. Drag the points or start from a preset (flat, fade out,
+  fade in, ease out, ease in); Top and Bottom set the strength range.
+- **LoRA Loader 🆎 rows can follow a strength curve.** A new `curve` input
+  takes a Strength Curve, and each row gets a curve mark: rows you mark run
+  at their strength times the curve at every step, so a style LoRA can fade
+  out before the last steps. It works with every model file, fp8 and int8
+  included.
+- **Krea 2 Encode 🆎 can change the reference's strength over the run.** A
+  new `reference_curve` input takes a Strength Curve: 1 follows the
+  reference as before, 0 ignores it. It also works with Krea 2 Outpaint
+  Model Patch 🆎.
 - **New node: Film Grain 🆎.** Adds film grain to a picture or a video.
   The grain is strongest in the midtones and gentler in deep shadows and
   highlights, as on film. Size, roughness and colour set its look, it moves

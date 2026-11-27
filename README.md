@@ -332,11 +332,15 @@ In the **+ LoRA** list, tick several files to add them at once. Rows can be gath
 
 When a file has moved, the node finds it by name if only one file matches. A missing LoRA that is switched on stops the run by default. Turn off **Stop on missing LoRA** to warn and skip it instead. A LoRA that changes nothing in the model gets a warning with its file name.
 
+Wire a [Strength Curve](#strength-curve) into the `curve` input and click the curve mark on a row, and that row's strength changes over the run: fade a style LoRA out so the last steps come out clean. It works with every model file, fp8 and int8 included.
+
 ### Krea 2 Encode
 
 Krea 2's positive and negative prompts in one card. Connect a VAE and reference pictures, and it adds them as references too, resized for the model first. **VLM reference** sets whether the text encoder also looks at them. Leave the references empty for plain text to image. For an outpaint, connect the pad node's mask too: the model then sees the new area in your picture's own colour instead of gray, so it paints it rather than keeping a gray frame.
 
 The prompt box takes several lines and a linked text. The [help page](js/docs/AUSBOSS_NODES_Krea2Encode.md) covers preparing references. With an outpaint LoRA, copy the wiring from the matching example.
+
+Wire a [Strength Curve](#strength-curve) into `reference_curve` and the picture follows the references as strongly as the curve says at each step, from 1 (as today) to 0 (ignored): hold the layout early and let go late.
 
 ### Krea 2 Outpaint Model Patch
 
@@ -352,6 +356,10 @@ The card has **Reference** placement and **KV cache**. The placement has to matc
 Here Krea 2 Outpaint takes a 16:9 photo to 4:5 in one pass. [Open the Krea 2 Outpaint workflow →](example_workflows/Krea%202%20Outpaint%20%28AusBoss%29.json)
 
 The patch relies on ComfyUI's internal attention code. Its [help page](js/docs/AUSBOSS_NODES_Krea2OutpaintModelPatch.md) explains both setups and what happens without reference conditioning.
+
+### Strength Curve
+
+Draw how strong something should be from the first step of a run to the last: drag the points, or start from flat, fade out, fade in, ease out or ease in. **Top** and **Bottom** set the strength at the top and bottom of the curve box. Wire the curve into LoRA Loader's `curve` (rows you mark follow it) or Krea 2 Encode's `reference_curve`. The output is ComfyUI's list of numbers (`FLOATS`), so it also feeds ComfyUI's own hook keyframe nodes.
 
 ## 3D viewer
 

@@ -71,6 +71,8 @@ def parse_lora_stack(raw: str | None) -> list[dict[str, Any]]:
                 "strength_clip": clamp_strength(entry.get("strength_clip", strength), strength),
                 "enabled": enabled,
                 "triggers": str(entry.get("triggers") or "").strip(),
+                # The row follows the node's strength curve when one is linked.
+                "curve": entry.get("curve") is True,
             }
         )
     return rows
@@ -390,16 +392,198 @@ def unreadable_lora_message(name: str, reason: str, detail: str = "") -> str:
     return f"{message} Technical details: {detail}" if detail else message
 
 
+CURVE_WRAPPER_KEY = "ausboss_lora_curve"
+
+
+class LoraCurve:
+    """Moves the curve rows' strength from step to step.
+
+    The rows are loaded the way core's bypass LoRA loads them: the LoRA is
+    added to each layer's output as the layer runs, and the model's weights
+    are never rewritten. That works on every model file (full size, fp8, fp8
+    scaled, int8) and costs no extra memory. Core reads each adapter's
+    ``multiplier`` while the layer runs, so this wrapper, called before the
+    model at every step, sets it to the row's strength times the curve.
+    "Where in the run" is the step's noise level, read the way core reads hook
+    keyframes, so the LoRA curve and Krea 2's reference curve line up.
+    """
+
+    def __init__(self, curve: list[float]):
+        from ._curve_helpers import keyframe_plan
+
+        self.plan = keyframe_plan(curve)
+        self.rows: list[tuple[float, list]] = []
+        self._starts = None
+        self._sampling = None
+
+    def add_row(self, strength: float, adapters: list):
+        self.rows.append((strength, adapters))
+
+    def set_strength(self, value: float):
+        for strength, adapters in self.rows:
+            for adapter in adapters:
+                adapter.multiplier = strength * value
+
+    def strength_for(self, model_sampling, sigma, first: bool) -> float:
+        """The curve at this step. ``sigma`` is the step's noise level as the model gets it (a tensor)."""
+        import torch
+
+        from ._curve_helpers import noise_plan, strength_at_noise
+
+        dtype = getattr(sigma, "dtype", torch.float64)
+        if self._starts is None or self._sampling != (model_sampling, dtype):
+            # Core compares keyframe starts with the step's noise level in the
+            # step's own number type; rounding the starts to it reads every
+            # step the same way, keyframe edges included.
+            self._starts = [(torch.tensor(start, dtype=dtype).item(), value)
+                            for start, value in noise_plan(self.plan, model_sampling.percent_to_sigma)]
+            self._sampling = (model_sampling, dtype)
+        level = float(sigma.flatten()[0]) if hasattr(sigma, "flatten") else float(sigma)
+        return strength_at_noise(self._starts, level, first)
+
+    def __call__(self, executor, x, t, c_concat, c_crossattn, control, transformer_options, **kwargs):
+        level = float(t.flatten()[0]) if hasattr(t, "flatten") else float(t)
+        sigmas = (transformer_options or {}).get("sample_sigmas")
+        first = sigmas is not None and len(sigmas) > 0 and level >= float(sigmas.max())
+        self.set_strength(self.strength_for(executor.class_obj.model_sampling, t, first))
+        return executor(x, t, c_concat, c_crossattn, control, transformer_options, **kwargs)
+
+
+def _curve_hook_class():
+    """Core's bypass layer wrapper, made safe to take off in any order.
+
+    Core wraps a layer by replacing its ``forward`` and takes it off by putting
+    back the ``forward`` it found. Two rows on one layer (two marked rows, or
+    two LoRA Loaders in a chain) stack two wrappers, and core takes them off
+    in the order it put them on, so the first row's wrapper used to stay
+    behind with nothing under it and broke the next run. Taken off, a wrapper
+    here only passes the layer through, and every wrapper that is no longer on
+    top of another is removed for good.
+    """
+    global _CURVE_HOOK
+    if _CURVE_HOOK is None:
+        import comfy.weight_adapter.bypass as bypass
+
+        class CurveHook(bypass.BypassForwardHook):
+            active = False
+
+            def _bypass_forward(self, x, *args, **kwargs):
+                if not self.active:
+                    return self.original_forward(x, *args, **kwargs)
+                return super()._bypass_forward(x, *args, **kwargs)
+
+            def put_on(self):
+                if self.original_forward is None:
+                    self.inject()
+                self.active = True
+
+            def take_off(self):
+                self.active = False
+                module = self.module
+                while True:
+                    top = getattr(module.forward, "__self__", None)
+                    if not isinstance(top, CurveHook) or top.active or top.original_forward is None:
+                        return
+                    top.eject()
+
+        _CURVE_HOOK = CurveHook
+    return _CURVE_HOOK
+
+
+_CURVE_HOOK = None
+
+
+def _curve_row(model, lora_sd: Any, strength: float, curve: LoraCurve):
+    """Load a row that follows the curve onto the model in core's bypass mode.
+
+    Returns (model, parts): how many of the LoRA's parts reached the model.
+    The few parts that are not low-rank adapters (a plain weight or bias
+    difference) cannot change per step; they stay at the row's strength.
+    """
+    import comfy.lora
+    import comfy.lora_convert
+    import comfy.patcher_extension
+    import comfy.weight_adapter
+
+    key_map = comfy.lora.model_lora_keys_unet(model.model, {})
+    loaded = comfy.lora.load_lora(comfy.lora_convert.convert_lora(lora_sd), key_map, log_missing=False)
+    model = model.clone()
+    model_keys = set(model.model.state_dict().keys())
+    hook_class = _curve_hook_class()
+    hooks = []
+    adapters = []
+    steady = {}
+    for key, part in loaded.items():
+        if isinstance(part, comfy.weight_adapter.WeightAdapterBase) and isinstance(key, str) and key in model_keys:
+            layer = key[:-len(".weight")] if key.endswith(".weight") else key
+            try:
+                module = model.model.get_submodule(layer)
+            except AttributeError:
+                module = None
+            if module is not None and getattr(module, "weight", None) is not None:
+                hooks.append(hook_class(module, part, multiplier=strength))
+                adapters.append(part)
+                continue
+        steady[key] = part
+    parts = len(model.add_patches(steady, strength)) if steady else 0
+    if hooks:
+        def put_on(patcher, hooks=hooks):
+            for hook in hooks:
+                hook.put_on()
+
+        def take_off(patcher, hooks=hooks):
+            for hook in hooks:
+                hook.take_off()
+
+        # One key per row across the whole chain: a second LoRA Loader with a
+        # curve must not replace the first one's rows.
+        taken = sum(1 for key in getattr(model, "injections", {}) if key.startswith(f"{CURVE_WRAPPER_KEY}_"))
+        model.set_injections(f"{CURVE_WRAPPER_KEY}_{taken}",
+                             [comfy.patcher_extension.PatcherInjection(inject=put_on, eject=take_off)])
+        curve.add_row(strength, adapters)
+        parts += len(hooks)
+    return model, parts
+
+
+def _patch_clip_only(clip, lora_sd: Any, strength_clip: float):
+    """The CLIP half of a LoRA, applied as usual: the prompt is encoded once."""
+    import comfy.lora
+    import comfy.lora_convert
+
+    key_map = comfy.lora.model_lora_keys_clip(clip.cond_stage_model, {})
+    loaded = comfy.lora.load_lora(comfy.lora_convert.convert_lora(lora_sd), key_map, log_missing=False)
+    clip = clip.clone()
+    clip.add_patches(loaded, strength_clip)
+    return clip
+
+
 def apply_lora_stack(
-    model, clip, rows: list[dict[str, Any]], on_missing: str = "error", missing: list | None = None
+    model, clip, rows: list[dict[str, Any]], on_missing: str = "error", missing: list | None = None,
+    curve: list[float] | None = None,
 ):
     """Apply the enabled, non-zero rows in order and return (model, clip).
 
     In skip mode a row whose file cannot be found is warned about and left
     out; pass a list as ``missing`` to collect those rows, which is how the
     node keeps a LoRA that never loaded from adding its trigger words.
+
+    With a ``curve`` (a schedule from _curve_helpers), a row marked to follow
+    it is loaded in core's bypass mode and its strength moves with the curve
+    step by step (``LoraCurve``). The row's CLIP half is applied as usual.
     """
     import comfy.sd
+
+    follower = None
+    if curve is not None and any(row.get("curve") and row["enabled"] for row in rows):
+        from ._curve_helpers import keyframe_plan
+
+        plan = keyframe_plan(curve)
+        if len(plan) == 1:
+            # A flat curve is a plain strength: nothing to schedule.
+            rows = [{**row, "strength": clamp_strength(row["strength"] * plan[0][1])}
+                    if row.get("curve") else row for row in rows]
+        else:
+            follower = LoraCurve(curve)
 
     for row in rows:
         if not row["enabled"]:
@@ -435,6 +619,21 @@ def apply_lora_stack(
             raise ValueError(
                 unreadable_lora_message(row["name"], unreadable_lora_reason(path), detail)
             ) from exc
+        if follower is not None and row.get("curve"):
+            parts, known = 0, True
+            if row["strength"] != 0:
+                model, parts = _curve_row(model, lora_sd, row["strength"], follower)
+            if strength_clip != 0:
+                before = patch_total(None, clip)
+                clip = _patch_clip_only(clip, lora_sd, strength_clip)
+                after = patch_total(None, clip)
+                if before is None or after is None:
+                    known = False
+                else:
+                    parts += after - before
+            if known and parts == 0:
+                _warn_no_effect(row["name"], base_model_family(read_safetensors_metadata(path)))
+            continue
         before = patch_total(model, clip)
         model, clip = comfy.sd.load_lora_for_models(
             model, clip, lora_sd, row["strength"], strength_clip
@@ -444,6 +643,11 @@ def apply_lora_stack(
         # and future, and never fires on a LoRA that actually did something.
         if before is not None and after is not None and after == before:
             _warn_no_effect(row["name"], base_model_family(read_safetensors_metadata(path)))
+    if follower is not None and follower.rows:
+        from comfy.patcher_extension import WrappersMP
+
+        model = model.clone()
+        model.add_wrapper_with_key(WrappersMP.APPLY_MODEL, CURVE_WRAPPER_KEY, follower)
     return model, clip
 
 
@@ -458,6 +662,7 @@ def stack_fingerprint(rows: list[dict[str, Any]]) -> str:
             identity = "missing"
         parts.append(
             f"{row['name']}|{row['strength']}|{row['strength_clip']}|{row['enabled']}|{identity}"
+            + ("|curve" if row.get("curve") else "")
         )
     return ";".join(parts)
 

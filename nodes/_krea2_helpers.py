@@ -9,6 +9,8 @@ agree on what a stitcher is, or Stitch Inpaint 🆎 stops serving both.
 
 from __future__ import annotations
 
+import math
+
 import torch
 import torch.nn.functional as functional
 
@@ -219,3 +221,91 @@ __all__ = [
     "snap16",
     "source_pixel_bbox",
 ]
+
+
+# ---------------------------------------------------------------------------
+# Reference strength over the run
+#
+# A reference reaches Krea 2 as extra tokens that every canvas token can
+# attend to. Its strength is how much attention those tokens get: adding
+# log(s) to the attention scores of the reference keys multiplies their
+# softmax weight by s before the weights are renormalised. s = 1 leaves the
+# model untouched, s = 0 gives the reference no weight at all (the canvas
+# then computes exactly as it would with no reference), and values between
+# fade it. The bias is one row of numbers per step, shared by every query
+# and every block, so it costs no memory worth counting.
+# ---------------------------------------------------------------------------
+
+REFERENCE_STRENGTH_KEY = "ausboss_reference_strength"
+
+
+def reference_key_bias(key_count: int, reference_count: int, strength: float,
+                       dtype: torch.dtype, device: torch.device) -> torch.Tensor | None:
+    """Additive attention bias (1, 1, 1, keys) that scales the last ``reference_count`` keys by ``strength``.
+
+    None when it would change nothing: strength 1, or no reference keys.
+    """
+    strength = max(0.0, float(strength))
+    if reference_count <= 0 or abs(strength - 1.0) < 1e-6:
+        return None
+    reference_count = min(int(reference_count), int(key_count))
+    bias = torch.zeros(1, 1, 1, int(key_count), dtype=dtype, device=device)
+    bias[..., key_count - reference_count:] = math.log(strength) if strength > 0 else torch.finfo(dtype).min
+    return bias
+
+
+def combine_attention_mask(mask: torch.Tensor | None, bias: torch.Tensor | None) -> torch.Tensor | None:
+    """``mask`` with ``bias`` added. A boolean mask (True = attend) becomes additive first."""
+    if bias is None:
+        return mask
+    if mask is None:
+        return bias
+    if mask.dtype == torch.bool:
+        mask = torch.zeros(mask.shape, dtype=bias.dtype, device=mask.device).masked_fill(
+            ~mask, torch.finfo(bias.dtype).min)
+    return mask.to(bias.dtype) + bias
+
+
+class ReferenceStrength:
+    """Attention patch that scales the reference tokens by the current keyframe strength.
+
+    Core's Krea 2 appends the references after the canvas and records their
+    token counts in ``reference_image_num_tokens``; the patch biases those
+    keys. Krea 2 Outpaint Model Patch 🆎 feeds cached reference keys instead,
+    and reads this object from transformer_options under
+    REFERENCE_STRENGTH_KEY to bias them itself (_krea2_core._attn_kv).
+    """
+
+    def __init__(self, keyframes):
+        self.keyframes = keyframes
+
+    @property
+    def strength(self) -> float:
+        return max(0.0, float(self.keyframes.strength))
+
+    def __call__(self, q, k, v, pe=None, attn_mask=None, extra_options=None):
+        counts = (extra_options or {}).get("reference_image_num_tokens")
+        if not counts:
+            return {}
+        bias = reference_key_bias(k.shape[-2], sum(int(n) for n in counts), self.strength, q.dtype, q.device)
+        if bias is None:
+            return {}
+        return {"attn_mask": combine_attention_mask(attn_mask, bias)}
+
+
+def reference_strength_hooks(schedule: list[float]):
+    """A core hook group that carries the reference strength schedule on a conditioning."""
+    import comfy.hooks
+
+    from ._curve_helpers import hook_keyframes
+
+    keyframes = hook_keyframes(schedule)
+    patch = ReferenceStrength(keyframes)
+    hook = comfy.hooks.TransformerOptionsHook(
+        transformers_dict={"patches": {"attn1_patch": [patch]}, REFERENCE_STRENGTH_KEY: patch},
+        hook_scope=comfy.hooks.EnumHookScope.HookedOnly,
+    )
+    hook.hook_keyframe = keyframes
+    group = comfy.hooks.HookGroup()
+    group.add(hook)
+    return group

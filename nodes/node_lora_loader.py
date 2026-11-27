@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ._curve_helpers import as_schedule
 from ._execution_helpers import ignore_extra_inputs
 from ._lora_helpers import (
     MISSING_MODES,
@@ -106,6 +107,17 @@ class AusBossLoraLoader:
                         ),
                     },
                 ),
+                # Appended last: saved workflows keep links by slot.
+                "curve": (
+                    "FLOATS",
+                    {
+                        "tooltip": (
+                            "A strength curve, from Strength Curve 🆎. Rows marked to "
+                            "follow it change strength step by step: the row's strength "
+                            "times the curve."
+                        ),
+                    },
+                ),
             }),
         }
 
@@ -123,10 +135,16 @@ class AusBossLoraLoader:
     )
     FUNCTION = "load_loras"
 
-    def load_loras(self, model, loras: str, clip=None, trigger_separator=", ", on_missing="error", **linked):
+    def load_loras(self, model, loras: str, clip=None, trigger_separator=", ", on_missing="error",
+                   curve=None, **linked):
         rows = apply_linked_strengths(parse_lora_stack(loras), linked)
+        schedule = as_schedule(curve)
+        if schedule is not None and not any(row["curve"] and row["enabled"] for row in rows):
+            print("[AusBoss] LoRA Loader: a strength curve is wired, but no enabled row follows it. "
+                  "Click a row's curve mark to make it follow.")
         missing: list[dict] = []
-        model, clip = apply_lora_stack(model, clip, rows, on_missing=on_missing, missing=missing)
+        model, clip = apply_lora_stack(model, clip, rows, on_missing=on_missing, missing=missing,
+                                       curve=schedule)
         # A row skipped for a missing file loaded nothing, so its words stay
         # out of the prompt. A row parked at strength 0 keeps them on purpose
         # (see the node docs): comparing with and without it changes only
