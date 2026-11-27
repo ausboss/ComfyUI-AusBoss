@@ -1737,6 +1737,26 @@ class ClipSoundTests(unittest.TestCase):
 
 
 class PromptBugBatchTests(unittest.TestCase):
+    def test_two_swaps_each_name_who_goes_on_their_own_line(self):
+        script = (
+            "The young man in the grey cardigan with headphones on the left is replaced by @1, a cartoon 3D wooden log character with big eyes.\n"
+            "The young woman with dark bangs in the white blouse on the right is replaced by @2, a young woman with long red hair."
+        )
+        parts = parts_of(script, seconds=6, jobs={1: "person", 2: "person"}, video="swap the person")
+        self.assertIn("<Subject 1> is the young man in the grey cardigan with headphones on the left in <Video 1>", parts["subject_definitions"])
+        self.assertIn("<Subject 2> is the young woman with dark bangs in the white blouse on the right in <Video 1>", parts["subject_definitions"])
+        self.assertNotIn("Do not show a cartoon", parts["detailed_description"])
+
+    def test_a_description_after_the_picture_is_how_the_new_person_looks(self):
+        script = "The man in front is replaced by @1, a 3D animated game character with long orange-red hair and a blue dress."
+        parts = parts_of(script, seconds=6, jobs={1: "person"}, video="swap the person")
+        self.assertIn("<Subject 1> is the man in front in <Video 1>", parts["subject_definitions"])
+        self.assertIn("this appearance: a 3D animated game character with long orange-red hair and a blue dress", parts["subject_definitions"])
+        typed = "The man in front is replaced by @1, a man in a hat.\n@1 looks like a woman with red hair"
+        kept = parts_of(typed, seconds=6, jobs={1: "person"}, video="swap the person")["subject_definitions"]
+        self.assertIn("this appearance: a woman with red hair", kept)
+        self.assertNotIn("a man in a hat", kept)
+
     def test_a_swap_action_line_does_not_name_who_goes(self):
         for script in ("@1 dances.", "He dances."):
             text = write_prompt(script, seconds=6, jobs={1: "person"}, video="swap the person")

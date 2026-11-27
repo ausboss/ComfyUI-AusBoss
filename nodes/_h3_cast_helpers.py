@@ -145,8 +145,15 @@ WEARS_LINE = re.compile(r'^\s*@([1-4])\s+(?:is\s+wearing|wears|is\s+dressed\s+in
 QUOTE = re.compile(r'["\u201c\u201d]')
 
 
+# "The man in front is replaced by @1, a game character with orange hair.": the words after "@1," say how the new
+# person looks. A swap kept only the quoted words of such a line, so the description was dropped without a word.
+LOOKS_AFTER_PICTURE = re.compile(r"@([1-4]),\s*((?:a|an)\s+[^.!?@\n]+)", re.I)
+
+
 def looks_on_own_lines(text):
-    """The script with each @N looks like sentence on a line of its own. A spoken line is left alone."""
+    """The script with each @N looks like sentence on a line of its own, and a description typed right after a
+    picture ("replaced by @1, a man in a red hat") as that picture's looks like line, unless it already has one.
+    A spoken line is left alone."""
     text = str(text or "")
     lines = []
     for line in text.splitlines():
@@ -155,7 +162,19 @@ def looks_on_own_lines(text):
             continue
         first, *rest = LOOKS_MID_LINE.sub("\n", line).splitlines()
         lines += [re.sub(r"\s+([.,;:])$", r"\1", first), *rest]
-    return "\n".join(lines) if len(lines) != len(text.splitlines()) else text
+    typed = {int(match.group(1)) for match in map(APPEARANCE_LINE.match, lines) if match}
+    moved = []
+    for line in lines:
+        match = None if QUOTE.search(line) or APPEARANCE_LINE.match(line) else LOOKS_AFTER_PICTURE.search(line)
+        slot = int(match.group(1)) if match else None
+        if slot is None or slot in typed:
+            moved.append(line)
+            continue
+        looks = re.sub(r"(?:,|\s+and)+\s*$", "", match.group(2).rstrip()).rstrip(" ,;:")
+        rest = line[match.start(2) + len(looks) :]
+        moved += [re.sub(r"\s+([.,;:])", r"\1", line[: match.start(1) + 1] + rest, count=1).rstrip(), f"@{slot} looks like {looks}"]
+        typed.add(slot)
+    return "\n".join(moved) if moved != text.splitlines() else text
 
 
 # Hair and face only, no clothes, expression or background. When the line names clothes that differ from what the
@@ -478,8 +497,16 @@ class Cast:
             self.who = lower_first(who_goes_in(text) or ONE_GOES)
             return
         slots = [picture.slot for picture in self.swappers]
-        pieces = re.split(r"@(\d)\b", text)
+        # A line that names one new person says who that person replaces, wherever its @ stands in the line:
+        # "The man on the left is replaced by @1." Only a line that names several is cut at each @.
+        own = {}
+        for line in lines:
+            named_here = {int(slot) for slot in TOKEN.findall(line)} & set(slots)
+            if len(named_here) == 1:
+                own.setdefault(named_here.pop(), []).append(line.rstrip(" ."))
+        pieces = re.split(r"@(\d)\b", ". ".join(line.rstrip(" .") for line in lines if line.rstrip(" .") not in sum(own.values(), [])))
         named = {int(slot): words for slot, words in zip(pieces[1::2], pieces[2::2]) if int(slot) in slots}
+        named.update({slot: ". ".join(words) for slot, words in own.items()})
         if not named:
             named = dict(zip(slots, lines)) if len(lines) == len(slots) else {}
         for index, slot in enumerate(slots):

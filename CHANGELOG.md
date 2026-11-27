@@ -4,6 +4,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **H3 Prompt Writer 🆎 reads two common swap lines correctly.** A
+  description typed right after the picture, as in "The man in front is
+  replaced by @1, a game character with orange hair", now becomes how the
+  new person looks. Before, a swap dropped those words. With two people,
+  each line's "is replaced by @1" names the person that line describes.
+  Before, the new person's description was read as the person who goes.
+
 - **Mask Refine 🆎's guided and matting edges follow the picture.** Both
   edge modes now look further from the mask's edge and snap to the real
   edge in the guide image, so hair and thin parts a rough mask missed come
