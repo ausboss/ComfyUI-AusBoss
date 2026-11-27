@@ -47,7 +47,7 @@ CORE_NODES = {
     "LoadBackgroundRemovalModel": ("execute", ["bg_removal_name"]),
     "RemoveBackground": ("execute", ["bg_removal_model", "image"]),
     "ImageUpscaleWithModel": ("execute", ["upscale_model", "image"]),
-    "TextGenerate": ("execute", ["clip", "prompt", "max_length", "sampling_mode", "image"]),
+    "TextGenerate": ("execute", ["clip", "prompt", "max_length", "sampling_mode", "image", "system_prompt"]),
 }
 # Read with a fallback while a workflow runs: (module, name, what leans on it).
 INTERNALS = [

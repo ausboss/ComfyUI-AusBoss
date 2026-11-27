@@ -4,6 +4,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **H3 Prompt Writer 🆎 can tidy up your lines.** Turn on **More → Tidy up
+  my lines** with a small text model such as Qwen3-VL 8B on `clip`, and it
+  fixes spelling, writes short sentences, and puts each spoken line right
+  after whoever says it before the node reads them. Your quoted words are
+  never rewritten: they stay exactly as typed. Off by default.
 - **Load Audio 🆎: Clean up.** Turn on **Clean up** for a voice recording
   and it comes out as one channel, with the quiet bits at the start and end
   cut, less hum and hiss, and an even volume that never clips. A video model

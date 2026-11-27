@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import inspect
 import sys
 
 from ._h3_cast_helpers import DESCRIBE_PERSON, add_looks, EDIT, JOBS, KEEP, KEEPS_ITS_LENGTH, PERSON, PLACE, START, SWAP, THING, VIDEO_JOBS
 from ._h3_prompt_helpers import find_beats, find_speech, split_sections, write_prompt
 from ._h3_script_helpers import CAMERAS, LOOKS, script_report
+from ._h3_tidy_helpers import tidy_script
 from ._route_errors import safe_route_error
 
 
@@ -27,6 +29,7 @@ JOB_HELP = (
     "best with nobody in the picture. Style gives only the look. Start on it and end on it fix the first or last moment."
 )
 NEEDS_TEXT_GENERATE = "This ComfyUI has no Generate Text node. Update ComfyUI, or disconnect the model on clip."
+TIDY_NEEDS_UPDATE = "[AusBoss] H3 Prompt Writer: this ComfyUI's Generate Text takes no system prompt, so Tidy up is off. Update ComfyUI."
 SAMPLING = {
     "sampling_mode": "on",
     "temperature": 0.5,
@@ -66,6 +69,36 @@ def model_asker(clip, image):
         return output.result[0]
 
     return ask
+
+
+def model_tidier(clip):
+    """ask(system, line, longest) for Tidy up: the same Generate Text, with its own instructions and no picture.
+
+    Greedy, so the same script tidies the same way every run. None on a ComfyUI whose Generate Text
+    takes no system prompt (an older ComfyUI): the rest of the node still works there."""
+    generate = _core_nodes().get("TextGenerate")
+    if generate is None or not hasattr(generate, "execute"):
+        raise RuntimeError(NEEDS_TEXT_GENERATE)
+    if "system_prompt" not in inspect.signature(generate.execute).parameters:
+        print(TIDY_NEEDS_UPDATE)
+        return None
+
+    def ask(system, line, longest):
+        output = generate.execute(clip=clip, prompt=line, max_length=longest, sampling_mode={"sampling_mode": "off"}, system_prompt=system)
+        return output.result[0]
+
+    return ask
+
+
+def tidied(script, clip):
+    """The typed script in plain, ordered sentences, from the model on clip.
+
+    H3's own six parts go through as they are, and so does everything when nothing is on clip:
+    a workflow can leave Tidy up on and tie it to the switch that turns its small model on."""
+    if clip is None or not str(script or "").strip() or split_sections(script) is not None:
+        return script
+    ask = model_tidier(clip)
+    return script if ask is None else tidy_script(script, ask)[0]
 
 
 def fill_picture(pictures, jobs):
@@ -298,6 +331,17 @@ class AusBossH3PromptWriter:
                         ),
                     },
                 ),
+                "tidy": (
+                    "BOOLEAN",
+                    {
+                        "default": False,
+                        "tooltip": (
+                            "Turn on to have the model on clip tidy your lines first: spelling, short sentences, and "
+                            "each spoken line next to whoever says it. Your quoted words stay exactly as typed. With no model on "
+                            "clip, your lines go as typed."
+                        ),
+                    },
+                ),
             },
         }
 
@@ -339,7 +383,22 @@ class AusBossH3PromptWriter:
     def write(self, script, seconds, clip=None, picture_1=None, picture_2=None, picture_3=None, picture_4=None, video=None,
               video_sound=None, voice=None, song=None, camera=AS_TYPED, look=FROM_PICTURE, song_start=0.0, cut_on_beat=True,
               language="English", job_1=PERSON, job_2=PERSON, job_3=PERSON, job_4=THING, video_job=VIDEO_JOBS[0],
-              sound="", music="", clip_sound=False):
+              sound="", music="", clip_sound=False, tidy=False):
+        inputs = dict(locals())
+        del inputs["self"], inputs["script"], inputs["tidy"]
+        if tidy:
+            tidy_text = tidied(script, clip)
+            if tidy_text != script:
+                try:
+                    return self._write(tidy_text, **inputs)
+                except ValueError:
+                    pass  # The writer turns down the tidied lines: it gets them as typed, and says so if they fail too.
+        return self._write(script, **inputs)
+
+    def _write(self, script, seconds, clip=None, picture_1=None, picture_2=None, picture_3=None, picture_4=None, video=None,
+               video_sound=None, voice=None, song=None, camera=AS_TYPED, look=FROM_PICTURE, song_start=0.0, cut_on_beat=True,
+               language="English", job_1=PERSON, job_2=PERSON, job_3=PERSON, job_4=THING, video_job=VIDEO_JOBS[0],
+               sound="", music="", clip_sound=False):
         # A clip that keeps its own sound has no room for a score: the finished clip plays the video's sound.
         if video is not None and (video_job == EDIT or (video_job == SWAP and clip_sound)):
             music = ""

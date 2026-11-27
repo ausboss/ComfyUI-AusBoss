@@ -371,6 +371,9 @@
       },
       "full_prompt": {
         "name": "完整提示词"
+      },
+      "tidy": {
+        "name": "整理我的台词"
       }
     },
     "outputs": {
