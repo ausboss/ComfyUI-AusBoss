@@ -629,9 +629,15 @@ class EverydayLineTests(unittest.TestCase):
             ("The dance ends with a spin.", ["The dance ends with a spin"]),
             ("At the end of the pier she waves.", ["At the end of the pier she waves"]),
             ("It starts at nine every day.", ["It starts at nine every day"]),
+            ("It starts at 9 every day.", ["It starts at 9 every day"]),
             ("She smiles, smash cut to black.", ["She smiles", "Black"]),
         ):
             self.assertEqual([moment.text for moment in read_script(line).moments], moments, line)
+
+    def test_an_opening_can_start_with_a_number(self):
+        script = read_script("She walks away.\nStarts with two people sitting at a table.")
+        self.assertEqual([moment.text for moment in script.moments], ["Two people sitting at a table", "She walks away"])
+        self.assertTrue(script.moments[0].start)
 
     def test_clip_notes_mean_only_what_they_say(self):
         self.assertFalse(read_script("She walks through a field, muted colours.").silent)
@@ -642,6 +648,10 @@ class EverydayLineTests(unittest.TestCase):
         self.assertNotEqual(read_script('She says "No music until the show is over."').music, "N/A")
         self.assertFalse(read_script("He takes one shot at the basket.").one_take)
         self.assertTrue(read_script("No camera cuts.\nShe walks.\n\nShe stops.").one_take)
+        self.assertFalse(read_script('The TV plays without audio while she says "Hello."').silent)
+        self.assertFalse(read_script("She watches a silent film on her laptop.").silent)
+        self.assertTrue(read_script("Silent film.\nShe walks.").silent)
+        self.assertTrue(read_script("She walks. Completely silent.").silent)
 
     def test_who_says_the_words_and_what_is_written(self):
         for line, said in (

@@ -56,7 +56,7 @@ TURN = (
 SENTENCE = r"(?<!\bMr\.)(?<!\bMs\.)(?<!\bDr\.)(?<!\bSt\.)(?<!\bMrs\.)(?<=[.!?])\s+(?=\S)|(?<=\x00)\s+(?=[A-Z@])|(?<=\x00),?\s+(?:and|but|while)\s+(?=@\d)|\s*;\s*"
 CUT_WORDS = re.compile(r"^(?:hard\s+)?(?:cut|cuts|smash\s+cut|jump\s+cut)\s+to\b[:,]?\s*", re.I)
 NEW_SHOT = re.compile(r"^(?:new\s+shot|next\s+shot|shot\s+\d+)\b[:,.\-]?\s*", re.I)
-START = re.compile(r"^(?:it\s+|the\s+(?:clip|video|scene|shot)\s+)?(?:starts?|begins?|opens?)(?:\s+(?:with|on|in|at|as)\b(?!\s+(?:\d|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|noon|midnight)\b)[:,]?|\s*:)\s*", re.I)
+START = re.compile(r"^(?:it\s+|the\s+(?:clip|video|scene|shot)\s+)?(?:starts?|begins?|opens?)(?:\s+(?:with|on|in|as)\b[:,]?|\s+at\b(?!\s+(?:\d|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|noon|midnight)\b)[:,]?|\s*:)\s*", re.I)
 END = re.compile(r"^(?:it\s+|the\s+(?:clip|video|scene|shot)\s+)?(?:ends?|ending|finish(?:es)?|closes?)(?:\s+(?:with|on|in|at|as)\b[:,]?|\s*:)\s*", re.I)
 FINALLY = re.compile(r"^(?:finally|at\s+the\s+end|in\s+the\s+end)\b(?!\s+of\b)[:,]?\s*", re.I)
 UNIT = r"(?:seconds?|secs?|s)\b"
@@ -94,7 +94,9 @@ NO_SOUND = re.compile(
 ONE_TAKE = re.compile(r"\b(?:one|single|continuous|unbroken)\s+(?:long\s+)?(?:shot|take)\b(?!\s+(?:of|at)\b)|\b(?:no|without)\s+(?:camera\s+)?cuts?\b", re.I)
 SIDE_NOTE = re.compile(
     r"^\s*(?:(?:no|without)\s+(?:any\s+)?(?:background\s+|camera\s+)?(?:music|soundtrack|score|sound|audio|cuts?)(?:\s*,?\s*(?:just|only)\s+(?P<only>.+?))?"
-    r"|one\s+(?:long\s+)?(?:shot|take)|single\s+(?:shot|take)|continuous\s+(?:shot|take))\s*[.!]?\s*$",
+    r"|(?:one|single|continuous|unbroken)\s+(?:long\s+)?(?:shot|take)"
+    r"|(?:an?\s+)?silent\s+(?:film|movie|clip|video)|completely\s+silent|total\s+silence|silent|muted|on\s+mute"
+    r"|(?:muted|mute\s+(?:the\s+)?)(?:audio|sound))\s*[.!]?\s*$",
     re.I,
 )
 VOICEOVER = re.compile(r"\b(?:voice-?\s?over|narrator|(?<!looks\s)(?<!glances\s)(?<!stares\s)(?<!points\s)off-?\s?(?:screen|camera)|behind\s+the\s+camera|a\s+voice(?!\s+crack))\b|\((?:o\.?s|v\.?o)\.?\)", re.I)
@@ -459,7 +461,6 @@ def read_script(text):
             script.moments[count].camera, script.moments[count].sound = typed
         else:
             script.camera, script.sound = typed[0] or script.camera, typed[1] or script.sound
-    read_notes(text, script)
     put_in_order(script)
     if script.one_take or not any(moment.cut for moment in script.moments):
         for moment in script.moments:
