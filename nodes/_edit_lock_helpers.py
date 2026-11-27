@@ -285,6 +285,8 @@ class EditLock:
         self.wide: float | None = None               # share of the picture the lock would free, at the decision
         self.top: float | None = None                # the strongest spot then, in units of the quiet level
         self.peak: float | None = None               # and the strongest hundredth
+        self.vae_channels: int | None = None         # when the VAE and model disagree: the picture's channels
+        self.model_channels: int | None = None       # and the channels the model predicts
         self._sigma: float | None = None
         self._first = True
         self._first_sigma = 1.0
@@ -328,6 +330,7 @@ class EditLock:
         latent = self.latent[:, :, 0] if self.latent.ndim == 5 else self.latent
         if latent.shape[1] != flat.shape[1]:
             self.status = "vae"
+            self.vae_channels, self.model_channels = int(latent.shape[1]), int(flat.shape[1])
             return pred
         source = fit_latent(latent.to(device=flat.device, dtype=torch.float32), *flat.shape[-2:])
         if source is None:
@@ -451,5 +454,11 @@ def describe(lock: EditLock) -> str:
     if lock.status == "video":
         return "Edit Lock did nothing: it works on single pictures, not video."
     if lock.status == "vae":
-        return "Edit Lock did nothing: this VAE does not belong to this model."
+        counts = ""
+        if lock.vae_channels is not None and lock.model_channels is not None:
+            counts = (f" (your VAE makes {lock.vae_channels}-channel pictures, "
+                      f"the model expects {lock.model_channels})")
+        return ("Edit Lock did nothing: the VAE and the diffusion model don't match"
+                f"{counts}. Either file can be the wrong one. Use the model and VAE listed "
+                "in the workflow's notes. A GGUF or other converted model is a common cause.")
     return "Edit Lock has not run yet: plug its model output into the sampler."

@@ -7,6 +7,43 @@ from **Crop For Inpaint 🆎**, **Load Image + Pad 🆎** or any
 result, it is resized to fit first, then joined to your picture the way
 **Seam** says.
 
+## Follow changes
+
+Turn on **Follow changes** when the model draws past your box and the paste
+cuts it off: a boot that ends at the box's edge, half a plate rim, a collar
+sliced flat. Edit models that redraw the whole crop they are given, such as
+MiniMax H3 Image, do this often.
+
+With it on, the paste is no longer just the box. It takes the box plus every
+change the model made that touches the box, and fades out before the edge
+of the crop that went to the model. Before that, it undoes the small zoom or
+shift such a model can draw, so the wall, tiles or table around the edit line
+up with your picture again.
+
+When the model changed nearly everything around the box, there is no single
+new thing to follow, and the paste stays the box. The console says what was
+done on each run. Follow changes works on a Crop For Inpaint stitcher with
+the classic seam; an outpaint has no picture under its new area to compare
+against, so it pastes as before.
+
+### Technical details
+
+- The model's crop is lined up with the picture's own crop by the zoom and
+  shift Realign to Source measures (up to 20% zoom). An unreliable
+  measurement leaves the crop as it came back.
+- A pixel counts as changed when the lined-up crop differs from your
+  picture by more than 0.10 (on 0 to 1, averaged over red, green and blue,
+  after a 4 px blur). Changes are joined to the box when they come within
+  8 px of it, then closed by 6 px, filled, widened by 10 px and softened by
+  10 px.
+- The paste fades to nothing over 24 px before each crop edge that lies
+  inside your picture, and runs to the picture's own edge where the crop
+  reaches it.
+- When the changes outside the box cover more than half of the crop outside
+  the box, the paste stays the box.
+- The work runs at most 768 px on the long side and takes under a second
+  on a 4 MP crop.
+
 ## Paste onto: crop or original
 
 **Paste onto** picks what you get back. It lives in the gear menu, next to
@@ -155,9 +192,25 @@ correction turns the corner without a crease.
 The shift is subtracted from the pasted region before the blend. In the
 padding that is the whole shift; inside the feathered band the paste
 alpha scales it, which is exactly the share of each band pixel the
-sampler painted. Source pixels stay bit-identical. A crop stitcher, which
-has no source rectangle, gets a single global shift measured in its
-blend band instead.
+sampler painted. Source pixels stay bit-identical.
+
+A Crop For Inpaint crop has no source rectangle, so it gets one shift for
+the whole painted area. That shift is read inside the painted area, in the
+32 pixels next to its edge: the same pixels before and after, taking the
+middle value. Those 32 pixels are counted at the size the model painted, so
+a large picture is read the same way and takes no longer. Most inpaint workflows let the model paint a little wider
+than the paste, so the soft edge itself comes back close to your picture
+and shows only a fraction of the drift. When the painted area holds
+something new (less than half of that rim agrees, or the change is larger
+than 20 LAB units, such as a black jacket over skin), it is not drift: the
+old pixels in that place show something else. The new part is then
+compared with your untouched picture right beside it, each side averaged
+within 48 pixels of the seam. Where the two sides look alike (within 20
+LAB units, on at least a quarter of the seam, such as new skin next to
+skin), the gap between them is taken off. Where they do not, such as a
+jacket next to skin, Tone match leaves that picture as painted. Before,
+the soft edge was read there instead, and a model that repaints the edge
+too could tint the whole patch: a yellow swimsuit over skin came back blue.
 
 On a Crop + Rotate + Pad canvas the source rectangle is the crop, so it
 can also hold the rotation's empty corners and any transparency. The

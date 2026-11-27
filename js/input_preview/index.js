@@ -1,5 +1,5 @@
 // The in-node preview panel for LaMa Inpaint, Mask Refine, Mask by Name,
-// Select Frame and Save Image.
+// Select Frame, Save Image, Film Grain, Cut Out and Keep Detail.
 //
 // It shows this node's own result once it has one, and falls back to a
 // thumbnail of whatever feeds its IMAGE/MASK input before the graph has run.
@@ -24,9 +24,11 @@ import { chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../s
 import { ensureNodeMinHeight, fillNodeHeight, growToNodeFloor } from "../shared/panel_layout.mjs";
 import { suppressCoreImagePreview } from "../shared/core_preview.mjs";
 import { autoMaskValues } from "../shared/mask_auto.mjs";
+import { CHECKER } from "../shared/compare_erase.mjs";
 import { hideInputsInDef, hideWidget, setWidgetVisible } from "../shared/widget_visibility.mjs";
 import { makePictureStepper } from "../shared/picture_stepper.mjs";
 import { ALL, allLabel, gridShape, heldPlaces, keepIndex, keepWords, stepIndex, stepWithAll } from "../shared/picture_steps.mjs";
+import { mountLive, takeStage } from "../shared/live_stage.mjs";
 import { addStepConsumer, mountStepOverlay, showsStepsOn, stepRun, stopStepRun, watchSteps } from "../shared/step_preview.mjs";
 import {
   describeNodePreview,
@@ -123,6 +125,11 @@ const NODE_CONFIG = {
       : null),
   },
   AUSBOSS_NODES_SelectFrame: { inputName: "frames", noun: "frames" },
+  // These three redraw their picture while a value is dragged, before any
+  // run (shared/live_stage.mjs), with a Fit | 100% switch on the bar.
+  AUSBOSS_NODES_FilmGrain: { inputName: "image", noun: "an image", live: "grain" },
+  AUSBOSS_NODES_CutOut: { inputName: "image", noun: "an image", checker: true, live: "cutout" },
+  AUSBOSS_NODES_KeepDetail: { inputName: "image", noun: "an image", live: "detail" },
   // Its result is the file it just saved; the card sits above the panel.
   // SAVE shows only for a run made with Auto save off, which holds its
   // pictures until this button keeps them.
@@ -157,6 +164,7 @@ function ensureCss() {
 .ausboss-input-preview.preview-off .ausboss-stepper{display:none;}
 .ausboss-input-preview-stage img,.ausboss-input-preview-stage video{display:none;position:absolute;inset:0;margin:auto;max-width:100%;max-height:100%;object-fit:contain;}
 .ausboss-input-preview-stage.show-image img{display:block;}
+.ausboss-input-preview-stage.checker img{background-image:repeating-conic-gradient(${CHECKER.light} 0 25%,${CHECKER.dark} 0 50%);background-size:${CHECKER.side * 2}px ${CHECKER.side * 2}px;}
 .ausboss-input-preview-stage.loading-image img{opacity:.4;transition:opacity .3s ease 1.2s;}
 .ausboss-input-preview-stage.show-video video{display:block;}
 .ausboss-input-preview-grid{display:none;position:absolute;inset:0;box-sizing:border-box;gap:${GRID_GAP}px;padding:${GRID_GAP}px;justify-content:center;align-content:center;}
@@ -848,6 +856,9 @@ function refresh(state) {
   }
   const source = upstreamNode(state.node, state.inputName);
   rewatchSource(state, source);
+  // Film Grain, Keep Detail and Cut Out draw their own picture while a value
+  // is dragged; the stage is theirs for as long as they can.
+  if (state.live && takeStage(state)) return;
   const count = resultCount(state);
   const hidden = state.stepper.root.hidden;
   state.index = keepIndex(state.index, count);
@@ -964,6 +975,8 @@ function buildPanel(node, config) {
   root.className = "ausboss-input-preview";
   const stage = document.createElement("div");
   stage.className = "ausboss-input-preview-stage";
+  // A cut-out's see-through parts show over a checkerboard.
+  if (config.checker) stage.classList.add("checker");
   const img = document.createElement("img");
   const video = document.createElement("video");
   video.muted = true;
@@ -1047,6 +1060,16 @@ function buildPanel(node, config) {
   syncAdvanced(state);
   installPreviewSwitch(state, abort.signal);
   if (config.steps) installStepsSwitch(state, abort.signal);
+  if (config.live) {
+    state.live = mountLive(state, config.live, {
+      refresh: () => refresh(state),
+      // A run that came while the preview was off left an older picture.
+      record: () => (state.stale ? null : outputRecord(node) ?? null),
+      hasResult: () => resultCount(state) > 0,
+      resultUrl: () => storedResultUrl(node),
+      viewUrl: (query) => api.apiURL(`/view?${query}`),
+    });
+  }
 
   // The grid is laid out for the stage's shape, so a resized node lays it out again.
   if (typeof ResizeObserver === "function") {
@@ -1162,6 +1185,7 @@ app.registerExtension({
       clearTimeout(state.toastTimer);
       state.timer = 0;
       state.abort?.abort();
+      state.live?.dispose();
       unwatchSource(state);
       clearMedia(state);
       for (const forget of state.forgetSteps ?? []) forget();

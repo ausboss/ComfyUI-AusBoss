@@ -10,11 +10,13 @@ from ._inpaint_crop_helpers import (
     RESIZE_ALGORITHMS,
     SEAM_CLASSIC,
     SEAM_MODES,
+    _resize_image,
     apply_stitch,
     build_crop,
     paste_on_original,
     stitch_blend_mask,
 )
+from ._follow_changes_helpers import follow_changes as _follow_changes
 from ._unpainted_helpers import unpainted_notice, unpainted_share
 
 # A workflow saved before Seam existed can hold the card's empty value in
@@ -367,7 +369,11 @@ class AusBossStitchInpaint:
         "rim. The blend_mask output marks what the stitch changed, in the "
         "stitched image's own coordinates, ready for a downstream color match. "
         "After a hand crop in Image Crop + Rotate + Pad 🆎, set Paste onto "
-        "to original to get your whole picture back with the edit in place."
+        "to original to get your whole picture back with the edit in place. "
+        "Turn on Follow changes when the model draws past the box (a boot or "
+        "a plate rim cut off at its edge): the paste then grows to every "
+        "change that touches the box, after lining the model's crop up with "
+        "your picture."
     )
     SEARCH_ALIASES = [
         "stitch inpaint",
@@ -455,6 +461,19 @@ class AusBossStitchInpaint:
                         ),
                     },
                 ),
+                "follow_changes": (
+                    "BOOLEAN",
+                    {
+                        "default": False,
+                        "tooltip": (
+                            "Paste what the model changed next to the box too, "
+                            "so feet, rims and collars that reach past the box "
+                            "are not cut off. It also undoes a small zoom or "
+                            "shift the model drew. Turn it on for edit models "
+                            "that redraw the whole crop."
+                        ),
+                    },
+                ),
             },
         }
 
@@ -474,12 +493,20 @@ class AusBossStitchInpaint:
     FUNCTION = "stitch"
 
     def stitch(
-        self, stitcher, inpainted, fix_edge_halo=False, color_match=0.0, seam=SEAM_CLASSIC, paste_onto=PASTE_ONTO_CROP
+        self, stitcher, inpainted, fix_edge_halo=False, color_match=0.0, seam=SEAM_CLASSIC, paste_onto=PASTE_ONTO_CROP,
+        follow_changes=False,
     ):
         if seam in _UNSET_SEAM:
             seam = SEAM_CLASSIC
         if seam not in SEAM_MODES:
             raise ValueError(f"Stitch Inpaint: seam must be 'classic' or 'blend in', not {seam!r}.")
+        if follow_changes is True and seam == SEAM_CLASSIC and isinstance(stitcher, dict) \
+                and "canvas" in stitcher and stitcher.get("source_bbox") is None:
+            # An inpaint crop only: an outpaint's new area has no picture
+            # under it to compare against.
+            inpainted, stitcher, lines = _follow_changes(stitcher, inpainted, _resize_image)
+            for line in lines:
+                print(f"[AusBoss] Stitch Inpaint: {line}")
         image = apply_stitch(stitcher, inpainted, bool(fix_edge_halo), float(color_match), seam)
         if paste_onto not in _UNSET_PASTE_ONTO and paste_onto not in PASTE_ONTO_MODES:
             raise ValueError(f"Stitch Inpaint: paste_onto must be 'crop' or 'original', not {paste_onto!r}.")

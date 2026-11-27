@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+
 from pathlib import Path
 
 from ._execution_helpers import ignore_extra_inputs
@@ -18,6 +20,7 @@ from ._image_folder_helpers import (
     choose,
     clean_folder,
     fingerprint,
+    inside_root,
     list_folders,
     list_pictures,
     load_picture,
@@ -69,6 +72,13 @@ def _picked(source, folder, subfolders, sort, pictures) -> list[dict]:
     return choose(listed, parse_picked(pictures))
 
 
+def _version_tag(item: dict) -> str:
+    """A short tag that changes when the picture does, for the browser's
+    thumbnail cache. It carries no file size or time."""
+    seen = f"{item['mtime_ns']}-{item['size']}".encode()
+    return hashlib.sha1(seen, usedforsecurity=False).hexdigest()[:12]
+
+
 def _register_routes() -> None:
     """The gallery's three questions: which folders, which pictures, and a
     small copy of one. Every path is attacker-controlled; each is resolved
@@ -117,7 +127,7 @@ def _register_routes() -> None:
             "source": source,
             "folder": shown,
             "full": len(listed) >= MAX_PICTURES,
-            "pictures": [{"name": item["name"], "v": f"{item['mtime_ns']}-{item['size']}"} for item in listed],
+            "pictures": [{"name": item["name"], "v": _version_tag(item)} for item in listed],
         })
 
     @routes.get("/ausboss/image_folder/thumb")
@@ -129,8 +139,10 @@ def _register_routes() -> None:
             base = clean_folder(query(request, "folder"))
             # The name is a path below the folder; it goes through the same door.
             relative = clean_folder(f"{base}/{name}" if base else name)
-            path = root.joinpath(*relative.split("/")).resolve()
-            if root not in path.parents or not path.is_file() or not path.name.lower().endswith(IMAGE_EXTENSIONS):
+            if not relative or not relative.lower().endswith(IMAGE_EXTENSIONS):
+                return web.json_response({"error": "no such picture"}, status=404)
+            path = inside_root(root, relative)
+            if not path.is_file() or not path.name.lower().endswith(IMAGE_EXTENSIONS):
                 return web.json_response({"error": "no such picture"}, status=404)
             try:
                 edge = int(query(request, "size") or 160)

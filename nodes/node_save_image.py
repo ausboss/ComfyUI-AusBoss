@@ -22,12 +22,26 @@ from ._image_save_helpers import (
 )
 from ._route_errors import safe_route_error
 from ._step_preview_helpers import STEP_PREVIEW_DEFAULT, register_step_preview_handler
+from ._civitai_info import civitai_parameters
+from ._lora_helpers import file_sha256
 from ._video_save_helpers import workflow_metadata
 
 try:
     import folder_paths
 except ImportError:  # offline tests
     folder_paths = None
+
+
+def _find_model_file(folders: tuple[str, ...], name: str) -> Path | None:
+    """A model file by its list name, from ComfyUI's registered folders."""
+    for folder in folders:
+        try:
+            found = folder_paths.get_full_path(folder, name)
+        except Exception:
+            found = None
+        if found:
+            return Path(found)
+    return None
 
 
 def _register_folder_route() -> None:
@@ -310,8 +324,21 @@ class AusBossSaveImage:
                         ),
                     },
                 ),
+                "civitai_info": (
+                    "BOOLEAN",
+                    {
+                        "default": False,
+                        "tooltip": (
+                            "On: also writes the prompt, settings and model "
+                            "and LoRA fingerprints the way civitai.com reads "
+                            "them, so an upload lists its prompt and resources. "
+                            "Needs Embed on. The first save with a new model "
+                            "takes a moment while its file is fingerprinted."
+                        ),
+                    },
+                ),
             },
-            "hidden": {"prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO"},
+            "hidden": {"prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO", "unique_id": "UNIQUE_ID"},
         }
 
     RETURN_TYPES = ("STRING", "IMAGE")
@@ -344,8 +371,10 @@ class AusBossSaveImage:
         preview=True,
         step_preview=STEP_PREVIEW_DEFAULT,
         autosave=True,
+        civitai_info=False,
         prompt=None,
         extra_pnginfo=None,
+        unique_id=None,
     ):
         if folder_paths is None:
             raise RuntimeError("Save Image requires ComfyUI's folder_paths at runtime.")
@@ -359,6 +388,12 @@ class AusBossSaveImage:
         root = resolve_output_root(output_dir, output_root)
         count = int(images.shape[0])
         height, width = int(images.shape[1]), int(images.shape[2])
+        if metadata is not None and civitai_info:
+            parameters = civitai_parameters(
+                prompt, unique_id, width, height, _find_model_file, file_sha256,
+            )
+            if parameters:
+                metadata["parameters"] = parameters
         # Name tokens typed on the node (%width%, %year%...). A linked
         # filename is another node's exact name and is left as it is.
         now = datetime.now()

@@ -9,6 +9,10 @@ Put it anywhere on the canvas. It needs no wires: it shows whichever sampler
 in the workflow is making a picture right now, and the caption under the
 picture says how far it is ("step 3 of 8").
 
+For a video, the picture moves: after each step a few frames of the clip,
+about one per second, play in a loop, so you can see the motion form and
+stop a clip that is going wrong.
+
 ## The buttons
 
 - **STOP**: stops this run now. Nothing after the sampler runs, so nothing
@@ -65,4 +69,17 @@ ComfyUI uses it.
   it does whenever previews are turned on in ComfyUI. The node grows to
   hold the picture and keeps the last step after the run.
 - Runs queued from another workflow tab are not shown here.
-- With video models the step picture is the clip's first frame.
+- With a video model (H3, Wan, LTX and others), the step picture moves:
+  after each step the pack also sends about one frame per second of the
+  clip (16 at most), and they play in a loop at the clip's own pace. Each
+  frame is made by the same preview ComfyUI uses for the first frame, one
+  frame at a time, so it needs no extra memory and no extra files.
+- Measured with MiniMax H3 (Pika, 6 steps, a 5 second clip) on one
+  desktop: 6.22 s a step with no step pictures, 6.35 s with the moving
+  ones; 53.6 s and 53.8 s for the whole run. With the quick preview the 7
+  frames of a step take about 1 ms to make, and each step sends about 20 KB.
+- With the tiny video decoder (TAESD chosen and `taeh3` in
+  `models/vae_approx`) the frames are sharper and take longer, about 60 ms
+  each at 720p on that desktop. The frames never take more than a tenth of
+  the run's time: on a slower card some steps keep the frames they have
+  instead of making new ones.

@@ -28,7 +28,7 @@ from nodes._h3_prompt_helpers import (
     write_prompt,
 )
 from nodes._h3_cast_helpers import Cast, number_pictures
-from nodes._h3_script_helpers import Moment, moment_sound, read_script, script_report, script_warning, timeline
+from nodes._h3_script_helpers import read_script, script_report, script_warning, timeline
 from nodes import node_h3_prompt_writer
 from nodes.node_h3_prompt_writer import AusBossH3PromptWriter, clip_frames, video_frames, with_sound_and_music
 
@@ -251,7 +251,7 @@ class ScriptPartsTests(unittest.TestCase):
             shots(LINES, seconds=6),
             [
                 "[Shot 1] <Subject 1> lowers the camera. At 00:02.000, <Subject 1> looks at us and smiles. "
-                "At 00:04.000, <Subject 1> raises the camera again and a bright flash fires. The camera shutter clicks loudly."
+                "At 00:04.000, <Subject 1> raises the camera again and a bright flash fires."
             ],
         )
 
@@ -281,17 +281,17 @@ class ScriptPartsTests(unittest.TestCase):
         self.assertEqual(line, "[Shot 1] The shot begins from <Picture 1>. <Subject 1> turns away. At 00:04.000, <Subject 1> looks up. The shot ends on <Picture 2>.")
 
     def test_a_moving_camera_keeps_moving_between_moments(self):
-        self.assertIn("At 00:04.000, the camera keeps moving forward.", shots("We walk in.\nThe screens flicker.", seconds=8, camera="walking pov")[0])
-        self.assertNotIn("keeps moving forward", shots("We wait.\nThe screens flicker.", seconds=8, camera="push in")[0])
+        self.assertIn("At 00:04.000, the camera keeps moving the same way.", shots("We walk in.\nThe screens flicker.", seconds=8, camera="walking pov")[0])
+        self.assertNotIn("keeps moving the same way", shots("We wait.\nThe screens flicker.", seconds=8, camera="push in")[0])
 
     def test_a_typed_moving_camera_counts_too(self):
         lines = shots("camera: we run forward through the room\nThe door opens.\nThe light goes out.", seconds=8)
-        self.assertIn("keeps moving forward", lines[0])
+        self.assertIn("keeps moving the same way", lines[0])
 
     def test_a_cut_says_cut(self):
         lines = shots("she walks\n\na close-up of her hand\n\nthe door opens", seconds=9)
         self.assertEqual(lines[1], "[Shot 2] At 00:03.000, the camera cuts to a close-up of her hand.")
-        self.assertEqual(lines[2], "[Shot 3] At 00:06.000, the camera cuts to a new place. The door opens. The door creaks and thuds.")
+        self.assertEqual(lines[2], "[Shot 3] At 00:06.000, the camera cuts to a new place. The door opens.")
 
     def test_one_take_overrides_a_blank_line(self):
         self.assertNotIn("cuts to", " ".join(shots("one take\nshe walks\n\nshe stops")))
@@ -362,45 +362,17 @@ class ScriptPartsTests(unittest.TestCase):
         self.assertEqual((parts["overall_soundscape"], parts["non_diegetic_music"]), ("N/A", "N/A"))
         self.assertNotIn("shutter", parts["detailed_description"])
 
-    def test_a_moment_names_its_own_sound(self):
-        self.assertIn("it starts to rain. Rain hisses on the ground.", shots("She stops.\nIt starts to rain.")[0])
-        self.assertIn("<Subject 1> runs away. Fast footsteps hit the ground.", shots("She stops.\nShe runs away.")[0])
+    def test_a_moment_says_only_what_was_typed(self):
+        self.assertTrue(shots("She stops.\nIt starts to rain.")[0].endswith("it starts to rain."))
+        self.assertTrue(shots("She stops.\nShe runs away.")[0].endswith("<Subject 1> runs away."))
         self.assertTrue(shots("She smiles.")[0].endswith("<Subject 1> smiles."))
-
-    def test_a_sound_someone_typed_is_not_said_twice(self):
         self.assertTrue(shots("Thunder booms overhead.")[0].endswith("Thunder booms overhead."))
-        self.assertTrue(shots("sound: wind and waves\nThe wind picks up.")[0].endswith("The wind picks up."))
 
-    def test_what_changed_stays_changed(self):
+    def test_nothing_is_carried_into_later_moments(self):
         line = shots("The lights go out.\nShe turns around.\nShe runs.", seconds=9)[0]
-        self.assertIn("The lights go out. The whole place goes dark.", line)
-        self.assertIn("<Subject 1> turns around. The lights stay off.", line)
-        self.assertIn("<Subject 1> runs. The lights stay off.", line)
-
-    def test_a_new_place_starts_clean(self):
-        lines = shots("The lights go out.\n\nShe sits on a beach.", seconds=9)
-        self.assertNotIn("stay off", lines[1])
-        lines = shots("The lights go out.\n\nA close-up of her hand.", seconds=9)
-        self.assertIn("stay off", lines[1])
-
-    def test_a_moment_about_the_same_thing_decides_for_itself(self):
-        line = shots("The lights go out.\nThe lights come back on.\nShe smiles.", seconds=9)[0]
-        self.assertNotIn("stay off", line.partition("At 00:06.000")[0])
-
-    def test_snow_on_a_screen_is_not_weather(self):
-        self.assertNotIn("keeps falling", write_prompt("Screens blur into static snowstorms.\nShe stops."))
-        self.assertNotIn("keeps falling", write_prompt("She catches a snowflake.\nShe stops."))
-        self.assertIn("The snow keeps falling.", write_prompt("A snowstorm blows in.\nShe stops."))
-        self.assertIn("The snow keeps falling.", write_prompt("It starts to snow.\nShe stops."))
-
-    def test_a_door_only_sounds_when_it_moves(self):
-        self.assertIn("Footsteps", shots("She walks to the door.")[0])
-        self.assertIn("The door creaks", shots("She opens the door.")[0])
-        self.assertTrue(shots("A close-up of her hand on the door.")[0].endswith("on the door."))
-
-    def test_a_kept_song_is_all_the_sound_there_is(self):
-        self.assertNotIn("shutter", write_prompt(LINES, song_beats=[]))
-        self.assertIn("shutter", write_prompt('She says "hi".\nA bright flash fires.', voice=True, song_beats=[]))
+        self.assertTrue(line.endswith("<Subject 1> runs."), line)
+        self.assertNotIn("stay off", line)
+        self.assertNotIn("goes dark", line)
 
     def test_nothing_typed_says_what_to_do(self):
         for text in ("", "   ", "camera: handheld"):
@@ -475,11 +447,15 @@ class PictureJobTests(unittest.TestCase):
 
     def test_lines_with_no_numbers_still_work_with_two_people(self):
         parts = parts_of("They sit down on a bench.", jobs={1: "person", 2: "person"})
-        self.assertIn("<Subject 1> is on the left and <Subject 2> is on the right of the frame.", parts["detailed_description"])
+        self.assertIn("<Subject 1> and <Subject 2> are in the shot. They sit down on a bench.", parts["detailed_description"])
+        self.assertNotIn("left", parts["detailed_description"])
         self.assertIn("<Subject 2> (appears in [Shot 1])", parts["retention_analysis"])
 
-    def test_a_line_that_places_them_is_left_alone(self):
+    def test_nobody_is_placed_where_the_script_does_not_say(self):
         self.assertNotIn("of the frame", write_prompt("@1 stands behind @2.", jobs={1: "person", 2: "person"}))
+        text = write_prompt("@1 and @2 stand side by side.", jobs={1: "person", 2: "person"})
+        self.assertNotIn("on the left", text)
+        self.assertNotIn("on the right", text)
 
     def test_she_is_only_the_person_when_there_is_one(self):
         self.assertIn("<Subject 1> runs.", write_prompt("She runs."))
@@ -556,10 +532,13 @@ class PictureJobTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "@2 can't be in a line"):
             write_prompt("@2 runs", jobs={1: "person", 2: "end on it"})
 
-    def test_each_person_speaks_in_their_own_number(self):
+    def test_two_people_speak_as_typed(self):
+        # Nobody is picked for them: each line goes to H3 the way it was typed.
         text = write_prompt('@1 says "hi"\n@2 says "hello"', jobs={1: "person", 2: "person"})
-        self.assertIn("<Subject 1> (S1) says, <d>[English] hi.</d>", text)
-        self.assertIn("<Subject 2> (S2) says, <d>[English] hello.</d>", text)
+        self.assertIn("<Subject 1> says <d>[English] hi.</d>", text)
+        self.assertIn("<Subject 2> says <d>[English] hello.</d>", text)
+        self.assertNotIn("(S1)", text)
+        self.assertNotIn("jaw and lips", text)
 
     def test_the_voice_goes_to_who_speaks_first(self):
         parts = parts_of('@2 says "hello"\n@1 says "hi"', jobs={1: "person", 2: "person"}, voice=True)
@@ -616,40 +595,151 @@ class ShotFlowTests(unittest.TestCase):
         self.assertNotIn("film grain", parts["detailed_description"])
 
 
-class SoundWordTests(unittest.TestCase):
-    """A word that reads two ways gets the sound only when it means the sound."""
+EVERYDAY = [
+    line
+    for line in (Path(__file__).parent / "fixtures" / "h3_everyday_lines.txt").read_text(encoding="utf-8").splitlines()
+    if line.strip() and not line.startswith("#")
+]
+LABELS = re.compile(r"<[^>]+> is in the shot\.|<[^>]+>|\[Shot \d+\]|\bAt \d\d:\d\d\.\d+,")
 
-    def sound(self, line):
-        return moment_sound(Moment(line), read_script(line))
 
-    def test_words_that_mean_something_else_stay_quiet(self):
-        for line in (
-            "She raises one hand and waves.",
-            "He waves at the crowd.",
-            "She eats breakfast at the window.",
-            "He explores the old house.",
-            "She runs her hand through her hair.",
-            "She falls asleep on the sofa.",
-            "Night falls over the town.",
-            "She flashes a smile.",
-            "She breaks into a smile.",
-            "He takes a break on the steps.",
+def words_of(text):
+    return set(re.findall(r"[a-z0-9']+", LABELS.sub(" ", text).lower()))
+
+
+class EverydayLineTests(unittest.TestCase):
+    """Ordinary lines go in as typed: the writer lays them out for H3 and adds
+    no sound, state or setting of its own."""
+
+    def test_no_word_is_added_to_an_everyday_line(self):
+        for line in EVERYDAY:
+            added = words_of(" ".join(shots(line, seconds=8))) - words_of(line)
+            self.assertEqual(added, set(), line)
+
+    def test_an_everyday_line_switches_nothing_off(self):
+        for line in EVERYDAY:
+            script = read_script(line)
+            self.assertFalse(script.silent, line)
+            self.assertNotEqual(script.music, "N/A", line)
+            self.assertFalse(script.one_take, line)
+            self.assertFalse(any(moment.start or moment.end for moment in script.moments), line)
+
+    def test_words_stay_where_they_were_typed(self):
+        for line, moments in (
+            ("First person view of a busy market.", ["First person view of a busy market"]),
+            ("First aid arrives.", ["First aid arrives"]),
+            ("Step 2 feet to the left.", ["Step 2 feet to the left"]),
+            ("1: She waves.", ["She waves"]),
+            ("She finally finds the keys.", ["She finally finds the keys"]),
+            ("The leaves suddenly turn red.", ["The leaves suddenly turn red"]),
+            ("The rope is cut to length.", ["The rope is cut to length"]),
+            ("The dance ends with a spin.", ["The dance ends with a spin"]),
+            ("At the end of the pier she waves.", ["At the end of the pier she waves"]),
+            ("It starts at nine every day.", ["It starts at nine every day"]),
+            ("It starts at 9 every day.", ["It starts at 9 every day"]),
+            ("It starts in ten seconds.", ["It starts in ten seconds"]),
+            ("It starts on 3 March.", ["It starts on 3 March"]),
+            ("She smiles, smash cut to black.", ["She smiles", "Black"]),
         ):
-            self.assertEqual(self.sound(line), "", line)
+            self.assertEqual([moment.text for moment in read_script(line).moments], moments, line)
 
-    def test_the_real_thing_keeps_its_sound(self):
-        for line, heard in (
-            ("The waves crash on the rocks.", "water"),
-            ("She stands in the big grey waves.", "water"),
-            ("The house explodes.", "boom"),
-            ("The window shatters.", "shatters"),
-            ("He breaks the bottle on the bar.", "shatters"),
-            ("She runs down the platform.", "footsteps"),
-            ("He falls off the roof.", "thud"),
-            ("A flash goes off.", "shutter"),
-            ("She crosses a rainy street.", "Rain"),
+    def test_an_opening_can_start_with_a_number(self):
+        script = read_script("She walks away.\nStarts with two people sitting at a table.")
+        self.assertEqual([moment.text for moment in script.moments], ["Two people sitting at a table", "She walks away"])
+        self.assertTrue(script.moments[0].start)
+        script = read_script("She walks away.\nIt starts on one knee by the window.")
+        self.assertEqual([moment.text for moment in script.moments], ["One knee by the window", "She walks away"])
+
+    def test_only_a_sequence_word_starts_a_moment(self):
+        for line, moments in (
+            ("She sits, next to her sister.", ["She sits, next to her sister"]),
+            ("Back then people wore hats.", ["Back then people wore hats"]),
+            ("By then she is asleep.", ["By then she is asleep"]),
+            ("She shows her U.S. passport.", ["She shows her U.S. passport"]),
+            ("She smiles then waves.", ["She smiles", "Waves"]),
+            ("She smiles. Then she waves.", ["She smiles", "She waves"]),
+            ("She walks away, later she returns.", ["She walks away", "She returns"]),
         ):
-            self.assertIn(heard, self.sound(line), line)
+            self.assertEqual([moment.text for moment in read_script(line).moments], moments, line)
+
+    def test_a_time_is_a_time_only_when_it_is_marked(self):
+        for line, at in (
+            ("7 seconds remain on the scoreboard.", None),
+            ("3s: she jumps", 3.0),
+            ("3s she jumps", 3.0),
+            ("at 3 seconds the lights go out", 3.0),
+            ("3 seconds: she sits", 3.0),
+            ("[00:02-00:04] She waves.", 2.0),
+        ):
+            moment = read_script(line).moments[-1]
+            self.assertEqual(moment.at, at, line)
+            self.assertNotIn("]", moment.text, line)
+
+    def test_each_shot_keeps_its_own_camera_and_sound(self):
+        script = read_script("Shot 1: She nods.\ncamera: still\nShot 2: She turns.\ncamera: handheld\nsound: rain")
+        self.assertEqual([(moment.camera, moment.sound) for moment in script.moments], [("still", ""), ("handheld", "rain")])
+        script = read_script("She nods.\nShot 2:\nShe turns.")
+        self.assertEqual([moment.cut for moment in script.moments], [False, True])
+        self.assertEqual(read_script("camera: handheld").camera, "handheld")
+
+    def test_every_quote_is_said_by_who_says_it(self):
+        script = read_script('Maya says "Hi" while Ben replies "Bye".')
+        self.assertEqual([moment.speech for moment in script.moments], ["Hi", "Bye"])
+        self.assertEqual(read_script("She says 'come here' and waves.").moments[0].speech, "come here")
+        self.assertEqual(read_script("She can't wait, it's 'late'.").moments[0].speech, "")
+        for line in ('She says "Wait" in voiceover.', 'VO: "Come back."'):
+            moment = read_script(line).moments[0]
+            self.assertTrue(moment.voiceover, line)
+        # With two people the writer picks no speaker: the line reaches H3 as typed.
+        for line, typed in (
+            ('@1 listens as @2 says "Hi."', "<Subject 1> listens as <Subject 2> says <d>[English] Hi.</d>"),
+            ('@1 turns to @2 and says "Hello."', "<Subject 1> turns to <Subject 2> and says <d>[English] Hello.</d>"),
+            ('@1 glares at @2, who says "Fine."', "<Subject 1> glares at <Subject 2>, who says <d>[English] Fine.</d>"),
+        ):
+            text = parts_of(line, jobs={1: "person", 2: "person"})["detailed_description"]
+            self.assertIn(typed, text, line)
+            self.assertNotIn("(S1)", text, line)
+            self.assertNotIn("jaw and lips", text, line)
+        voiced = parts_of('@1 looks at @2 and @2 says "Go."', jobs={1: "person", 2: "person"}, voice=True)
+        self.assertIn("voice-timbre reference for <Subject 2> (S1)", voiced["subject_definitions"])
+        self.assertEqual(read_script("She says \"He said 'come here'.\"").moments[0].speech, "He said 'come here'.")
+        self.assertNotIn("In voiceover", parts_of('She says "Wait" in voiceover.')["detailed_description"])
+
+    def test_a_cut_back_and_a_one_word_ending(self):
+        lines = shots("She walks into the hallway.\n\nShe sits in the kitchen.\n\nCut back to the hallway.", seconds=9)
+        self.assertIn("the camera cuts back to the hallway.", lines[2])
+        self.assertNotIn("Every shot is a new place.", write_prompt("She walks into the hallway.\n\nCut back to the hallway."))
+        self.assertTrue(read_script("She waves.\nStart on black.").moments[0].start)
+        self.assertTrue(read_script("End: black\nShe waves.").moments[-1].end)
+        self.assertFalse(read_script("It ends.").moments[0].end)
+
+    def test_clip_notes_mean_only_what_they_say(self):
+        self.assertFalse(read_script("She walks through a field, muted colours.").silent)
+        self.assertFalse(read_script("No soundtrack.\nShe walks.").silent)
+        self.assertEqual(read_script("No soundtrack.\nShe walks.").music, "N/A")
+        self.assertEqual(read_script("No background music.\nShe walks.").music, "N/A")
+        self.assertTrue(read_script("Without sound.\nShe walks.").silent)
+        self.assertNotEqual(read_script('She says "No music until the show is over."').music, "N/A")
+        self.assertFalse(read_script("He takes one shot at the basket.").one_take)
+        self.assertTrue(read_script("No camera cuts.\nShe walks.\n\nShe stops.").one_take)
+        self.assertFalse(read_script('The TV plays without audio while she says "Hello."').silent)
+        self.assertFalse(read_script("She watches a silent film on her laptop.").silent)
+        self.assertTrue(read_script("Silent film.\nShe walks.").silent)
+        self.assertTrue(read_script("She walks. Completely silent.").silent)
+
+    def test_who_says_the_words_and_what_is_written(self):
+        for line, said in (
+            ('Her T-shirt says "Be kind".', ""),
+            ('The sign says "OPEN".', ""),
+            ('A neon sign reads "OPEN" and flickers.', ""),
+            ('She holds up a sign and shouts "Vote today!"', "Vote today!"),
+            ('He says a few words: "Thank you all."', "Thank you all."),
+            ('She reads aloud "Welcome home".', "Welcome home"),
+            ('She waves at the camera saying "hi everyone".', "hi everyone"),
+        ):
+            self.assertEqual(read_script(line).moments[0].speech, said, line)
+        for line in ('Her voice cracks as she says "Sorry."', 'She looks off screen and says "Hello."'):
+            self.assertFalse(read_script(line).moments[0].voiceover, line)
 
 
 class VideoJobTests(unittest.TestCase):
@@ -818,6 +908,30 @@ class VideoJobTests(unittest.TestCase):
         said = "a man with curly brown hair, wearing dark-framed glasses, and no visible beard or facial hair."
         self.assertEqual(add_looks("Swap him for @1.", {1: "person"}, lambda slot: said),
                          "Swap him for @1.\n@1 looks like a man with curly brown hair, wearing dark-framed glasses")
+
+    def test_a_swap_reads_the_looks_sentence_on_the_same_line(self):
+        from nodes._h3_cast_helpers import add_looks
+        typed = "replace the girl on the car with @1 .@1 looks like a young woman with long dark hair"
+        text = write_prompt(typed, seconds=8.0, jobs={1: "person"}, video="swap the person")
+        self.assertIn("<Subject 1> is the girl on the car in <Video 1>", text)
+        self.assertIn("this appearance: a young woman with long dark hair.", text)
+        self.assertNotIn("looks like", text)
+        # A typed sentence still wins over the model, wherever it sits on the line.
+        self.assertNotIn("bald", add_looks(typed, {1: "person"}, lambda slot: "a bald man"))
+        # A spoken line that happens to hold the words is left alone.
+        said = 'Replace the guy with @1.\n@1 says: "He said @1 looks like trouble."'
+        self.assertNotIn("this appearance", write_prompt(said, seconds=8.0, jobs={1: "person"}, video="swap the person"))
+        # Only a new sentence is split off: inside a sentence the words are left where they are.
+        from nodes._h3_cast_helpers import looks_on_own_lines
+        self.assertEqual(looks_on_own_lines("Put @1 looks like a friend here."), "Put @1 looks like a friend here.")
+        self.assertEqual(looks_on_own_lines("Swap him for @1! @1 looks like a pilot"), "Swap him for @1!\n@1 looks like a pilot")
+
+    def test_a_swap_reads_clothes_typed_on_their_own_line(self):
+        swap = dict(seconds=8.0, jobs={1: "person"}, video="swap the person")
+        text = write_prompt("Replace the man in the checked shirt with @1.\n@1 is wearing a black suit.", **swap)
+        self.assertIn("this appearance: the same hair, wearing a black suit.", text)
+        both = "Replace the guy with @1.\n@1 looks like a man with short dark hair.\n@1 wears a black suit."
+        self.assertIn("this appearance: a man with short dark hair, wearing a black suit.", write_prompt(both, **swap))
 
     def test_a_swap_gets_the_firm_wording_without_a_looks_like_line(self):
         text = write_prompt("Replace the guy with @1.", seconds=8.0, jobs={1: "person"}, video="swap the person")
@@ -1270,6 +1384,19 @@ class NodeTests(unittest.TestCase):
         self.assertEqual(frames, 141)
         self.assertIn("<Audio 1>", node.write(SAYS, 6, picture_1=PICTURE, voice=self.audio())[0])
 
+    def test_an_edited_full_prompt_is_sent_and_the_written_one_shown(self):
+        node = AusBossH3PromptWriter()
+        written = node.write(LINES, 6, picture_1=PICTURE)
+        plain = node.run(LINES, 6, picture_1=PICTURE)
+        self.assertEqual(plain["ui"]["written_prompt"], [written[0]])
+        self.assertEqual(plain["result"][0], written[0])
+        self.assertEqual(plain["result"][1:11], written[1:11])
+        edited = node.run(LINES, 6, picture_1=PICTURE, full_prompt="my own prompt\nno push in")
+        self.assertEqual(edited["result"][0], "my own prompt\nno push in")
+        self.assertEqual(edited["ui"]["written_prompt"], [written[0]])
+        self.assertEqual(edited["result"][11], written[11])
+        self.assertEqual(node.run(LINES, 6, picture_1=PICTURE, full_prompt="  \n")["result"][0], written[0])
+
     def test_the_picks_that_change_nothing_add_nothing(self):
         node = AusBossH3PromptWriter()
         self.assertEqual(node.write(LINES, 6, picture_1=PICTURE)[0], node.write(LINES, 6, picture_1=PICTURE, camera="as typed", look="from the picture")[0])
@@ -1433,7 +1560,7 @@ class SoundAndMusicBoxTests(unittest.TestCase):
 
     def test_the_boxes_are_appended_after_every_older_input(self):
         names = list(AusBossH3PromptWriter.INPUT_TYPES()["optional"])
-        self.assertEqual(names[-3:], ["sound", "music", "clip_sound"])
+        self.assertEqual(names[-4:], ["sound", "music", "clip_sound", "full_prompt"])
 
 
 def spoken(stretches, seconds, rate=16000, noise=0.002, seed=3):
@@ -1621,7 +1748,10 @@ class PromptBugBatchTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, r"name who speaks: @2 says"):
             write_prompt('@1 and @2 talk. She says "hi". He says "hello".', seconds=6, jobs=jobs)
         parts = parts_of('@1 says "hi". @2 says "hello".', seconds=6, jobs=jobs)
-        self.assertIn("<Subject 1> and <Subject 2> speak", parts["summary"])
+        self.assertIn("<Subject 1> says a line.", parts["summary"])
+        self.assertNotIn('"hi"', parts["summary"])
+        with self.assertRaisesRegex(ValueError, r"put who speaks right before the words: @2 says"):
+            write_prompt('@1 turns to @2 and says "hi".', seconds=6, jobs=jobs, voice=True)
 
     def test_keep_going_uses_the_person_picture_as_the_main_person(self):
         parts = parts_of("He walks.", seconds=6, jobs={1: "person"}, video="keep going")

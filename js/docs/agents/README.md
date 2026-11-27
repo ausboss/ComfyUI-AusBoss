@@ -28,11 +28,15 @@ help panel.
 | Keep the untouched parts of a picture exactly as they were while an edit model edits it | Edit Lock (`AUSBOSS_NODES_EditLock`) then Edit Lock Restore (`AUSBOSS_NODES_EditLockRestore`) |
 | Line an edited picture back up with the original | Realign to Source (`AUSBOSS_NODES_RealignToSource`, experimental) |
 | Match one picture's colors to another | Color Match (`AUSBOSS_NODES_ColorMatch`) |
+| Add film grain to a picture or a video, or copy another picture's grain | Film Grain (`AUSBOSS_NODES_FilmGrain`) |
+| Turn a picture and a mask into a transparent cut-out with clean edges | Cut Out (`AUSBOSS_NODES_CutOut`) |
+| Put the original's fine detail back on a smoothed edit | Keep Detail (`AUSBOSS_NODES_KeepDetail`) |
 | Upscale big pictures in tiles | Tiled Upscale (`AUSBOSS_NODES_TiledUpscale`) then Tiled Upscale Stitch (`AUSBOSS_NODES_TiledUpscaleStitch`) |
 | Compare two pictures | Image Compare A/B (`AUSBOSS_NODES_Compare`) |
 | Save pictures (PNG, lossless WebP or JPEG XL) | Save Image (`AUSBOSS_NODES_SaveImage`) |
 | Run a workflow on each picture in a folder | Image Folder (`AUSBOSS_NODES_ImageFolder`) |
 | Apply a stack of LoRAs | LoRA Loader (`AUSBOSS_NODES_LoraLoader`) |
+| Change a LoRA row's or a Krea 2 reference's strength over the steps of a run | Strength Curve (`AUSBOSS_NODES_StrengthCurve`) into LoRA Loader's `curve` or Krea 2 Encode's `reference_curve` |
 | Write a MiniMax H3 or Pika H3 Flex prompt from plain words | H3 Prompt Writer (`AUSBOSS_NODES_H3PromptWriter`): [node help](../AUSBOSS_NODES_H3PromptWriter.md) |
 | Krea 2 prompt, and Krea 2 outpainting | Krea 2 Encode (`AUSBOSS_NODES_Krea2Encode`), Krea 2 Outpaint Model Patch (`AUSBOSS_NODES_Krea2OutpaintModelPatch`) |
 | Load or save a video | Load Video (`AUSBOSS_NODES_LoadVideo`), Save Video (`AUSBOSS_NODES_SaveVideo`) |
@@ -46,6 +50,8 @@ help panel.
 | A prompt that picks from `{a\|b\|c}` choices on each run, by seed | Prompt Variations (`AUSBOSS_NODES_PromptVariations`) |
 | Do maths on numbers | Math Expression (`AUSBOSS_NODES_MathExpression`) |
 | Show text on the node, or the picture while it is made | Show Text (`AUSBOSS_NODES_ShowText`), Step Preview (`AUSBOSS_NODES_StepPreview`) |
+| Stop a run after the 3D viewer to frame the shot on the new model, with a 360 behind it | Pause for Shot (`AUSBOSS_NODES_PauseShot`): [node help](../AUSBOSS_NODES_PauseShot.md) |
+| Line a 3D model (Pixal3D) up with the photo: the photo's camera for the viewer, the crop's lens, the photo's place on a 360 | Photo Camera (`AUSBOSS_NODES_PhotoCamera`): [node help](../AUSBOSS_NODES_PhotoCamera.md) |
 | Free graphics memory between steps | Free Memory (`AUSBOSS_NODES_FreeMemory`) |
 | Time the whole run | Run Timer (`AUSBOSS_NODES_RunTimer`) |
 | Turn parts of a workflow off and on | Workflow Switches (`AUSBOSS_NODES_WorkflowSwitches`): [its own agent guide](workflow_switches.md) |

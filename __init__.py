@@ -11,7 +11,6 @@ of taking the whole pack down, so one broken node never hides the rest.
 
 import importlib
 import os
-import tomllib
 import traceback
 
 # One entry per file in nodes/, kept alphabetical. The order has no
@@ -22,7 +21,9 @@ NODE_MODULES = [
     "node_callout",
     "node_color_match",
     "node_compare",
+    "node_cut_out",
     "node_edit_lock",
+    "node_film_grain",
     "node_flashvsr_upscale",
     "node_frame_interpolate",
     "node_free_memory",
@@ -31,7 +32,9 @@ NODE_MODULES = [
     "node_image_folder",
     "node_image_resize",
     "node_image_size",
+    "node_image_toolbox",
     "node_inpaint_crop_stitch",
+    "node_keep_detail",
     "node_krea2_encode",
     "node_krea2_model_patch",
     "node_lama_inpaint",
@@ -45,6 +48,8 @@ NODE_MODULES = [
     "node_mask_by_name",
     "node_mask_by_touch",
     "node_math",
+    "node_pause_shot",
+    "node_photo_camera",
     "node_prompt_variations",
     "node_realign_to_source",
     "node_refine_mask",
@@ -56,6 +61,7 @@ NODE_MODULES = [
     "node_select_frame",
     "node_show_text",
     "node_step_preview",
+    "node_strength_curve",
     "node_text_lines",
     "node_tiled_upscale",
     "node_video_crop_rotate_pad",
@@ -92,8 +98,10 @@ for _module_name in NODE_MODULES:
         traceback.print_exc()
 
 # Folder ComfyUI serves to the browser; every .js file in it is loaded as a
-# frontend extension. Shared modules use .mjs so they are import-only.
-WEB_DIRECTORY = None if _other_copy else "./js"
+# frontend extension. Shared modules use .mjs so they are import-only. A copy
+# that steps aside serves only the script that warns about it in the browser,
+# since the console line alone is easy to miss.
+WEB_DIRECTORY = "./web_second_copy" if _other_copy else "./js"
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
 
@@ -101,9 +109,10 @@ __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
 def _read_version():
     """Version straight from pyproject.toml so it is never duplicated."""
     try:
+        from .nodes._pyproject import read_project
+
         pyproject = os.path.join(os.path.dirname(__file__), "pyproject.toml")
-        with open(pyproject, "rb") as f:
-            version = tomllib.load(f).get("project", {}).get("version")
+        version = read_project(pyproject).get("version")
         return version if isinstance(version, str) and version.strip() else "unknown"
     except Exception:
         return "unknown"
@@ -143,6 +152,14 @@ def _print_second_copy():
 
 if _other_copy:
     _print_second_copy()
+    try:
+        from .nodes._single_copy import register_second_copy_notice, second_copy_notice
+
+        register_second_copy_notice(
+            second_copy_notice(os.path.dirname(__file__), _read_version(), _other_copy)
+        )
+    except Exception:
+        traceback.print_exc()
 else:
     try:
         from .nodes._frontend_cache import register_frontend_cache_guard

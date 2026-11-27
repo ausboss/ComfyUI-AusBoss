@@ -4,16 +4,19 @@ import { linkedNodeInfo, timingUnits as clipUnits } from "./timing_links.mjs";
 import { PANEL_LABELS } from "./panel_controls.mjs";
 import { hideInputsInDef, hideWidget } from "./widget_visibility.mjs";
 import { mountTransformTrim } from "./transform_trim.mjs";
+import { mountClipWindow } from "./clip_window.mjs";
 import { clipOutputRate, inputNumber } from "./clip_rate.mjs";
+import { wiredFieldText, wiredNumber, wiredResize, wiredSummaryParts, wiredSwitch } from "./transform_wired.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "./index.mjs";
 import { WIDGET_FRAME, fillNodeHeight, holdVueNodeMinWidth, holdVuePanelMinHeight } from "./panel_layout.mjs";
 import { mediaViewQuery, unlistedMedia } from "./media_list.mjs";
 import { createMediaPicker } from "./media_picker.mjs";
 import { normalizeFillColor } from "./fill_color.mjs";
 import { makeSlideSwitch } from "./slide_switch.mjs";
+import { t } from "./i18n.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
 import { confirmDiscard } from "./discard_prompt.mjs";
-import { featherGeneratedMask, generatedAreaMask, overlayPlan, seeThroughMap, stitchBlendFromMask } from "./stitch_preview.mjs";
+import { PIXEL_PROBE, featherGeneratedMask, generatedAreaMask, overlayPlan, pixelReadTrusted, seeThroughMap, stitchBlendFromMask } from "./stitch_preview.mjs";
 import { suppressCoreVideoPreview } from "./core_preview.mjs";
 import { gearIconSvg, loadSettings, openSettingsMenu } from "./settings_menu.mjs";
 import { createSettle } from "./settle.mjs";
@@ -80,8 +83,9 @@ import {
   wrapDegrees,
   zoomAround,
 } from "./transform_geometry.mjs";
-import { clampFrame, clipInfo, frameTime } from "./timeline_math.mjs";
+import { clampFrame, clipInfo, frameTime, lengthLimits, limitsSummary, setLengthLimit } from "./timeline_math.mjs";
 import { liftSocket } from "./widget_card.mjs";
+import { COPY_EDITS_SETTING, copyPicture, transformPicture } from "./transform_picture.mjs";
 
 const HIDDEN_WIDGETS = [
   "image", "upload",
@@ -90,6 +94,9 @@ const HIDDEN_WIDGETS = [
   "pad_left", "pad_top", "pad_right", "pad_bottom", "feather", "canvas_multiple", "fill_color",
   "seek_mode", "frame_index", "frame_time",
   "start_seconds", "end_seconds", "every_nth", "max_frames", "frame_snap", "fixed_frames",
+  // Clip node: the length limits, and the App-mode clip window (a DOM
+  // widget shown only in a form that lists it, js/app_mode/).
+  "min_seconds", "max_seconds", "clip_window",
   // Stitch settings (clip and image nodes), driven by the editor's Inpaint & Stitch section.
   "stitch_blend", "stitch_grow",
   // Image node: what a painted part is handed on as, set in the same section.
@@ -107,7 +114,7 @@ const RESIZE_METHODS = ["lanczos", "area", "bicubic", "bilinear", "nearest-exact
 const TRANSFORM_DEFAULTS = resetTransformValues(false);
 const CORE_IMAGE_PREVIEW_WIDGET = "$$canvas-image-preview";
 
-// The gear on the image node's source card. Display choices only, kept for
+// The gear on the image node's source card. Browser preferences, kept for
 // every image node on this browser (settings_menu.mjs stores them).
 const SETTINGS_SCOPE = "image_crop_rotate_pad";
 const SETTINGS_SCHEMA = [
@@ -115,6 +122,7 @@ const SETTINGS_SCHEMA = [
     key: "show_mask", label: "Show the mask on the picture", type: "toggle", default: true,
     hint: "Teal over the parts of your picture the model paints: a mask drawn in the MaskEditor, or see-through parts of a PNG.",
   },
+  COPY_EDITS_SETTING,
 ];
 let transformSettings = null;
 function settings() {
@@ -184,6 +192,7 @@ function installStyles() {
     .ausboss-transform-group-title{display:inline-flex;align-items:center;gap:6px;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
     .ausboss-transform-group-caret{display:inline-block;color:${BRAND};font-size:11px;transition:transform .14s ease}
     .ausboss-transform-group.open .ausboss-transform-group-caret{transform:rotate(90deg)}
+    .ausboss-transform-wired{display:inline-flex;align-items:center;justify-content:flex-end;min-height:24px;padding:0 6px;border:1px dashed #3a5352;border-radius:5px;color:#8ca8a5;font:500 11px system-ui;font-variant-numeric:tabular-nums;white-space:nowrap;cursor:default}
     .ausboss-transform-group-summary{display:inline-flex;align-items:center;gap:6px;min-width:0;color:#8ca8a5;font:500 11px system-ui;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .ausboss-transform-group-swatch{flex:none;width:10px;height:10px;border:1px solid #555b63;border-radius:3px;box-sizing:border-box}
     .ausboss-transform-group-meta{min-width:0;overflow:hidden;text-overflow:ellipsis}
@@ -600,6 +609,15 @@ export function transformGroupOpen(node) {
   return node?.properties?.[TRANSFORM_GROUP_OPEN_PROPERTY] === true;
 }
 
+// The clip node's "Clip length limits" fold, under Crop, pad & resize: the
+// min_seconds / max_seconds pair, closed by default. Its own node property,
+// so it opens and shuts on its own.
+export const LIMITS_GROUP_OPEN_PROPERTY = "ausboss_clip_limits_open";
+
+function limitsGroupOpen(node) {
+  return node?.properties?.[LIMITS_GROUP_OPEN_PROPERTY] === true;
+}
+
 export function transformGroupSummary(state) {
   const node = state.node;
   const parts = [];
@@ -616,16 +634,9 @@ export function transformGroupSummary(state) {
     parts.push(`Custom ${ratioLabel(canvas.width, canvas.height)}`);
   }
   if (lockActive(state)) parts.push("held");
-  const feather = Math.round(Number(value(node, "feather", 0)) || 0);
-  if (feather > 0) parts.push(`feather ${feather} px`);
-  const multiple = Math.round(Number(value(node, "canvas_multiple", 1)) || 1);
-  if (multiple > 1) parts.push(`÷${multiple}`);
-  if (widget(node, "resize_to_megapixels") && value(node, "resize_to_megapixels", false)) {
-    const mp = Number(value(node, "megapixels", 1)) || 1;
-    const steps = Math.round(Number(value(node, "resolution_steps", 1)) || 1);
-    parts.push(`${mp.toFixed(2)} MP`);
-    if (steps > 1 && multiple <= 1) parts.push(`÷${steps}`);
-  }
+  // Feather, Align and the resize as the run uses them: a linked input runs
+  // with the wired value, not the widget's own (js/shared/transform_wired.mjs).
+  parts.push(...wiredSummaryParts(node));
   return parts.join(" · ");
 }
 
@@ -695,6 +706,94 @@ function buildTransformGroup(state, rows) {
   });
   head.addEventListener("pointerdown", (event) => event.stopPropagation());
   state.syncTransformGroup = sync;
+  chainCallback(node, "onConfigure", () => queueMicrotask(() => {
+    if (!state.disposed) { apply(); sync(); measureChrome(state); }
+  }));
+  apply();
+  sync();
+  return group;
+}
+
+// Clip length limits: Shortest and Longest, in seconds (min_seconds,
+// max_seconds; 0 is off). Built like the Crop, pad & resize fold and opens
+// the same way: the picture keeps its size and the node grows by the body.
+function buildLimitsGroup(state) {
+  const node = state.node;
+  const group = createElement("div", "ausboss-transform-group ausboss-transform-limits");
+  const head = createElement("button", "ausboss-transform-group-head");
+  head.type = "button";
+  const left = createElement("span", "ausboss-transform-group-title");
+  const caret = createElement("span", "ausboss-transform-group-caret", "▸");
+  caret.setAttribute("aria-hidden", "true");
+  left.append(caret, createElement("span", "", "Clip length limits"));
+  const right = createElement("span", "ausboss-transform-group-summary");
+  head.append(left, right);
+  const body = createElement("div", "ausboss-transform-group-body");
+  const row = createElement("div", "ausboss-transform-row ausboss-transform-canvas-row");
+  const current = () => ({ min: Number(value(node, "min_seconds", 0)) || 0, max: Number(value(node, "max_seconds", 0)) || 0 });
+  const fields = {};
+  const write = (edge, amount) => {
+    const next = setLengthLimit(edge, amount, current());
+    setValue(node, "min_seconds", next.min);
+    setValue(node, "max_seconds", next.max);
+    sync();
+    for (const trim of state.trimViews) trim.sync();
+  };
+  for (const [edge, caption, tip] of [
+    ["min", "Shortest", "The shortest the clip may be, in seconds. 0 is off. A shorter clip grows to this; a video shorter than this is used whole."],
+    ["max", "Longest", "The longest the clip may be, in seconds. 0 is off. A longer clip, or the whole video, is cut to this."],
+  ]) {
+    const label = createElement("label");
+    const control = makeScrubInput({
+      value: current()[edge], min: 0, max: 86400, step: 0.5, fineStep: 0.1, decimals: 2, minDecimals: 0, width: 72, unit: "s",
+      title: tip,
+      onChange: (amount) => write(edge, amount),
+      onSettle: notifyAusbossChange,
+    });
+    label.title = tip;
+    label.append(createElement("span", "", caption), control.root);
+    row.append(label);
+    fields[edge] = control;
+  }
+  body.append(row);
+  group.append(head, body);
+
+  const apply = () => {
+    const open = limitsGroupOpen(node);
+    group.classList.toggle("open", open);
+    body.hidden = !open;
+    head.setAttribute("aria-expanded", String(open));
+    head.title = open ? "Hide the clip length limits" : "Show the clip length limits: the shortest and longest the clip may be";
+  };
+  const sync = () => {
+    const limits = current();
+    const text = limitsSummary(limits.min, limits.max);
+    if (right.textContent !== text) right.textContent = text;
+    const clean = lengthLimits(limits.min, limits.max);
+    right.title = clean.active ? `The clip stays ${text} long` : "No limits: the clip is as long as you set it";
+    fields.min.set(limits.min);
+    fields.max.set(limits.max);
+  };
+  head.addEventListener("click", () => {
+    const stageHeight = state.previewCanvas?.clientHeight ?? 0;
+    const before = measureChrome(state) ?? 0;
+    node.properties ??= {};
+    node.properties[LIMITS_GROUP_OPEN_PROPERTY] = !limitsGroupOpen(node);
+    notifyAusbossChange();
+    apply();
+    const after = measureChrome(state) ?? before;
+    holdVuePanelMinHeight(state.previewCanvas?.parentElement, transformPanelFloor(node) - WIDGET_FRAME);
+    if (node.size && after !== before) {
+      const nextHeight = Math.max(transformPanelFloor(node), node.size[1] + after - before);
+      node.setSize?.([node.size[0], nextHeight]);
+      state.stageGrowth = { height: stageHeight, target: nextHeight };
+    }
+    node.setDirtyCanvas?.(true, true);
+    draw(state);
+  });
+  head.addEventListener("pointerdown", (event) => event.stopPropagation());
+  // The limits also change from the saved workflow and from undo.
+  state.trimViews.add({ sync });
   chainCallback(node, "onConfigure", () => queueMicrotask(() => {
     if (!state.disposed) { apply(); sync(); measureChrome(state); }
   }));
@@ -773,6 +872,7 @@ export function installTransformNode(node, kind, mountPanel = null) {
   // center and resize controls into one collapsible group, with a live
   // summary on the header so active settings stay visible when closed.
   panel.append(buildTransformGroup(state, [modeRow.row, chipRow.row, ...canvasRows]));
+  if (state.isClip && widget(node, "min_seconds") && widget(node, "max_seconds")) panel.append(buildLimitsGroup(state));
   panel.append(row);
   state.previewCanvas = preview;
   open.addEventListener("click", () => openEditor(state));
@@ -794,6 +894,7 @@ export function installTransformNode(node, kind, mountPanel = null) {
   } else {
     node.addWidget?.("button", "Open editor", null, () => openEditor(state), { serialize: false });
   }
+  if (state.isClip && typeof node.addDOMWidget === "function") installClipWindow(state);
   // A fresh node opens at its floor: the stage as tall as its width asks.
   node.setSize?.([
     Math.max(TRANSFORM_MIN_WIDTH, Math.min(520, node.size?.[0] || TRANSFORM_MIN_WIDTH)),
@@ -827,6 +928,13 @@ export function installTransformNode(node, kind, mountPanel = null) {
           for (const trim of state.trimViews) trim.sync();
         }
       }
+      // A wired value changed upstream (a Float typed to 24): the summary,
+      // the face fields and the size readout follow it.
+      if (!state.disposed) {
+        const wired = JSON.stringify([wiredSummaryParts(node), wiredResize(node)]);
+        if (state.wiredKey !== undefined && wired !== state.wiredKey) queueMicrotask(() => { if (!state.disposed) draw(state); });
+        state.wiredKey = wired;
+      }
       if (state.disposed || state.zoomRedraw || !panelBackingStale(state)) return;
       state.zoomRedraw = requestAnimationFrame(() => { state.zoomRedraw = null; if (!state.disposed) draw(state); });
     });
@@ -850,6 +958,7 @@ export function installTransformNode(node, kind, mountPanel = null) {
   }
   chainCallback(node, "onConnectionsChange", () => queueMicrotask(() => {
     for (const trim of state.trimViews) trim.sync();
+    if (!state.disposed) draw(state);
   }));
   chainCallback(node, "onConfigure", () => queueMicrotask(() => {
     if (state.disposed) return;
@@ -1049,7 +1158,7 @@ function buildAspectChipRow(state) {
       caption.textContent = untouched ? "Source" : "Custom";
       caption.title = `${untouched ? "The picture's own shape" : "No ratio button has this shape"}: ${canvas.width}×${canvas.height} (${ratioLabel(canvas.width, canvas.height)}). Tap a ratio to use one.`;
     }
-    caption.classList.toggle("generic", caption.textContent === "Ratio");
+    caption.classList.toggle("generic", !held && Boolean(request || !picture));
     caption.classList.toggle("custom", Boolean(picture && !request && !untouched && !held));
     caption.classList.toggle("held", held);
     for (const { chip, aspect } of chips) {
@@ -1408,6 +1517,12 @@ function buildCanvasRow(state) {
   stepLabel.append(createElement("span", "", "Step"), steps.root);
   const hasResize = Boolean(widget(node, "resize_to_megapixels"));
   resizeRow.append(resizeLabel, budgetLabel, stepLabel);
+  const wired = [
+    wiredStandIn(node, "feather", feather, 0, (amount) => `${Math.round(amount)} px`),
+    wiredStandIn(node, "canvas_multiple", multiple, 1, (amount) => `${Math.round(amount)} px`),
+    wiredStandIn(node, "megapixels", budget, 1, (amount) => `${Number(amount).toFixed(2)} MP`),
+    wiredStandIn(node, "resolution_steps", steps, 1, (amount) => `${Math.round(amount)} px`),
+  ];
   const sync = () => {
     fill.value = normalizeColor(value(node, "fill_color", "#808080"));
     fill.title = `${fill.title.split(" Now ")[0]} Now ${fill.value}.`;
@@ -1417,7 +1532,9 @@ function buildCanvasRow(state) {
     resize.sync();
     budget.set(value(node, "megapixels", 1));
     steps.set(value(node, "resolution_steps", 1));
-    const resizeOn = hasResize && Boolean(value(node, "resize_to_megapixels", false));
+    for (const standIn of wired) standIn();
+    const switched = wiredSwitch(node, "resize_to_megapixels", false);
+    const resizeOn = hasResize && (!switched.known || Boolean(switched.value));
     resizeRow.style.display = hasResize ? "" : "none";
     budgetLabel.style.display = resizeOn ? "" : "none";
     stepLabel.style.display = resizeOn ? "" : "none";
@@ -1429,6 +1546,22 @@ function buildCanvasRow(state) {
     element.addEventListener("pointerdown", (event) => { if (event.target.closest("input,label,button")) event.stopPropagation(); });
   }
   return [alignRow, row, resizeRow];
+}
+
+// A linked setting runs with the wired value, so its number box gives way to
+// that value (or "from a link" when only the run knows it). The box stays the
+// way to set the widget's own value once the link is gone. Returns the sync.
+function wiredStandIn(node, name, control, fallback, format) {
+  const text = createElement("span", "ausboss-transform-wired");
+  text.title = t("Set by a link into this input. Remove the link to type a value here.");
+  text.style.display = "none";
+  control.root.after(text);
+  return () => {
+    const shown = wiredFieldText(wiredNumber(node, name, fallback), format);
+    control.root.style.display = shown === null ? "" : "none";
+    text.style.display = shown === null ? "none" : "";
+    if (shown !== null) text.textContent = shown === "from a link" ? t("from a link") : shown;
+  };
 }
 
 // Resize as an off | on pill, on the node face and in the editor.
@@ -1471,7 +1604,7 @@ function syncReadout(state) {
   const source = rotatedSize(state.sourceWidth, state.sourceHeight, current.rotation_degrees);
   const resize = resizeRequest(state.node);
   const chain = sizeChain(current, source, resize);
-  const { tokens, warnings } = litTokens(state, sizeChainTokens(chain));
+  const { tokens, warnings } = readoutTokens(state, chain);
   const prefix = createElement("span", "ausboss-transform-ellipsis");
   tokens.forEach((token, index) => {
     if (index) prefix.append(" → ");
@@ -1761,6 +1894,8 @@ async function requestStoryboard(state, key, attempt = 0) {
       image, times: payload.times, count: payload.count,
       tileWidth: payload.tile_width, tileHeight: payload.tile_height,
     };
+    // The App-mode clip window draws its strip from the same tiles.
+    for (const trim of state.trimViews) trim.sync();
   } catch { /* storyboard is an enhancement, never an error */ }
 }
 
@@ -1929,7 +2064,7 @@ function editorSnapshot(node) {
   }
   const properties = {};
   for (const [key, current] of Object.entries(node.properties ?? {})) {
-    if (key.startsWith("ausboss_") && key !== TRANSFORM_GROUP_OPEN_PROPERTY) properties[key] = JSON.stringify(current);
+    if (key.startsWith("ausboss_") && key !== TRANSFORM_GROUP_OPEN_PROPERTY && key !== LIMITS_GROUP_OPEN_PROPERTY) properties[key] = JSON.stringify(current);
   }
   return { widgets, properties };
 }
@@ -2226,6 +2361,12 @@ function buildControls(state, sidebar) {
   previewSection.append(finalPreview);
   state.finalPreviewCanvas = finalPreview;
 
+  const editorWired = [
+    wiredStandIn(node, "feather", featherNumber, 24, (amount) => `${Math.round(amount)} px`),
+    wiredStandIn(node, "canvas_multiple", multiple, 1, (amount) => `${Math.round(amount)} px`),
+    ...(budget ? [wiredStandIn(node, "megapixels", budget, 1, (amount) => `${Number(amount).toFixed(2)} MP`)] : []),
+    ...(steps ? [wiredStandIn(node, "resolution_steps", steps, 1, (amount) => `${Math.round(amount)} px`)] : []),
+  ];
   sidebar.append(cropSection, rotateSection, padSection);
   if (resizeSection) sidebar.append(resizeSection);
   sidebar.append(actions, previewSection);
@@ -2235,6 +2376,7 @@ function buildControls(state, sidebar) {
     featherNumber.set(value(node, "feather", 24));
     multiple.set(value(node, "canvas_multiple", 1)); color.value = normalizeColor(value(node, "fill_color", "#808080"));
     resize?.sync(); budget?.set(value(node, "megapixels", 1)); steps?.set(value(node, "resolution_steps", 1));
+    for (const standIn of editorWired) standIn();
     if (more) more.value = extra.includes(liveRequest(state) ?? "") ? liveRequest(state) : "";
   };
 }
@@ -2329,6 +2471,43 @@ function buildTrim(state) {
   });
   state.trimViews.add(control);
   return control.root;
+}
+
+// The clip window an App-mode form can list (js/shared/clip_window.mjs):
+// only the part of the video the run uses, as one box to drag. Hidden on
+// the graph, so the node's face is unchanged; js/app_mode/ shows it while a
+// form that lists it is open.
+function installClipWindow(state) {
+  const node = state.node;
+  const view = mountClipWindow({
+    get: (name, fallback) => value(node, name, fallback),
+    set: (name, next) => {
+      setValue(node, name, next);
+      for (const other of state.trimViews) if (other !== view) other.sync();
+    },
+    driven: (name) => trimInputDriven(node, name),
+    number: (name, fallback) => inputNumber(node, name, value(node, name, fallback)),
+    outputRate: () => clipOutputRate(node, state.metadata?.fps, value(node, "every_nth", 1)),
+    metadata: () => state.metadata,
+    storyboard: () => state.storyboard,
+    // Both source modes hold a name the way ComfyUI writes one
+    // ("clip.mp4", "clip.mp4 [output]"), so /view serves either.
+    videoUrl: () => {
+      const query = mediaViewQuery(sourceKey(node, "video") ? videoSourceState(
+        value(node, "source_mode", INPUT_FOLDER_MODE), value(node, "video", ""), value(node, "local_path", ""),
+      ).selection : "");
+      return query ? api.apiURL(`/view?${query}`) : "";
+    },
+    onCommit: notifyAusbossChange,
+  });
+  state.trimViews.add(view);
+  const clipWidget = node.addDOMWidget("clip_window", "ausboss_clip_window", view.root, {
+    serialize: false,
+    hideOnZoom: false,
+  });
+  clipWidget.serialize = false;
+  clipWidget.label = "Clip window";
+  hideWidget(clipWidget);
 }
 
 function setPlayhead(state, index) {
@@ -2631,8 +2810,9 @@ function draw(state) {
 // measured on every draw; before the panel is on screen, these stand in:
 // the rows of a node with no file picked yet, as the examples open (the
 // canvas row's Resize adds the budget row under it).
-const PANEL_CHROME_CLOSED_ESTIMATE = { image: 188, video: 291, clip: 377 };
-const PANEL_CHROME_OPEN_ESTIMATE = { image: 347, video: 450, clip: 536 };
+// The clip node's rows include the closed Clip length limits fold.
+const PANEL_CHROME_CLOSED_ESTIMATE = { image: 188, video: 291, clip: 417 };
+const PANEL_CHROME_OPEN_ESTIMATE = { image: 347, video: 450, clip: 576 };
 // Node width minus stage width: the DOM widget frame, panel padding, borders.
 const PANEL_SIDE_INSET = 38;
 // The narrowest face the chip row and the button rows fit on.
@@ -2745,10 +2925,23 @@ function drawScene(context, state, render, compact, interactive) {
   context.restore();
 }
 
+// The resize the run makes, wired values included; null when it is off or a
+// link decides a part of it that only the run knows (resizeFromLink).
 function resizeRequest(node) {
-  return value(node, "resize_to_megapixels", false)
-    ? { megapixels: value(node, "megapixels", 1), steps: value(node, "resolution_steps", 1) }
-    : null;
+  const resize = wiredResize(node);
+  return resize && !resize.unknown ? resize : null;
+}
+
+function resizeFromLink(node) {
+  return Boolean(wiredResize(node)?.unknown);
+}
+
+// The size chain's steps, ending on a resize a link decides when it does:
+// the size it lands on is only known at run time.
+function readoutTokens(state, chain) {
+  const result = litTokens(state, sizeChainTokens(chain));
+  if (resizeFromLink(state.node)) result.tokens = [...result.tokens, { label: "resize", text: "from a link" }];
+  return result;
 }
 
 // The size readout, drawn OUTSIDE the image: under the output rect, above
@@ -2759,7 +2952,7 @@ function resizeRequest(node) {
 // amber line when the steps stretch the picture or the resize undoes Align.
 const READOUT_LINE = 15;
 function drawOutputSize(context, state, render) {
-  const { tokens } = litTokens(state, sizeChainTokens(sizeChain(values(state.node), render.source, resizeRequest(state.node))));
+  const { tokens } = readoutTokens(state, sizeChain(values(state.node), render.source, resizeRequest(state.node)));
   // The amber line is the settled note, as on the face: it waits for the hand.
   const warnings = shownNote(state).warnings;
   const { outputRect } = render;
@@ -2861,6 +3054,9 @@ function maskLayer(state) {
   if (state.seeThrough?.image === state.image) return state.seeThrough.layer;
   let layer = null;
   try {
+    // A browser that blanks pixel reads would make the whole picture look
+    // see-through: draw it as it is instead.
+    if (!canReadPixels()) throw new Error("pixel reads are blocked");
     const k = Math.min(1, MASK_LAYER_SIDE / Math.max(state.sourceWidth, state.sourceHeight));
     const width = Math.max(1, Math.round(state.sourceWidth * k));
     const height = Math.max(1, Math.round(state.sourceHeight * k));
@@ -2886,6 +3082,22 @@ function maskLayer(state) {
   }
   state.seeThrough = { image: state.image, layer };
   return layer;
+}
+
+// Whether this browser hands back the pixels a canvas holds (pixelReadTrusted).
+// Asked once per page.
+let pixelReadsWork = null;
+function canReadPixels() {
+  if (pixelReadsWork !== null) return pixelReadsWork;
+  try {
+    const probe = document.createElement("canvas"); probe.width = PIXEL_PROBE.length; probe.height = 1;
+    const context = probe.getContext("2d");
+    PIXEL_PROBE.forEach(([r, g, b], x) => { context.fillStyle = `rgb(${r},${g},${b})`; context.fillRect(x, 0, 1, 1); });
+    pixelReadsWork = pixelReadTrusted(context.getImageData(0, 0, PIXEL_PROBE.length, 1).data);
+  } catch {
+    pixelReadsWork = false;
+  }
+  return pixelReadsWork;
 }
 
 // White where the tint is, for Show blend's raster.
@@ -3106,6 +3318,68 @@ function drawRotateGlyph(context, x, y, radius, color) {
 // node itself can still drag, and pointercancel plus mouseleave both end a
 // gesture in case the capture was refused.
 function attachStageHandlers(state, canvas, signal) {
+  if (state.kind === "image") {
+    canvas.addEventListener("contextmenu", (event) => {
+      event.preventDefault(); event.stopPropagation();
+      if (!state.image) return;
+      const picture = async () => {
+        let source = state.image;
+        const sourceWidth = state.sourceWidth, sourceHeight = state.sourceHeight;
+        const current = values(state.node), resize = resizeRequest(state.node);
+        const includeEdits = settings().copy_edits;
+        if (includeEdits && maskLayer(state)) {
+          if (value(state.node, "painted_area", "fill") === "keep picture") {
+            // The browser loses colours under fully transparent pixels. Core's
+            // RGB view restores the stored picture under MaskEditor strokes.
+            source = new Image();
+            source.src = api.apiURL(`/view?${mediaViewQuery(value(state.node, "image", ""))}&channel=rgb`);
+            await source.decode();
+          } else {
+            // The stage's mask layer is capped at 2048px. Copy from the source
+            // at full size, using the same rule for which pixels stay picture.
+            const full = document.createElement("canvas");
+            full.width = sourceWidth; full.height = sourceHeight;
+            const context = full.getContext("2d");
+            context.drawImage(source, 0, 0);
+            const pixels = context.getImageData(0, 0, full.width, full.height);
+            const map = seeThroughMap(pixels.data);
+            if (map) for (let i = 0; i < map.length; i++) pixels.data[i * 4 + 3] = map[i] ? 0 : 255;
+            context.putImageData(pixels, 0, 0);
+            source = full;
+          }
+        }
+        return transformPicture({
+          sourceWidth, sourceHeight, values: current, resize, includeEdits,
+          fill: normalizeColor(current.fill_color),
+          drawSource: (context) => context.drawImage(source, -sourceWidth / 2, -sourceHeight / 2, sourceWidth, sourceHeight),
+        });
+      };
+      const report = (error) => showToast({ severity: "error", summary: "Copy image", detail: error?.message ?? String(error) });
+      new globalThis.LiteGraph.ContextMenu([
+        { content: "Copy image", callback: () => {
+          try {
+            Promise.resolve(copyPicture(picture)).then(
+              () => showToast({ summary: "Copy image", severity: "success", detail: "The picture is on the clipboard." }), report,
+            );
+          } catch (error) { report(error); }
+        } },
+        { content: "Open image", callback: async () => {
+          try {
+            // A real image retains the browser's native Copy image on plain
+            // HTTP too. A data URL stays usable for as long as the tab is open.
+            const tab = window.open("about:blank", "_blank");
+            if (!tab) throw new Error("Allow pop-ups to open the picture.");
+            tab.opener = null;
+            const image = tab.document.createElement("img");
+            image.src = (await picture()).toDataURL("image/png");
+            image.style.maxWidth = "100%";
+            tab.document.title = "Crop image — right-click to copy";
+            tab.document.body.append(image);
+          } catch (error) { report(error); }
+        } },
+      ], { event });
+    }, { signal });
+  }
   canvas.addEventListener("pointerdown", (event) => pointerDown(state, canvas, event), { signal });
   canvas.addEventListener("pointermove", (event) => pointerMove(state, canvas, event), { signal });
   canvas.addEventListener("pointerup", (event) => pointerUp(state, canvas, event), { signal });
@@ -3343,7 +3617,7 @@ function sizeLines(state) {
   return lines;
 }
 function drawEmpty(state, text) { state.render = null; state.panelRender = null; syncReadout(state); for (const canvas of [state.canvas, state.previewCanvas]) { if (!canvas) continue; const prepared = prepareCanvas(canvas); drawEmptyCanvas(prepared.context, prepared.width, prepared.height, text); } }
-function drawEmptyCanvas(context, width, height, text) { context.fillStyle = "#111"; context.fillRect(0, 0, width, height); context.fillStyle = "#9ba2aa"; context.font = "13px system-ui"; context.textAlign = "center"; context.fillText(text, width / 2, height / 2); context.textAlign = "left"; }
+function drawEmptyCanvas(context, width, height, text) { context.fillStyle = "#111"; context.fillRect(0, 0, width, height); context.fillStyle = "#9ba2aa"; context.font = "13px system-ui"; context.textAlign = "center"; context.fillText(t(text), width / 2, height / 2); context.textAlign = "left"; }
 
 // True when the node is an AusBoss transform node whose editor can open
 // (installed by installTransformNode). Used by the pack-wide command.

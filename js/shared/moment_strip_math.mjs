@@ -31,8 +31,10 @@ export function stripRows(report) {
   }));
 }
 
-// A time typed at the start of a line: 3s:, 3 s, at 3 seconds, [3s].
-const TYPED_TIME = /^\[?(?:at\s+)?\d+(?:\.\d+)?\s*(?:seconds?|secs?|s)\b\]?\s*[:,\-]?\s*/i;
+// A time typed at the start of a line: 3s:, 3s, at 3 seconds, [3s]. As in the
+// writer, a spelled-out time needs its mark: "7 seconds remain" is an action.
+const TYPED_TIME =
+  /^(?:\[\s*\d+(?:\.\d+)?\s*(?:seconds?|secs?|s)\b\s*\]\s*[:,\-]?|at\s+\d+(?:\.\d+)?\s*(?:seconds?|secs?|s)\b\s*[:,\-]?|\d+(?:\.\d+)?\s*(?:seconds?|secs?|s)\b\s*[:,\-](?!\d)|\d+(?:\.\d+)?(?:s|secs?)\b)\s*/i;
 
 // The script with one line set to start at a second: its old time, if any,
 // gives way to the new one. line counts typed lines from 0.

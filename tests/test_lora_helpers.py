@@ -108,6 +108,15 @@ class _FolderPaths:
     def get_folder_paths(self, kind: str) -> list[str]:
         return [str(self.lora_root)] if kind == "loras" else []
 
+    def get_filename_list(self, kind: str) -> list[str]:
+        if kind != "loras":
+            return []
+        return [
+            path.relative_to(self.lora_root).as_posix()
+            for path in self.lora_root.rglob("*")
+            if path.is_file() and path.suffix == ".safetensors"
+        ]
+
     def get_user_directory(self) -> str:
         return str(self.user_root)
 
@@ -605,7 +614,89 @@ class ResolveLoraPathTests(unittest.TestCase):
     def test_path_outside_the_folders_is_refused(self):
         self.full_path = lambda kind, name: str(self.root / ".." / "other_drive" / "real.safetensors")
         with self.assertRaisesRegex(ValueError, "escapes the loras folders"):
-            _lora_helpers.resolve_lora_path("../other_drive/real.safetensors")
+            _lora_helpers.resolve_lora_path("plain.safetensors")
+
+    def test_a_name_off_the_list_never_reaches_the_disk(self):
+        asked = []
+        self.full_path = lambda kind, name: asked.append(name)
+        for name in ("../other_drive/real.safetensors", str(self.outside / "real.safetensors")):
+            with self.assertRaisesRegex(ValueError, "not found"):
+                _lora_helpers.resolve_lora_path(name)
+        self.assertEqual(asked, [])
+
+
+class LinkedRowStrengthTests(unittest.TestCase):
+    """A number wire dropped on a row arrives as strength_<row id> (issue #388)."""
+
+    ROW = {"name": "a.safetensors", "strength": 0.8, "strength_clip": 0.4,
+           "enabled": True, "triggers": ""}
+
+    def rows(self):
+        return [{**self.ROW, "id": "ra1"}, {**self.ROW, "id": "rb2", "name": "b.safetensors"}]
+
+    def test_the_linked_value_sets_the_model_strength_and_clip_keeps_its_ratio(self):
+        out = _lora_helpers.apply_linked_strengths(self.rows(), {"strength_rb2": 0.3})
+        self.assertEqual((out[0]["strength"], out[0]["strength_clip"]), (0.8, 0.4))
+        self.assertAlmostEqual(out[1]["strength"], 0.3)
+        self.assertAlmostEqual(out[1]["strength_clip"], 0.15)
+
+    def test_a_row_at_zero_follows_the_link_one_for_one(self):
+        rows = [{**self.ROW, "id": "r0", "strength": 0.0, "strength_clip": 0.0}]
+        out = _lora_helpers.apply_linked_strengths(rows, {"strength_r0": 0.5})
+        self.assertEqual((out[0]["strength"], out[0]["strength_clip"]), (0.5, 0.5))
+
+    def test_unknown_rows_and_other_names_change_nothing(self):
+        rows = self.rows()
+        out = _lora_helpers.apply_linked_strengths(rows, {"strength_gone": 0.1, "trigger_separator": ", "})
+        self.assertEqual(out, rows)
+
+    def test_row_input_names(self):
+        self.assertTrue(_lora_helpers.is_row_strength_input("strength_rb2"))
+        for name in ("strength_", "strength_a b", "strength_" + "x" * 65, "loras", 3, None):
+            self.assertFalse(_lora_helpers.is_row_strength_input(name), name)
+
+    def test_the_node_declares_any_row_input_as_an_optional_float(self):
+        try:
+            from nodes.node_lora_loader import AusBossLoraLoader
+        except Exception as exc:  # pragma: no cover - needs the package importable
+            self.skipTest(f"node module not importable offline: {exc}")
+        optional = AusBossLoraLoader.INPUT_TYPES()["optional"]
+        self.assertIn("strength_rb2", optional)
+        self.assertEqual(optional["strength_rb2"][0], "FLOAT")
+        self.assertNotIn("strength_", optional)
+        self.assertNotIn("bogus", optional)
+        # The listed inputs are unchanged and new ones come last: saved
+        # workflows keep their slots.
+        self.assertEqual(list(optional), ["clip", "trigger_separator", "on_missing", "curve"])
+        self.assertFalse(_lora_helpers.is_row_strength_input("curve"))
+
+    def test_comfyui_hands_a_row_input_to_the_node(self):
+        # ComfyUI passes a node only inputs it can look up; this is its own lookup.
+        try:
+            from comfy_execution.graph import get_input_info
+            from nodes.node_lora_loader import AusBossLoraLoader
+        except Exception as exc:  # pragma: no cover - needs ComfyUI on the path
+            self.skipTest(f"ComfyUI not importable: {exc}")
+        kind, category, _info = get_input_info(AusBossLoraLoader, "strength_rb2")
+        self.assertEqual((kind, category), ("FLOAT", "optional"))
+        self.assertEqual(get_input_info(AusBossLoraLoader, "bogus"), (None, None, None))
+
+    def test_load_loras_applies_the_linked_strength(self):
+        try:
+            from nodes.node_lora_loader import AusBossLoraLoader
+            import nodes.node_lora_loader as node_module
+        except Exception as exc:  # pragma: no cover - needs the package importable
+            self.skipTest(f"node module not importable offline: {exc}")
+        seen = []
+
+        def apply(model, clip, rows, **_kwargs):
+            seen.extend(rows)
+            return model, clip
+
+        with patch.object(node_module, "apply_lora_stack", side_effect=apply):
+            AusBossLoraLoader().load_loras("model", json.dumps(self.rows()), strength_rb2=1.2)
+        self.assertEqual([round(row["strength"], 3) for row in seen], [0.8, 1.2])
+        self.assertEqual([round(row["strength_clip"], 3) for row in seen], [0.4, 0.6])
 
 
 if __name__ == "__main__":

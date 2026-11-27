@@ -9,9 +9,10 @@ duration, shows a tall video whole, and has a **LOOP** control. `gif` and
 `webp` are shown as pictures with just the file name, since a video player
 cannot play either.
 
-**Preview steps** above the player (`step_preview`, off by default) shows the clip's first frame in
-the player while it is being made, one step at a time, with a **STOP**
-button on the player. Stop a clip that is going wrong after the first steps
+**Preview steps** above the player (`step_preview`, off by default) shows the clip in
+the player while it is being made: after each step, about one frame per
+second of the clip plays in a loop, with a **STOP** button on the player.
+You see the motion take shape, not only the first frame. Stop a clip that is going wrong after the first steps
 instead of waiting for the end; a stopped run saves nothing. The saved
 video replaces the steps. The [Step Preview](AUSBOSS_NODES_StepPreview.md)
 page has the details.
@@ -77,13 +78,14 @@ a software format to use instead rather than failing with a driver stack
 trace.
 
 `gif` and `webp` have no streaming encoder, so every frame is held in memory
-before the first byte is written — keep those to short clips. Neither carries
-metadata, so an embedded workflow is not available for them.
+before the first byte is written — keep those to short clips. `webp` carries
+the embedded workflow the same way ComfyUI's own animated WebP does; `gif` has
+no place for it.
 
 The node's face follows the table: widgets the chosen format ignores are
 hidden rather than left to look meaningful. The CRF field leaves the
 **FPS · CRF** row for `mov prores`, `mkv ffv1` and `gif` (their rows read
-*ignored* above), and the **Embed workflow** row disappears for `gif` and `webp`,
+*ignored* above), and the **Embed workflow** row disappears for `gif`,
 which cannot carry it. Hidden is not removed:
 the widget keeps its position and its value, saved workflows store and restore
 it exactly as before, and switching the format back brings it back with the

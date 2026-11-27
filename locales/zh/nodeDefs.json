@@ -48,7 +48,7 @@
   },
   "AUSBOSS_NODES_ColorMatch": {
     "display_name": "颜色匹配 🆎",
-    "description": "把参考图的颜色统计转移到输入图上，用来修正局部重绘或拼回区域的色差。四种方法：lab 和 rgb 按通道调整均值和标准差，mkl 映射完整的颜色协方差，histogram 让每个通道的分布完全一致。可选的 mask 把测量和校正都限制在白色区域（invert_mask 反转），所以节点接收遮罩但不输出遮罩：遮罩只决定修正范围，在你的图中原样通过。strength 在原图和完全匹配的结果之间混合。视频用 reference_mode：first_frame 让每一帧都匹配批次自己的第一帧，不需要参考图也能减少帧间色彩漂移；它不会稳定画面运动。",
+    "description": "把参考图的颜色统计转移到输入图上，用来修正局部重绘或拼回区域的色差。五种方法：lab 和 rgb 按通道调整均值和标准差，mkl 映射完整的颜色协方差，histogram 让每个通道的分布完全一致，kept 用于编辑：从模型本该保留的部分学出它带来的偏移并整体撤销，新内容保留自己的颜色。可选的 mask 把测量和校正都限制在白色区域（invert_mask 反转），所以节点接收遮罩但不输出遮罩：遮罩只决定修正范围，在你的图中原样通过。strength 在原图和完全匹配的结果之间混合。视频用 reference_mode：first_frame 让每一帧都匹配批次自己的第一帧，不需要参考图也能减少帧间色彩漂移；它不会稳定画面运动。",
     "inputs": {
       "image": {
         "name": "图像"
@@ -216,6 +216,9 @@
       },
       "feather": {
         "name": "羽化"
+      },
+      "remove_tint": {
+        "name": "去除偏色"
       }
     },
     "outputs": {
@@ -292,7 +295,128 @@
   },
   "AUSBOSS_NODES_H3PromptWriter": {
     "display_name": "H3 提示词写手 🆎",
-    "description": "每发生一件事写一行，给每张图片和视频分配一个任务，它就会写出 MiniMax H3 需要的提示词，并给出匹配的宽度和高度。视频里有两个人时，写明要换谁，就只替换那个人。"
+    "description": "每发生一件事写一行，给每张图片和视频分配一个任务，它就会写出 MiniMax H3 需要的提示词，并给出匹配的宽度和高度。视频里有两个人时，写明要换谁，就只替换那个人。",
+    "inputs": {
+      "script": {
+        "name": "脚本"
+      },
+      "seconds": {
+        "name": "长度"
+      },
+      "clip": {
+        "name": "片段"
+      },
+      "picture_1": {
+        "name": "图片 1"
+      },
+      "picture_2": {
+        "name": "图片 2"
+      },
+      "picture_3": {
+        "name": "图片 3"
+      },
+      "picture_4": {
+        "name": "图片 4"
+      },
+      "video": {
+        "name": "视频"
+      },
+      "video_sound": {
+        "name": "视频声音"
+      },
+      "voice": {
+        "name": "人声"
+      },
+      "song": {
+        "name": "歌曲"
+      },
+      "camera": {
+        "name": "镜头"
+      },
+      "look": {
+        "name": "风格"
+      },
+      "song_start": {
+        "name": "歌曲起点"
+      },
+      "cut_on_beat": {
+        "name": "按节拍切换"
+      },
+      "language": {
+        "name": "语言"
+      },
+      "job_1": {
+        "name": "图片 1 任务"
+      },
+      "job_2": {
+        "name": "图片 2 任务"
+      },
+      "job_3": {
+        "name": "图片 3 任务"
+      },
+      "job_4": {
+        "name": "图片 4 任务"
+      },
+      "video_job": {
+        "name": "视频任务"
+      },
+      "sound": {
+        "name": "声音"
+      },
+      "music": {
+        "name": "音乐"
+      },
+      "clip_sound": {
+        "name": "片段自带声音"
+      },
+      "full_prompt": {
+        "name": "完整提示词"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "提示词"
+      },
+      "1": {
+        "name": "图片 1"
+      },
+      "2": {
+        "name": "图片 2"
+      },
+      "3": {
+        "name": "图片 3"
+      },
+      "4": {
+        "name": "图片 4"
+      },
+      "5": {
+        "name": "视频"
+      },
+      "6": {
+        "name": "视频声音"
+      },
+      "7": {
+        "name": "人声"
+      },
+      "8": {
+        "name": "歌曲"
+      },
+      "9": {
+        "name": "垫底歌曲"
+      },
+      "10": {
+        "name": "帧数"
+      },
+      "11": {
+        "name": "宽度"
+      },
+      "12": {
+        "name": "高度"
+      },
+      "13": {
+        "name": "保留片段声音"
+      }
+    }
   },
   "AUSBOSS_NODES_ImageCropRotatePad": {
     "display_name": "图像裁剪 + 旋转 + 扩边 🆎",
@@ -518,6 +642,44 @@
       }
     }
   },
+  "AUSBOSS_NODES_ImageToolbox": {
+    "display_name": "图像工具箱 🆎",
+    "description": "把几个小的图像任务放在一个节点里：从列表里选任务。split sheet at gaps 会把一排并列的图（比如角色设定图的四个视角）切成单独的图。每一刀都切在两张图之间的空隙，而不是按宽度平均切，所以不会有哪一张带上邻图的一部分。切好的图作为一个批次输出，尺寸相同，用设定图的背景色补齐。cut a piece 按你设定的宽度和高度，在你选的位置裁出一块，同时给出图的其余部分。",
+    "inputs": {
+      "image": {
+        "name": "图像"
+      },
+      "job": {
+        "name": "任务"
+      },
+      "pieces": {
+        "name": "份数"
+      },
+      "width": {
+        "name": "宽度"
+      },
+      "height": {
+        "name": "高度"
+      },
+      "position": {
+        "name": "位置"
+      },
+      "move_right": {
+        "name": "右移"
+      },
+      "move_down": {
+        "name": "下移"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      },
+      "1": {
+        "name": "其余部分"
+      }
+    }
+  },
   "AUSBOSS_NODES_Integer": {
     "display_name": "整数 🆎",
     "description": "一个独立的 INT 值。在一个地方设置步数、尺寸或数量，送给所有需要同一个数字的节点。",
@@ -559,6 +721,9 @@
       },
       "mask": {
         "name": "遮罩"
+      },
+      "reference_curve": {
+        "name": "参考强度曲线"
       }
     },
     "outputs": {
@@ -648,6 +813,12 @@
       },
       "3": {
         "name": "遮罩"
+      },
+      "4": {
+        "name": "H3 提示词"
+      },
+      "5": {
+        "name": "位置描述"
       }
     }
   },
@@ -852,6 +1023,9 @@
       },
       "on_missing": {
         "name": "缺失时"
+      },
+      "curve": {
+        "name": "强度曲线"
       }
     },
     "outputs": {
@@ -961,6 +1135,9 @@
       },
       "fine_edges": {
         "name": "精细边缘"
+      },
+      "new_picture": {
+        "name": "换新图时"
       }
     },
     "outputs": {
@@ -981,6 +1158,15 @@
     "inputs": {
       "expression": {
         "name": "表达式"
+      },
+      "a": {
+        "name": "a"
+      },
+      "b": {
+        "name": "b"
+      },
+      "c": {
+        "name": "c"
       }
     },
     "outputs": {
@@ -998,6 +1184,12 @@
     "inputs": {
       "on_mismatch": {
         "name": "不匹配时"
+      },
+      "a": {
+        "name": "a"
+      },
+      "b": {
+        "name": "b"
       }
     },
     "outputs": {
@@ -1103,6 +1295,9 @@
       },
       "batch_size": {
         "name": "批次大小"
+      },
+      "workflow_sizes": {
+        "name": "工作流尺寸"
       }
     },
     "outputs": {
@@ -1314,6 +1509,14 @@
       "index": {
         "name": "索引"
       }
+    },
+    "outputs": {
+      "0": {
+        "name": "a"
+      },
+      "1": {
+        "name": "b"
+      }
     }
   },
   "AUSBOSS_NODES_StepPreview": {
@@ -1341,6 +1544,9 @@
       },
       "paste_onto": {
         "name": "贴到"
+      },
+      "follow_changes": {
+        "name": "跟随变化"
       }
     },
     "outputs": {
@@ -1665,6 +1871,9 @@
       },
       "fixed_frames": {
         "name": "固定帧数"
+      },
+      "last_seconds": {
+        "name": "最后几秒"
       }
     },
     "outputs": {
@@ -1741,11 +1950,21 @@
   },
   "AUSBOSS_NODES_CalloutTile": {
     "display_name": "标注卡片 🆎",
-    "description": "紧凑的标题或彩色链接按钮。双击编辑，拖动角落调整大小。旧版节点包会将它显示为缺失节点，请更新 ComfyUI-AusBoss。"
+    "description": "紧凑的标题或彩色链接按钮。双击编辑，拖动角落调整大小。旧版节点包会将它显示为缺失节点，请更新 ComfyUI-AusBoss。",
+    "inputs": {
+      "text": {
+        "name": "文字"
+      }
+    }
   },
   "AUSBOSS_NODES_WorkflowNoteTile": {
     "display_name": "工作流说明卡片 🆎",
-    "description": "点击打开完整说明的小按钮。点击铅笔编辑，拖动角落调整大小。旧版节点包会将它显示为缺失节点，请更新 ComfyUI-AusBoss。"
+    "description": "点击打开完整说明的小按钮。点击铅笔编辑，拖动角落调整大小。旧版节点包会将它显示为缺失节点，请更新 ComfyUI-AusBoss。",
+    "inputs": {
+      "note": {
+        "name": "备注"
+      }
+    }
   },
   "AUSBOSS_NODES_FlashVSRUpscale": {
     "display_name": "FlashVSR 视频放大 🆎",
@@ -1787,6 +2006,246 @@
     "outputs": {
       "0": {
         "name": "提示词"
+      }
+    }
+  },
+  "AUSBOSS_NODES_PauseShot": {
+    "display_name": "暂停取景 🆎",
+    "description": "在 3D 查看器之后暂停运行，让你在刚生成的模型上取景。转动相机后点“继续”（在这个节点上或查看器上）：运行会按你调好的画面继续，前面的步骤不会重跑。“停止”在这里结束运行。关掉暂停则直接运行，使用按下运行时的相机。接入一张 360 全景图，它会在你取景时显示在模型后面，backdrop 输出相机看到的那部分。",
+    "inputs": {
+      "model_3d_info": {
+        "name": "模型位置"
+      },
+      "camera_info": {
+        "name": "相机"
+      },
+      "width": {
+        "name": "宽度"
+      },
+      "height": {
+        "name": "高度"
+      },
+      "pause": {
+        "name": "暂停"
+      },
+      "panorama": {
+        "name": "360 全景"
+      },
+      "mesh": {
+        "name": "网格"
+      },
+      "view": {
+        "name": "查看器设置"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "模型位置"
+      },
+      "1": {
+        "name": "相机"
+      },
+      "2": {
+        "name": "宽度"
+      },
+      "3": {
+        "name": "高度"
+      },
+      "4": {
+        "name": "背景"
+      },
+      "5": {
+        "name": "网格"
+      }
+    }
+  },
+  "AUSBOSS_NODES_PhotoCamera": {
+    "display_name": "照片相机 🆎",
+    "description": "算出拍这张照片的相机，让人物的 3D 模型和照片对齐。接入照片、人物遮罩和照片的视角宽度（MoGe 的“获取视角”可测出）。crop_fov 接到 Pixal3D 条件，camera_info 接到 3D 查看器，查看器就会从照片本身的视角打开；三个位置数字决定照片放在 360 画布的哪里，让 360 在模型后面对齐。",
+    "inputs": {
+      "image": {
+        "name": "照片"
+      },
+      "mask": {
+        "name": "遮罩"
+      },
+      "fov": {
+        "name": "视角"
+      },
+      "pad_factor": {
+        "name": "裁剪边距"
+      },
+      "canvas_width": {
+        "name": "360 宽度"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "裁剪视角"
+      },
+      "1": {
+        "name": "相机"
+      },
+      "2": {
+        "name": "照片宽度"
+      },
+      "3": {
+        "name": "照片左边"
+      },
+      "4": {
+        "name": "照片上边"
+      }
+    }
+  },
+  "AUSBOSS_NODES_FilmGrain": {
+    "display_name": "胶片颗粒 🆎",
+    "description": "给图片或视频加上胶片颗粒。颗粒在中间调最明显，在深暗部和高光处较弱，和胶片一样。尺寸是颗粒的像素大小，粗糙度让颗粒更细、更不均匀，颜色让颗粒从黑白颗粒变成彩色胶片的颗粒。在视频上颗粒可以逐帧变化，也可以保持不动。自动会按图片挑选颗粒量和尺寸：小图和大图看起来一样，并与图片自带的颗粒相匹配；此时颗粒量和尺寸变成它的倍数。在颗粒来源接上一张图片，自动就会复制那张图片的颗粒：强度、大小和颜色。可选的遮罩只在白色处加颗粒。同一个种子总是得到同样的颗粒。",
+    "inputs": {
+      "image": {
+        "name": "图像"
+      },
+      "amount": {
+        "name": "颗粒量"
+      },
+      "size": {
+        "name": "尺寸"
+      },
+      "roughness": {
+        "name": "粗糙度"
+      },
+      "color": {
+        "name": "颜色"
+      },
+      "moving": {
+        "name": "逐帧变化"
+      },
+      "seed": {
+        "name": "种子"
+      },
+      "mask": {
+        "name": "遮罩"
+      },
+      "preview": {
+        "name": "预览"
+      },
+      "auto": {
+        "name": "自动"
+      },
+      "auto_amount": {
+        "name": "自动颗粒量倍数"
+      },
+      "auto_size": {
+        "name": "自动尺寸倍数"
+      },
+      "grain_from": {
+        "name": "颗粒来源"
+      },
+      "auto_color": {
+        "name": "自动颜色倍数"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      }
+    }
+  },
+  "AUSBOSS_NODES_CutOut": {
+    "display_name": "抠图 🆎",
+    "description": "把图片和遮罩变成背景透明的抠图，可以直接存成 PNG，或放到新的背景上。保留遮罩的白色或黑色部分，扩大或缩小它，并柔化边缘。清理边缘会去掉头发和柔和边缘里旧背景的颜色，让抠图放到新背景上时没有光晕；完全保留的像素保持原样。也适用于视频帧。",
+    "inputs": {
+      "image": {
+        "name": "图像"
+      },
+      "mask": {
+        "name": "遮罩"
+      },
+      "keep": {
+        "name": "保留"
+      },
+      "grow": {
+        "name": "扩大"
+      },
+      "feather": {
+        "name": "羽化"
+      },
+      "clean_edges": {
+        "name": "清理边缘"
+      },
+      "clear_haze": {
+        "name": "清除薄雾"
+      },
+      "solid_above": {
+        "name": "高于此值为实"
+      },
+      "smooth_frames": {
+        "name": "视频平滑"
+      },
+      "preview": {
+        "name": "预览"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      },
+      "1": {
+        "name": "透明度"
+      }
+    }
+  },
+  "AUSBOSS_NODES_KeepDetail": {
+    "display_name": "保留细节 🆎",
+    "description": "把原图的细节（皮肤、布料、颗粒）放回修改后的图片上。适合在编辑或重新打光后画面变得太光滑时使用。修改后的图片保留它的形状、光线和颜色，只有小于细节大小的细节来自原图。两张图片必须对齐。仅明暗只带回亮度细节，所以颜色不会变；颜色 + 明暗连细节的颜色一起带回。",
+    "inputs": {
+      "image": {
+        "name": "图像"
+      },
+      "detail_from": {
+        "name": "细节来源"
+      },
+      "detail_size": {
+        "name": "细节大小"
+      },
+      "strength": {
+        "name": "强度"
+      },
+      "color_detail": {
+        "name": "颜色细节"
+      },
+      "edge_safe": {
+        "name": "保护边缘"
+      },
+      "mask": {
+        "name": "遮罩"
+      },
+      "preview": {
+        "name": "预览"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      }
+    }
+  },
+  "AUSBOSS_NODES_StrengthCurve": {
+    "display_name": "强度曲线 🆎",
+    "description": "画出从一次运行开始到结束的强度变化，再把曲线接到会逐步跟随它的节点：LoRA 加载器 🆎 的某一行，或 Krea 2 编码 🆎 的参考图。让风格 LoRA 逐渐淡出，细节就更干净；或者让参考图前期稳住构图、后期放开。在节点上拖动点，或从预设开始。",
+    "inputs": {
+      "points": {
+        "name": "点"
+      },
+      "high": {
+        "name": "顶部"
+      },
+      "low": {
+        "name": "底部"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "曲线"
       }
     }
   }

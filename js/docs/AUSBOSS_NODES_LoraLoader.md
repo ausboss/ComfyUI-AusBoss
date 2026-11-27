@@ -134,6 +134,64 @@ A group that a switch turns on and off shows the lock on its header
 instead. The LoRAs in it keep plain grips, so each one is still yours to
 turn on or off. Click the header's lock to take the group over.
 
+## A strength set by a wire
+
+To set one LoRA's strength from somewhere else, such as a slider, a Float
+node or a sweep, drag that number's wire onto the row and let go. The row
+under the pointer lights up teal while you aim; anywhere across the row
+works. The wire runs to that row and its strength box turns dashed teal,
+showing the number coming in. The bar behind the name follows it.
+
+- **Click the dashed box** to jump to the node the number comes from.
+- **Right-click the row → Unlink strength** to take the wire off. The row
+  goes back to the strength it had.
+- The wire sets the model strength. The CLIP strength keeps the same ratio
+  to it, so a row at 1.0 / 0.5 fed 0.6 runs at 0.6 / 0.3.
+- Gear menu → **Linked strength wires** shows the wire (the default), shows
+  it only while the pointer is on the loader or the number's node, or hides
+  it.
+
+### Technical details
+
+Each linked row has its own input, `strength_<row id>`, which exists only
+while something is linked to that row. It takes FLOAT or INT. In an API
+prompt, give a row's input the row's `id` from the `loras` text, for example
+`"strength_ra1": 0.6`. A name that matches no row is ignored.
+
+## Strength over the run
+
+A row can change strength while the picture is made: strong at the start
+and gone by the end, say, so a style LoRA sets the look and the fine detail
+at the end comes out clean.
+
+1. Wire a Strength Curve 🆎 into the loader's `curve` input.
+2. Each row now shows a small curve mark beside its strength. The first
+   curve you wire marks every row (teal). Click a mark, or right-click the
+   row and pick **Keep a steady strength**, for a row that should stay as
+   it is; its mark turns gray. **Follow the strength curve** in the same
+   menu turns it back on.
+
+A row that follows the curve runs at its own strength times the curve: a row
+at 0.8 with a fade out goes from 0.8 down to 0. It works with every model
+file: full size, fp8, fp8 scaled and int8.
+
+### Technical details
+
+The CLIP half of a row is applied as always, since a prompt is encoded once.
+The model half is loaded in ComfyUI's bypass mode: the LoRA is added to each
+layer's result as the layer runs, and the model's weights are never
+rewritten. Before every step the loader sets each following row to its
+strength times the curve at that step. "Where in the run" is read by the
+step's noise level, the way ComfyUI reads hook keyframes, so it lines up
+with Krea 2 Encode's `reference_curve`. In the `loras` text a following row
+has `"curve": true`; in an API prompt, link `curve` and set that on the rows.
+
+A moving curve costs a little speed and no memory: on Krea 2 each step ran
+3 to 8% slower, the same on every model file we tried. A flat curve
+skips all of this: the rows just run at their strength times its value. The
+rare parts of a LoRA that are not low-rank (a plain weight or bias
+difference) cannot change from step to step and stay at the row's strength.
+
 ## Strength bars
 
 Every named row paints a center-zero bar behind its name: teal grows right
@@ -176,8 +234,15 @@ last one you ticked and the one you click. Ticks stay while you search, so you c
 gather files from several searches; **Clear** unticks them all. Files that
 are already in the stack say **in stack** and have no box. With the
 keyboard, **Ctrl+Enter** ticks the highlighted file and **Shift+Enter**
-ticks the run up to it. Use the arrow beside a folder to collapse or expand it without
-adding anything. Folded folders are remembered in this browser. Search
+ticks the run up to it. The list opens with every folder folded. Use the
+arrow beside a folder to open or fold it without adding anything.
+**Open all** beside the search box opens every folder at once (it then
+reads **Fold all**), and **Alt**- or **Shift**-click on a folder's arrow
+opens or folds that folder and every folder inside it. With the keyboard,
+**Right** opens the highlighted folder and **Left** folds it; **Left** on a
+file folds the folder it is in and moves up to it. To have the list open
+the way you left it instead, set **Settings → 🆎 AusBoss → LoRA Loader →
+Picker folders** to **Remember my folds**. Search
 reveals matching files; clearing it brings back your folded view. You can
 also fold folders while searching.
 
@@ -316,6 +381,16 @@ show it right away. Gear menu → **Civitai picture** picks which pictures:
 takes the first picture whatever its rating, and **off** saves none. It never
 replaces a picture you already have.
 
+**All of them at once:** click **Fetch all LoRAs** beside that button (or gear
+menu → **Civitai info for every LoRA**). It looks up every LoRA in the stack that
+has no Civitai info yet, one after another with a short pause, so Civitai
+is not asked too fast. The bottom of the node shows how far it is
+(`Civitai 12 / 44 · Stop`); click it to stop after the LoRA being fetched.
+A message at the end says how many were found, how many Civitai does not
+know, and how many already had their info. LoRAs with info are skipped, so
+running it again only fetches the new ones. It follows the same
+**Civitai picture** setting and never replaces a picture.
+
 ## Trigger words
 
 The info card gathers words from three places: the LoRA file's own metadata,
@@ -336,10 +411,17 @@ switched on for the old one.
   (see "Get the pictures from Civitai" above). After that the button reads **Refresh Civitai
   info** and the card gets a **View on Civitai** link. A LoRA Civitai does
   not know (unpublished or hidden) reads **Not found on Civitai**. Gear
-  menu → **Civitai lookup button** removes the button. When a lookup fails,
+  menu → **Civitai lookup button** removes the button, and **Fetch all LoRAs**
+  with it. When a lookup fails,
   a message says why. If it always says it could not reach civitai.com,
   check whether ComfyUI was started with `--disable-api-nodes`: that setting
   stops the browser from reaching any other site, Civitai included.
+- **Fetch all LoRAs** runs that same lookup for each LoRA in the stack that has no
+  Civitai info yet, one at a time, about one and a half seconds apart. If
+  Civitai answers "too many requests", it waits 20 seconds and tries that
+  LoRA once more; a second time, it stops and says so. It also stops when
+  civitai.com cannot be reached, or after three failures in a row. Only one
+  Fetch all LoRAs runs at a time on the page.
 - **Suggested strength**: a lowest and a highest value at the bottom of the
   card (leave one empty for "any"). It is only a reminder: a row set outside
   it shows its number in orange, and the tooltip gives the range. Saved per

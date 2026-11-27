@@ -23,10 +23,11 @@ the box shows the second each one starts, before you spend a run.
 That is two shots in two places. `@1` is Picture 1. With one person you can
 write `She` or `He` instead.
 
-The node also fills in two things H3 misses by itself. A moment gets its own
-sound when it names something that makes one, like rain, footsteps or thunder.
-And what changes stays changed: when the lights go out, the next moments in that
-place say they are still out.
+Your words go into the prompt as you typed them. To hear something at a
+moment, say it in that line: `Thunder cracks overhead.` For a sound under the
+whole clip, add a `sound:` line, such as `sound: rain on the windows`. When
+something should stay the way it changed, say so in the later lines too:
+`The lights are still off.`
 
 ## The words box and the bar
 
@@ -143,11 +144,14 @@ workflows and scripts keep their previous behavior when it is absent.
 - **A cut in the same place**: start the line with a kind of shot, like
   `a close-up of her hand`. Any other line after a blank line goes to a new
   place.
+- **A cut back**: `Cut back to the hallway.` returns to a place you have
+  already shown.
 - **One long take**: type `no cuts` and blank lines stop being cuts.
 - **An ending**: start a line with `ends on`, wherever it sits:
   `ends on her sitting by the window`.
-- **Speech**: put the words in quotes: `@1 says "we are late."` Each person
-  keeps their own voice.
+- **Speech**: put the words in quotes: `She says "we are late."` With two or
+  more people, your sentence goes to H3 as you typed it, so write it the way
+  you would tell a person: `@1 listens as @2 says "we are late."`
 - **Talking over a cut**: end the words with `...` and the line keeps going
   into the next shot, said once. On the last line, `...` means the clip ends
   mid-sentence.
@@ -164,6 +168,17 @@ own, with blank lines around it, it is for the whole clip.
 Already wrote H3's six parts yourself? Paste them in and they go through as
 they are.
 
+## See and change the full prompt
+
+The **Full prompt** tab at the top of the node shows the prompt the node wrote
+on its last run. To change one thing, such as taking out "A slow push in.",
+edit it there and run again: H3 gets your text exactly as it is in the box. An
+amber dot on the tab shows that an edit is being sent. **Reset to written**
+throws the edit away and goes back to what the **Simple** tab writes.
+
+While an edit is in place, changes on the Simple tab do nothing, because your
+text is sent instead.
+
 ## What you can plug in
 
 - **picture_1** to **picture_4**: your pictures.
@@ -172,7 +187,8 @@ they are.
   speech timing when **Clip's own sound** is on. To keep source audio in a swap
   or **change something**, route the original loader's audio to the save node.
 - **voice**: a clip of someone talking, about 10 seconds, plus words in quotes
-  in your script. It goes to whoever speaks first. It works with your own voice,
+  in your script. It goes to whoever speaks first. With two or more people,
+  put the speaker right before the words: `@2 says "hello."` It works with your own voice,
   or one you have permission to use. Put the spoken line last: with time left
   after it, H3 tends to keep talking.
 - **song**: your music. It is cut to the length of the clip and plays as it is,
@@ -210,7 +226,9 @@ as not plugged in.
   `sound:` line.
 - **Music** (`music`): the music for the whole clip. Same as a `music:` line.
 - **Length** (`seconds`): how long the clip is, 4 to 15.
-- **Camera** (`camera`): how the camera moves the whole way through.
+- **Camera** (`camera`): how the camera moves the whole way through. The first
+  choice adds no camera words. With a video wired it reads **from the video**:
+  the camera does what it does in the video. Pick a move only to change it.
 - **Look** (`look`): from the picture keeps your photo's look. The others redraw
   the clip. Clay and 3D don't work from words, so change your picture first with
   an edit model.
@@ -222,6 +240,8 @@ as not plugged in.
 - **Moments on the beat** (`cut_on_beat`, under **More**): moves each moment onto
   the nearest beat of the song. Off keeps your own seconds.
 - **Language** (`language`, under **More**): the language of the words in quotes.
+- **Full prompt** (`full_prompt`, on the Full prompt tab): your own edit of the
+  finished prompt. Empty means the node's own prompt is sent.
 
 ## Tips
 
@@ -277,6 +297,12 @@ a place in your lines the clip stayed there to the end on 2 of 2 tries; without
 that sentence the picture's street came back halfway through on 2 of 2. With no
 place in your lines H3 has nothing else to use, so it stayed in the picture's
 place on 2 of 2.
+
+The Full prompt tab is filled from the node's run, so it shows nothing until
+the workflow has run once. The node still writes its own prompt on every run, a
+model on `clip` included, so the tab can show it next to your edit and Reset can
+go back to it. The last written prompt is kept with the node in a saved
+workflow.
 
 H3's own rewriter runs only on paid services, and the open model reads a prompt as
 it is. This node does that job on your machine, with no model needed.

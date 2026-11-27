@@ -393,8 +393,9 @@ def transform_pil_batch(
             )
         image_array = np.asarray(output, dtype=np.float32) / 255.0
         mask_array = np.asarray(mask, dtype=np.float32) / 255.0
-        frames.append(torch.from_numpy(image_array.copy()))
-        masks.append(torch.from_numpy(mask_array.copy()))
+        # The division already made fresh arrays, so no copy is needed.
+        frames.append(torch.from_numpy(image_array))
+        masks.append(torch.from_numpy(mask_array))
         views.append(prompt_view)
 
     if not frames or first_geometry is None:
@@ -575,6 +576,15 @@ def resize_then_pad(output, mask, geometry, fill_color, megapixels, method, step
     return place(output), resized, None if view is None else place(view)
 
 
+def has_see_through(images: Iterable[Image.Image]) -> bool:
+    """True when any frame has see-through parts (:func:`see_through_kept`),
+    so :func:`original_image_batch` would differ with ``keep_see_through``."""
+    return any(
+        see_through_kept(image if image.mode == "RGBA" else image.convert("RGBA")) is not None
+        for image in images
+    )
+
+
 def original_image_batch(images: Iterable[Image.Image], keep_see_through: bool = False) -> torch.Tensor:
     """Untransformed, EXIF-oriented RGB source frames for reference outputs.
 
@@ -586,7 +596,7 @@ def original_image_batch(images: Iterable[Image.Image], keep_see_through: bool =
     """
     frames = []
     for image in images:
-        array = np.asarray(image.convert("RGB"), dtype=np.float32).copy()
+        array = np.array(image.convert("RGB"), dtype=np.float32)
         kept = None if keep_see_through else see_through_kept(image if image.mode == "RGBA" else image.convert("RGBA"))
         if kept is not None:
             array[~kept] = SEE_THROUGH_BACKDROP

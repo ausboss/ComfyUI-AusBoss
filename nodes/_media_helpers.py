@@ -242,13 +242,20 @@ def _locate_comfy_file(text: str, rule: str) -> tuple[str, str, Path]:
     if (
         parts[0] == "~"
         or any(part in ("", ".", "..") for part in parts)
+        or any(re.match(r"[A-Za-z]:", part) for part in parts)
         or (os.name == "nt" and ":" in inside)
+        or re.search(r"[\x00-\x1f\x7f]", inside)
     ):
         raise ValueError(rule)
     root = _server_folders().get(folder)
     if root is None:
         raise ValueError(rule)
-    path = root.joinpath(*parts).resolve()
+    # Checked as text before the disk resolves it, and again after, so a
+    # link that leads out of the folder is refused too.
+    lexical = root.joinpath(*parts)
+    if root not in lexical.parents:
+        raise ValueError(rule)
+    path = lexical.resolve()
     if root not in path.parents:
         raise ValueError(rule)
     return folder, inside, path

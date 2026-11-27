@@ -131,6 +131,21 @@ export function compareBadges(fraction, stageWidth, badgeWidth = 22, gap = 5) {
   return { a: a >= 4 ? a : null, b: b + badgeWidth <= width - 4 ? b : null };
 }
 
+// The node property that holds the picture the panel rests on: "A" or "B",
+// saved with the workflow. A new node rests on B, the "after" picture.
+export const REST_PROPERTY = "ausboss_compare_rest";
+
+// A saved resting side, or null when the node has none yet (a workflow
+// saved before the choice existed).
+export function savedRestSide(value) {
+  return value === "A" || value === "B" ? value : null;
+}
+
+// Node types that hand on one of their pictures and make nothing new.
+export const SWITCH_NODE_TYPES = new Set(["ComfySwitchNode", "ComfySoftSwitchNode", "AUSBOSS_NODES_Switch"]);
+// The inputs of a switch that choose a branch rather than carry a picture.
+export const SWITCH_CONTROL_INPUTS = new Set(["switch", "select", "boolean", "index"]);
+
 // Is `target` somewhere upstream of `start`? `feeds(id)` lists the ids of
 // the nodes wired into node `id`.
 function isUpstream(target, start, feeds) {
@@ -147,15 +162,34 @@ function isUpstream(target, start, feeds) {
   return false;
 }
 
+// Is the picture out of `start` made from `target`'s picture? A switch only
+// hands one of its pictures on, so it counts only when one branch is made
+// from `target` and no branch can hand on a picture from before `target`.
+// `branches(id)` lists a switch's picture branches, null for other nodes.
+function madeFrom(start, target, graph, memo = new Map()) {
+  if (start === target) return true;
+  if (memo.has(start)) return memo.get(start);
+  memo.set(start, false); // a loop in the links proves nothing
+  const branches = graph.branches?.(start) ?? null;
+  const ids = (branches ?? graph.feeds(start) ?? []).filter((id) => id != null);
+  const answer = ids.some((id) => madeFrom(id, target, graph, memo))
+    && !(branches && ids.some((id) => id !== target && isUpstream(id, target, graph.feeds)));
+  memo.set(start, answer);
+  return answer;
+}
+
 // Which input holds the result, the picture the panel rests on. B is the
-// "after" picture by convention. When B's picture feeds the node that makes
-// A, they are wired the other way round and the result is A.
+// "after" picture by convention. When A is made from B's picture, they are
+// wired the other way round and the result is A. A switch that can hand on
+// either the other picture or the one it started from is a "before" picker:
+// the picture it can hand on is the result.
 //
 // `a` and `b` say where the two pictures come from: { id, slot } of the node
 // and output wired to each input. `graph` reads the links: feeds(id) lists
-// the ids of the nodes wired into node `id`, and inside(id) opens a
-// subgraph: the same two calls for the graph in it, plus output(slot),
-// where that output comes from in there.
+// the ids of the nodes wired into node `id`, branches(id) the picture
+// branches of a switch (null for other nodes), and inside(id) opens a
+// subgraph: the same calls for the graph in it, plus output(slot), where
+// that output comes from in there.
 export function compareResultSide(a, b, graph) {
   // Both pictures out of one subgraph: the answer is inside it.
   for (let depth = 0; a && b && a.id === b.id && depth < 16; depth += 1) {
@@ -164,5 +198,7 @@ export function compareResultSide(a, b, graph) {
     [a, b, graph] = [inner.output(a.slot), inner.output(b.slot), inner];
   }
   if (!a || !b || a.id === b.id) return "B";
-  return isUpstream(b.id, a.id, graph.feeds) ? "A" : "B";
+  if (madeFrom(a.id, b.id, graph)) return "A";
+  if (madeFrom(b.id, a.id, graph)) return "B";
+  return isUpstream(a.id, b.id, graph.feeds) ? "A" : "B";
 }

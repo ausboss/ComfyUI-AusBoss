@@ -116,6 +116,32 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_CutOut": {
+    "required": [
+      "image",
+      "mask",
+      "keep",
+      "grow",
+      "feather",
+      "clean_edges",
+      "clear_haze",
+      "solid_above",
+      "smooth_frames"
+    ],
+    "optional": [
+      "preview"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
+      ],
+      [
+        "MASK",
+        "alpha"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_EditLock": {
     "required": [
       "model",
@@ -159,6 +185,32 @@
       [
         "STRING",
         "report"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_FilmGrain": {
+    "required": [
+      "image",
+      "amount",
+      "size",
+      "roughness",
+      "color",
+      "moving",
+      "seed"
+    ],
+    "optional": [
+      "mask",
+      "preview",
+      "auto",
+      "auto_amount",
+      "auto_size",
+      "grain_from",
+      "auto_color"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
       ]
     ]
   },
@@ -251,7 +303,8 @@
       "video_job",
       "sound",
       "music",
-      "clip_sound"
+      "clip_sound",
+      "full_prompt"
     ],
     "outputs": [
       [
@@ -469,6 +522,30 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_ImageToolbox": {
+    "required": [
+      "image",
+      "job",
+      "pieces"
+    ],
+    "optional": [
+      "width",
+      "height",
+      "position",
+      "move_right",
+      "move_down"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "images"
+      ],
+      [
+        "IMAGE",
+        "rest"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_Integer": {
     "required": [
       "value"
@@ -478,6 +555,26 @@
       [
         "INT",
         "int"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_KeepDetail": {
+    "required": [
+      "image",
+      "detail_from",
+      "detail_size",
+      "strength",
+      "color_detail",
+      "edge_safe"
+    ],
+    "optional": [
+      "mask",
+      "preview"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
       ]
     ]
   },
@@ -492,7 +589,8 @@
       "reference",
       "extra_image",
       "vlm_reference",
-      "mask"
+      "mask",
+      "reference_curve"
     ],
     "outputs": [
       [
@@ -562,6 +660,14 @@
       [
         "MASK",
         "mask"
+      ],
+      [
+        "STRING",
+        "h3_prompt"
+      ],
+      [
+        "STRING",
+        "placement"
       ]
     ]
   },
@@ -733,7 +839,8 @@
     "optional": [
       "clip",
       "trigger_separator",
-      "on_missing"
+      "on_missing",
+      "curve"
     ],
     "outputs": [
       [
@@ -847,6 +954,78 @@
       [
         "IMAGE",
         "images"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_PauseShot": {
+    "required": [
+      "model_3d_info",
+      "camera_info",
+      "width",
+      "height",
+      "pause"
+    ],
+    "optional": [
+      "panorama",
+      "mesh",
+      "view"
+    ],
+    "outputs": [
+      [
+        "LOAD3D_MODEL_INFO",
+        "model_3d_info"
+      ],
+      [
+        "LOAD3D_CAMERA",
+        "camera_info"
+      ],
+      [
+        "INT",
+        "width"
+      ],
+      [
+        "INT",
+        "height"
+      ],
+      [
+        "IMAGE",
+        "backdrop"
+      ],
+      [
+        "MESH",
+        "mesh"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_PhotoCamera": {
+    "required": [
+      "image",
+      "mask",
+      "fov",
+      "pad_factor",
+      "canvas_width"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "FLOAT",
+        "crop_fov"
+      ],
+      [
+        "LOAD3D_CAMERA",
+        "camera_info"
+      ],
+      [
+        "INT",
+        "strip_width"
+      ],
+      [
+        "INT",
+        "strip_x"
+      ],
+      [
+        "INT",
+        "strip_y"
       ]
     ]
   },
@@ -967,7 +1146,8 @@
       "name_batch",
       "preview",
       "step_preview",
-      "autosave"
+      "autosave",
+      "civitai_info"
     ],
     "outputs": [
       [
@@ -1092,7 +1272,8 @@
       "fix_edge_halo",
       "color_match",
       "seam",
-      "paste_onto"
+      "paste_onto",
+      "follow_changes"
     ],
     "outputs": [
       [
@@ -1102,6 +1283,20 @@
       [
         "MASK",
         "blend_mask"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_StrengthCurve": {
+    "required": [
+      "points",
+      "high",
+      "low"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "FLOATS",
+        "curve"
       ]
     ]
   },
@@ -1288,7 +1483,9 @@
       "end_frame",
       "frame_load_cap",
       "fixed_frames",
-      "last_seconds"
+      "last_seconds",
+      "min_seconds",
+      "max_seconds"
     ],
     "outputs": [
       [

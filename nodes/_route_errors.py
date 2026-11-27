@@ -1,11 +1,12 @@
-"""What a route says back when a request fails."""
+"""What a route or a node says back when something fails."""
 
 from __future__ import annotations
 
 import re
 
-# A whole path: a word that opens with "/", "\" or a drive letter.
-_SERVER_PATH = re.compile(r"""(?:^|[\s'"(\[=:,;])(?:[A-Za-z]:[\\/]|[\\/])[^\s'"]""")
+# A whole path: a word that opens with "/", "\", "~/" or a drive letter,
+# after anything but a letter, digit, "_" or "." ("and/or" and "3/4" stay).
+_SERVER_PATH = re.compile(r"""(?:^|[^\w.])(?:[A-Za-z]:[\\/]|~[\\/]|[\\/])[^\s'"]""")
 
 
 def safe_route_error(exc: Exception, fallback: str = "The request failed.") -> str:
@@ -16,3 +17,14 @@ def safe_route_error(exc: Exception, fallback: str = "The request failed.") -> s
     if not text or _SERVER_PATH.search(text):
         return fallback
     return text
+
+
+def error_detail(exc: BaseException) -> str:
+    """A library's error for a node's message: its kind and its words, or
+    its kind alone when the words name a place on the server's disk. Node
+    errors reach the browser that queued the run and stay in the history."""
+    kind = type(exc).__name__
+    text = " ".join(str(exc).split())
+    if not text or _SERVER_PATH.search(text):
+        return kind
+    return f"{kind}: {text}"

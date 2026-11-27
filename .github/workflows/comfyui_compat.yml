@@ -13,7 +13,9 @@ name: ComfyUI updates
 #      and required input the example workflows use.
 #   4. scripts/dev/face_smoke.mjs puts every node on a graph in headless
 #      Chrome, in the classic node view and in Nodes 2.0: its face comes up
-#      and nothing throws.
+#      and nothing throws. A third run acts like a privacy browser that
+#      blanks canvas pixel reads: a node that loads a picture must still
+#      draw it.
 #
 # A failure on the release opens an issue (or adds to the open one) and fails
 # the run. The development head breaks and mends itself often, so that job
@@ -117,7 +119,7 @@ jobs:
           echo "ComfyUI did not come up"; tail -60 "$GITHUB_WORKSPACE/comfyui.log"; exit 1
       - name: Every node is offered and every example still fits
         run: python ComfyUI-AusBoss/scripts/compat_boot.py --url http://127.0.0.1:8188 --log comfyui.log
-      - name: Every node's face comes up, classic and Nodes 2.0
+      - name: Every node's face comes up, classic, Nodes 2.0 and a privacy browser
         run: |
           google-chrome --headless=new --remote-debugging-port=9333 --no-sandbox --disable-gpu --disable-dev-shm-usage \
             --user-data-dir="$RUNNER_TEMP/chrome" about:blank > "$GITHUB_WORKSPACE/chrome.log" 2>&1 &
@@ -125,6 +127,7 @@ jobs:
           status=0
           node ComfyUI-AusBoss/scripts/dev/face_smoke.mjs 9333 || status=1
           node ComfyUI-AusBoss/scripts/dev/face_smoke.mjs 9333 --vue || status=1
+          node ComfyUI-AusBoss/scripts/dev/face_smoke.mjs 9333 --blocked-reads || status=1
           exit "$status"
       - name: ComfyUI's log
         if: ${{ always() }}

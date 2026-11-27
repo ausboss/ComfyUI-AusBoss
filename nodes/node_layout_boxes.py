@@ -6,7 +6,10 @@ at the place you drew it. Wire `elements` to MOSS-Image Layout Prompt.
 It gives what ComfyUI's own Create Bounding Boxes gives, in the same order
 and worked out the same way (preview, bboxes, elements), so it can stand in
 for that node. A fourth output, `mask`, is white inside every box, to change
-only those places of a picture. A box can be turned, for words at a slant:
+only those places of a picture. A fifth, `h3_prompt`, says the same boxes in
+words for MiniMax H3 Image (_layout_boxes_h3.py), and a sixth, `placement`,
+says each box as a plain sentence for any model that reads only a prompt
+(placement_prompt). A box can be turned, for words at a slant:
 the mask is the turned box itself. Its canvas is a panel of the pack's own
 (js/layout_boxes/index.js), so it draws in the classic look as well as in
 Nodes 2.0. The panel drives ordinary hidden widgets, so saving, loading,
@@ -33,11 +36,13 @@ from ._layout_boxes_helpers import (
     input_fingerprint,
     mask_rects,
     parse_layout,
+    placement_prompt,
     prompt_elements,
     regions_from_pixel_boxes,
     render_preview,
     turned_mask_rows,
 )
+from ._layout_boxes_h3 import h3_prompt
 from ._preview_helpers import first_frame_to_pil, temp_prefix
 
 try:
@@ -116,11 +121,15 @@ class AusBossLayoutBoxes:
         "ComfyUI's own Create Bounding Boxes gives, so it can take that node's "
         "place. A picture on background shows under the boxes and sets the "
         "canvas size. The mask output is white inside every box: use it to "
-        "change only those places of a picture, such as the words on a sign."
+        "change only those places of a picture, such as the words on a sign. "
+        "h3_prompt says the boxes in words for MiniMax H3 Image: describe each "
+        "person as \"the man from <Picture 2>, sitting on the couch\". "
+        "placement says each box as a sentence, for models that read only a prompt."
     )
     SEARCH_ALIASES = [
         "bounding boxes", "create bounding boxes", "bbox", "boxes", "layout",
-        "regions", "ideogram", "moss", "moss-image", "ausboss",
+        "regions", "ideogram", "moss", "moss-image", "h3", "h3 image", "minimax",
+        "placement", "ausboss",
     ]
 
     @classmethod
@@ -161,8 +170,8 @@ class AusBossLayoutBoxes:
             },
         }
 
-    RETURN_TYPES = ("IMAGE", "BOUNDING_BOX", "ARRAY", "MASK")
-    RETURN_NAMES = ("preview", "bboxes", "elements", "mask")
+    RETURN_TYPES = ("IMAGE", "BOUNDING_BOX", "ARRAY", "MASK", "STRING", "STRING")
+    RETURN_NAMES = ("preview", "bboxes", "elements", "mask", "h3_prompt", "placement")
     OUTPUT_TOOLTIPS = (
         "A picture of the boxes with their numbers and words, to check the layout. "
         "Wire it to Preview Image.",
@@ -172,6 +181,11 @@ class AusBossLayoutBoxes:
         "MOSS-Image Layout Prompt. A turned text box says its slant in its description.",
         "The boxes as a mask: white inside every box, turned boxes as they are turned. "
         "Use it to change only those places of a picture, such as the words on a sign.",
+        "The boxes as a prompt for MiniMax H3 Image: where each thing goes, in words. "
+        "Describe each person by their picture and what they do, such as "
+        "\"the man from <Picture 2>, sitting on the couch\". The background is <Picture 1>.",
+        "The boxes as sentences for a prompt: what goes where, as parts of the picture. "
+        "Add it to your prompt for a model that has no box input.",
     )
     OUTPUT_NODE = True
     FUNCTION = "draw"
@@ -205,6 +219,8 @@ class AusBossLayoutBoxes:
                 bounding_boxes(regions, width, height, shape),
                 prompt_elements(regions, shape),
                 _boxes_mask(regions, width, height, picture),
+                h3_prompt(regions, shape, scene=picture is not None),
+                placement_prompt(regions, shape),
             ),
         }
 

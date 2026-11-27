@@ -27,14 +27,19 @@ import {
   loaderLoraEntries,
   loraFolders,
   loraPickerEntries,
+  setFolderFolds,
+  parentFolder,
+  anyFolderOpen,
   loraStackKeyAction,
   mergeImportedRows,
   middleEllipsis,
   moveHighlight,
   moveRow,
   newRow,
+  followCurve,
   normalizeRows,
   parseRows,
+  rowsForNewCurve,
   pickerWidth,
   reorderRows,
   resolveLoraName,
@@ -1177,3 +1182,72 @@ test("the master switch turns groups back on, and its memory brings them back of
   const third = cycleMasterToggle(second.rows, second.snapshot);
   assert.deepEqual(third.rows.map((row) => [row.enabled, Boolean(row.group_off)]), [[true, false], [true, true], [false, true]]);
 });
+
+test("fold all folds every folder and open all opens them, keeping unrelated folds", () => {
+  const names = ["styles/ink/a.safetensors", "styles/ink/deep/b.safetensors",
+    "styles/ink-old/c.safetensors", "faces/d.safetensors", "root.safetensors"];
+  const folders = loraFolders(names).map(({ folder }) => folder);
+  const before = new Set(["gone/folder"]);
+  const folded = setFolderFolds(before, folders, true);
+  assert.deepEqual(loraPickerEntries(names, "", folded).map(({ name }) => name),
+    ["styles", "faces", "root.safetensors"], "only top folders and root files stay in view");
+  assert.equal(anyFolderOpen(loraPickerEntries(names, "", folded), folded), false);
+  assert.ok(folded.has("gone/folder"), "a remembered fold for a folder not listed now is kept");
+  assert.deepEqual([...before], ["gone/folder"], "the caller's Set is not changed");
+  const opened = setFolderFolds(folded, folders, false);
+  assert.deepEqual([...opened], ["gone/folder"]);
+  assert.equal(anyFolderOpen(loraPickerEntries(names, "", opened), opened), true);
+});
+
+test("folding a folder with its subtree leaves similarly named siblings alone", () => {
+  const names = ["styles/ink/a.safetensors", "styles/ink/deep/b.safetensors",
+    "styles/ink-old/c.safetensors", "styles/paint/d.safetensors"];
+  const folders = loraFolders(names).map(({ folder }) => folder);
+  const folded = setFolderFolds(new Set(), folders, true, "styles/ink");
+  assert.deepEqual([...folded].sort(), ["styles/ink", "styles/ink/deep"]);
+  const reopened = setFolderFolds(new Set([...folded, "styles/paint"]), folders, false, "styles\\ink");
+  assert.deepEqual([...reopened], ["styles/paint"], "Windows separators name the same folder");
+});
+
+test("fold-all label follows the folders in view, so a search view decides for itself", () => {
+  const names = ["styles/ink/hit.safetensors", "faces/other.safetensors"];
+  const searched = loraPickerEntries(names, "hit");
+  assert.equal(anyFolderOpen(searched, new Set()), true);
+  const folds = new Set(["styles"]);
+  assert.equal(anyFolderOpen(loraPickerEntries(names, "hit", folds), folds), false,
+    "with the only top folder in view folded, the control offers Open all");
+  assert.equal(anyFolderOpen(loraPickerEntries(["root.safetensors"]), new Set()), false);
+});
+
+test("Left moves up to the folder a file or folder sits in", () => {
+  assert.equal(parentFolder("Krea2/Body/curvy.safetensors"), "Krea2/Body");
+  assert.equal(parentFolder("Krea2\\Body\\curvy.safetensors"), "Krea2/Body", "Windows paths name the same folder");
+  assert.equal(parentFolder("Krea2/Body"), "Krea2");
+  assert.equal(parentFolder("Krea2"), null);
+  assert.equal(parentFolder("root.safetensors"), null);
+  assert.equal(parentFolder(undefined), null);
+});
+
+test("a row keeps its strength-curve mark through a save, and only a true one", () => {
+  const rows = parseRows(JSON.stringify([
+    { id: "a", name: "a.safetensors", curve: true },
+    { id: "b", name: "b.safetensors", curve: "yes" },
+    { id: "c", name: "c.safetensors" },
+  ]));
+  assert.deepEqual(rows.map((row) => row.curve), [true, undefined, undefined]);
+  assert.equal(Object.hasOwn(rows[2], "curve"), false);
+});
+
+test("the curve mark is set and taken off by row id", () => {
+  const rows = [{ id: "a" }, { id: "b", curve: true }, { id: "c" }];
+  assert.deepEqual(followCurve(rows, ["a", "c"], true), [{ id: "a", curve: true }, { id: "b", curve: true }, { id: "c", curve: true }]);
+  assert.deepEqual(followCurve(rows, ["b"], false), [{ id: "a" }, { id: "b" }, { id: "c" }]);
+});
+
+test("a first curve marks every row, and a chosen mark is left alone", () => {
+  const fresh = [{ id: "a" }, { id: "b" }];
+  assert.deepEqual(rowsForNewCurve(fresh), [{ id: "a", curve: true }, { id: "b", curve: true }]);
+  const chosen = [{ id: "a" }, { id: "b", curve: true }];
+  assert.equal(rowsForNewCurve(chosen), chosen);
+});
+

@@ -13,7 +13,13 @@ from ._transform_engine import (
     transform_tensor_batch_chunked,
 )
 from ._transform_inputs import resize_inputs, spec_from_values, transform_inputs
-from ._video_load_helpers import clip_load_window, decode_video_range, fixed_clip_window, lazy_audio_range
+from ._video_load_helpers import (
+    clip_load_window,
+    decode_video_range,
+    fixed_clip_window,
+    lazy_audio_range,
+    limit_clip_length,
+)
 
 
 FRAME_SNAP_RULES = ("free", "8n+1", "4n+1")
@@ -50,7 +56,8 @@ class AusBossVideoCropRotatePadClip:
         "for the same window, the frame count, fps, size, and duration, and a "
         "stitcher so Stitch Inpaint can paste the source frames back over the "
         "generated clip. Set the clip with Start, Duration and Ends at, or drag "
-        "its two handles on the timeline."
+        "its two handles on the timeline. Min and max seconds keep the clip's "
+        "length inside a range, for an App-mode form that shows only the clip window."
     )
     SEARCH_ALIASES = [
         "video crop",
@@ -243,6 +250,18 @@ class AusBossVideoCropRotatePadClip:
                 "tooltip": "Load only this many seconds from the end of the clip; 0 loads all of it. "
                            "Use it to carry on from a clip: a long clip then costs no more memory than a short one.",
             }),
+            # Appended after release: an App-mode form can show only the clip
+            # window, and these keep whatever is picked there inside a range.
+            "min_seconds": ("FLOAT", {
+                "default": 0.0, "min": 0.0, "max": 86400.0, "step": 0.1,
+                "tooltip": "The shortest the clip may be, in seconds; 0 = no limit. "
+                           "A shorter pick grows to this. A video shorter than this is used whole.",
+            }),
+            "max_seconds": ("FLOAT", {
+                "default": 0.0, "min": 0.0, "max": 86400.0, "step": 0.1,
+                "tooltip": "The longest the clip may be, in seconds; 0 = no limit. "
+                           "A longer pick, or the whole video, is cut to this.",
+            }),
         })
         return {"required": required, "optional": optional}
 
@@ -289,6 +308,8 @@ class AusBossVideoCropRotatePadClip:
         frame_load_cap=None,
         fixed_frames=0,
         last_seconds=0.0,
+        min_seconds=0.0,
+        max_seconds=0.0,
         **values,
     ):
         path = resolve_video_path(source_mode, video, local_path)
@@ -302,6 +323,14 @@ class AusBossVideoCropRotatePadClip:
         if fixed_frames:
             start_seconds, end_seconds, cap = fixed_clip_window(
                 video_metadata(path), start_seconds, fixed_frames, force_rate, nth
+            )
+        elif float(min_seconds or 0) > 0 or float(max_seconds or 0) > 0:
+            # An exact Fixed frames count wins over the limits.
+            metadata = video_metadata(path)
+            rate = float(force_rate or 0) or float(metadata.get("fps") or 0)
+            start_seconds, end_seconds, cap = limit_clip_length(
+                start_seconds, end_seconds, cap, metadata.get("duration") or 0,
+                nth / rate if rate > 0 else 0.0, min_seconds, max_seconds,
             )
         # The decode blocks for as long as the trim is; off the loop so the
         # executor keeps answering, with the context ComfyUI's progress and
@@ -409,7 +438,7 @@ class AusBossVideoCropRotatePadClip:
                 "every_nth": max(1, int(every_nth)),
                 "max_frames": max(0, int(max_frames)),
                 "frame_snap": str(frame_snap),
-                **{name: values.get(name) for name in ("force_rate", "start_frame", "end_frame", "frame_load_cap", "fixed_frames", "last_seconds")},
+                **{name: values.get(name) for name in ("force_rate", "start_frame", "end_frame", "frame_load_cap", "fixed_frames", "last_seconds", "min_seconds", "max_seconds")},
                 "stitch_blend": int(stitch_blend),
                 "stitch_grow": int(stitch_grow),
                 **spec.__dict__,

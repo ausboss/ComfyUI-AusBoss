@@ -81,7 +81,7 @@ export function ensureCardCss() {
   style.textContent = `
 .ausboss-card{position:relative;box-sizing:border-box;width:100%;height:100%;display:flex;flex-direction:column;gap:${ROW_GAP}px;padding:${CARD_PADDING}px 8px;overflow:hidden;border:1px solid transparent;border-radius:${RADIUS_CARD}px;background:${T.card};font:12px/1.3 ${FONT};color:${T.inkSoft};pointer-events:none}
 .ausboss-card-row{display:grid;grid-template-columns:minmax(56px,30%) 1fr;align-items:center;gap:8px;height:${ROW_HEIGHT}px;flex:none;pointer-events:auto}
-.ausboss-card-row.hidden{display:none}
+.ausboss-card .ausboss-card-row.hidden{display:none}
 .ausboss-card-row.linked{opacity:.5}
 .ausboss-card-row.linked .ausboss-card-control{pointer-events:none}
 .ausboss-card-row.muted .ausboss-card-control{opacity:.35;pointer-events:none}
@@ -97,6 +97,7 @@ export function ensureCardCss() {
 .ausboss-card-row.area{display:block}
 .ausboss-card-row.panel{display:block}
 .ausboss-card-row.area.grow{flex:1 1 auto;height:auto}
+.ausboss-card-row.panel.grow{flex:1 1 auto;height:auto}
 .ausboss-card-label{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:${T.label};font-size:11px;user-select:none}
 .ausboss-card-control{display:flex;align-items:center;gap:6px;min-width:0;height:100%}
 .ausboss-card-field{display:flex;align-items:center;gap:6px;flex:1 1 0;min-width:0;height:100%}
@@ -105,6 +106,7 @@ export function ensureCardCss() {
 .ausboss-card-field>.ausboss-scrub{flex:1 1 0;width:auto;min-width:0}
 .ausboss-card-field>.ausboss-scrub .ausboss-scrub-input{width:100%}
 .ausboss-card-sep{flex:none;color:${T.faint};font-size:11px}
+.ausboss-card-note{flex:none;min-width:58px;color:${T.faint};font:600 10px ${FONT};font-variant-numeric:tabular-nums;white-space:nowrap;user-select:none}
 .ausboss-card-suffix{flex:none;color:${T.faint};font:600 10px ${FONT};letter-spacing:.1em;text-transform:uppercase;user-select:none}
 .ausboss-card-section{height:${SECTION_HEIGHT}px;flex:none;display:flex;align-items:flex-end;gap:8px;color:${T.faint};font:600 10px/1 ${FONT};letter-spacing:.1em;text-transform:uppercase;user-select:none}
 .ausboss-card-section::after{content:"";flex:1;height:1px;margin-bottom:4px;background:${T.rule}}
@@ -188,6 +190,7 @@ function isFloatWidget(widget) {
 
 // Mount a card on `node`. Rows:
 //   { widget, label?, kind?, labels?, suffix?, title?, when?, group?, linkedBy?, snap?, pixels?, step?, limits?, trimZeros? }
+//                                          - `when(values, node)` shows the row
 //                                          - `linkedBy` names other inputs
 //                                            whose link also dims the row
 //                                            (a wired source replacing a
@@ -206,6 +209,8 @@ function isFloatWidget(widget) {
 //                                            `trimZeros` drops the zeroes
 //                                            the steps never reach (1.00,
 //                                            not 1.000)
+//                                          - `note(node, values)` is small
+//                                            type after the control ("= 0.27")
 //   { widget, kind: "textarea", placeholder?, height, grow?, looks? }
 //                                          - a multiline string; `grow` takes
 //                                            the node's spare height; `looks`
@@ -215,9 +220,10 @@ function isFloatWidget(widget) {
 //                                          - `top` lifts the widgets' sockets
 //                                            into the node's slot column
 //   { section: "Caption" }
-//   { panel: (node) => ({ element, sync(values) }), height }
+//   { panel: (node) => ({ element, sync(values) }), height, grow?, when? }
 //                                          - the node's own display, on a row
-//                                            of the card
+//                                            of the card; `grow` takes the
+//                                            node's spare height
 //   { group: "advanced", label: "More" }   - a disclosure; later rows with
 //                                             group: "advanced" sit under it
 // A numeric row may have readOnlyText(node, values): nonempty text replaces
@@ -337,7 +343,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     const seg = el("div", "ausboss-card-seg");
     const buttons = new Map();
     const add = (value, values) => {
-      const button = el("button", "", choiceLabel(row, value, values));
+      const button = el("button", "", choiceLabel(row, value, values, node));
       button.type = "button"; button.title = row.titles?.[value] ?? String(value);
       button.addEventListener("click", () => setWidget(name, value));
       seg.append(button); buttons.set(value, button);
@@ -381,7 +387,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       const options = comboValues(widget);
       const list = options.includes(current) || current === undefined || current === "" ? options : [...options, current];
       for (const value of list) {
-        const option = el("option", "", choiceLabel(row, value, options)); option.value = String(value); select.append(option);
+        const option = el("option", "", choiceLabel(row, value, options, node)); option.value = String(value); select.append(option);
       }
       select.value = String(current ?? "");
     };
@@ -400,16 +406,20 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     seg.setAttribute("role", "radiogroup");
     const label = (text, fallback) => (typeof text === "string" && text.length <= SWITCH_LABEL_MAX ? text : fallback);
     const buttons = new Map();
-    for (const [value, text] of [[false, label(row.offText, "off")], [true, label(row.onText, "on")]]) {
+    // `onText` may be a function of the node, read at every refresh (Film
+    // Grain's Auto reads "match" while a picture to copy from is wired).
+    const onText = () => label(typeof row.onText === "function" ? row.onText(node) : row.onText, "on");
+    for (const [value, text] of [[false, label(row.offText, "off")], [true, onText()]]) {
       const button = el("button", "", text);
       button.type = "button";
-      button.title = row.title ?? (widgetTooltip(node, name, widget) || (value ? row.onText ?? "" : row.offText ?? ""));
+      button.title = row.title ?? (widgetTooltip(node, name, widget) || (value ? (typeof row.onText === "string" ? row.onText : "") : row.offText ?? ""));
       button.addEventListener("click", () => setWidget(name, value));
       seg.append(button); buttons.set(value, button);
     }
     into.append(seg);
     return (vals) => {
       const on = Boolean(vals[name]);
+      if (typeof row.onText === "function") buttons.get(true).textContent = onText();
       for (const [value, button] of buttons) {
         button.classList.toggle("on", value === on);
         button.setAttribute("aria-checked", String(value === on));
@@ -538,7 +548,8 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     }
     if (row.panel) {
       const line = el("div", "ausboss-card-row panel");
-      line.style.height = `${rowHeight(row)}px`;
+      if (row.grow) { line.classList.add("grow"); line.style.minHeight = `${rowHeight(row)}px`; }
+      else line.style.height = `${rowHeight(row)}px`;
       const panel = row.panel(node);
       line.append(panel.element);
       state.rows.push({ row, element: line, syncs: panel.sync ? [panel.sync] : [] });
@@ -581,6 +592,14 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       fields.set(name, field);
     });
     if (row.button) buildButton(row.button, control);
+    // A small line of type after the control: what the value comes to
+    // (`note(node, values)` returns the text, "" for none).
+    if (typeof row.note === "function") {
+      const note = el("span", "ausboss-card-note");
+      note.setAttribute("role", "status");
+      control.append(note);
+      syncs.push((vals) => { note.textContent = String(row.note(node, vals) ?? ""); });
+    }
     line.append(control);
     state.rows.push({ row: { ...row, inGroup: row.group ?? null }, element: line, names, syncs, fields });
     root.append(line);
@@ -762,7 +781,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     }
     const groups = {};
     for (const entry of state.rows) if (entry.header) groups[entry.row.group] = groupOpen(entry.row.group);
-    const visible = visibleRows(state.rows.map((entry) => entry.row), vals, groups);
+    const visible = visibleRows(state.rows.map((entry) => entry.row), vals, groups, node);
     const visibleSet = new Set(visible);
     const tops = rowTops(visible, look);
     state.rowTop = new Map();
@@ -863,5 +882,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
 
   refresh();
   state.refresh = refresh; state.setGroupOpen = setGroupOpen; state.groupOpen = groupOpen;
+  // A panel that changes the card's rows itself (a tab) redraws it as a change by hand.
+  state.refreshByHand = () => byHand(refresh);
   return state;
 }

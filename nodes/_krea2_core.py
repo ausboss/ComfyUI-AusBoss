@@ -27,6 +27,8 @@ from comfy.ldm.flux.layers import timestep_embedding
 from comfy.ldm.flux.math import apply_rope
 from comfy.ldm.modules.attention import optimized_attention_masked
 
+from ._krea2_helpers import REFERENCE_STRENGTH_KEY, combine_attention_mask, reference_key_bias
+
 
 def _target_grid(x: torch.Tensor, patch: int) -> tuple[int, int]:
     hs, ws = x.shape[-2], x.shape[-1]
@@ -107,6 +109,12 @@ def _attn_kv(
     if kv_cache is not None:
         k = torch.cat((k, kv_cache[0].to(k.dtype)), dim=2)
         v = torch.cat((v, kv_cache[1].to(v.dtype)), dim=2)
+        # Krea 2 Encode 🆎's reference_curve: the cached reference keys are
+        # the last ones, and get the step's strength as an attention bias.
+        strength = transformer_options.get(REFERENCE_STRENGTH_KEY)
+        if strength is not None:
+            mask = combine_attention_mask(mask, reference_key_bias(
+                k.shape[2], kv_cache[0].shape[2], strength.strength, q.dtype, q.device))
     if attn.kvheads != attn.heads:
         rep = attn.heads // attn.kvheads
         k = k.repeat_interleave(rep, dim=1)

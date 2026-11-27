@@ -126,6 +126,7 @@ const LAST_GUARDED_INPUT = {
   AUSBOSS_NODES_ColorMatch: "reference_mode",
   AUSBOSS_NODES_Compare: "image_b",
   AUSBOSS_NODES_CropForInpaint: "keep_inside",
+  AUSBOSS_NODES_FilmGrain: "preview",
   AUSBOSS_NODES_Float: "value",
   AUSBOSS_NODES_FrameInterpolate: "batch_size",
   AUSBOSS_NODES_ImageResize: "mask",
@@ -162,17 +163,19 @@ const APPENDED_SINCE = {
   AUSBOSS_NODES_Resolution: { workflow_sizes: "workflow-policy" },
   // Added in 2.4.0; 2.0.0 - 2.3.0 saves hold the card's value there.
   AUSBOSS_NODES_CropForInpaint: { keep_inside: "toggle" },
-  AUSBOSS_NODES_StitchInpaint: { seam: "combo", paste_onto: "combo" },
+  AUSBOSS_NODES_StitchInpaint: { seam: "combo", paste_onto: "combo", follow_changes: "toggle" },
   // Added in 2.0.0; 1.x saves hold the preview panel's value there (Select
   // Frame's from 1.2.0), or the LoRA panel's. Mask Refine's max_hole_size
   // came after 2.4.0; 2.x saves hold the card's value there.
   AUSBOSS_NODES_LaMaInpaint: { preview: "toggle" },
+  // Film Grain's Auto, appended after its preview switch.
+  AUSBOSS_NODES_FilmGrain: { auto: "toggle", auto_amount: "number", auto_size: "number", grain_from: "socket", auto_color: "number" },
   AUSBOSS_NODES_RefineMask: { preview: "toggle", max_hole_size: "number" },
   AUSBOSS_NODES_SelectFrame: { preview: "toggle" },
-  AUSBOSS_NODES_LoraLoader: { on_missing: "combo" },
+  AUSBOSS_NODES_LoraLoader: { on_missing: "combo", curve: "socket" },
   // Sockets, which hold no saved value.
   AUSBOSS_NODES_Compare: { filename: "socket" },
-  AUSBOSS_NODES_Krea2Encode: { mask: "socket" },
+  AUSBOSS_NODES_Krea2Encode: { mask: "socket", reference_curve: "socket" },
   AUSBOSS_NODES_LoadImagePad: { source_image: "socket" },
   AUSBOSS_NODES_SelectEveryNth: { fps: "socket" },
 };

@@ -51,6 +51,9 @@ CORE_WIDGETS = {
     "TextEncodeQwenImage21": "prompt negative_prompt resolution",
     "QwenImage21Cache": "device dtype",
     "SAM3_Detect": "threshold refine_iterations individual_masks",
+    "ImageToMask": "channel",
+    "ThresholdMask": "value",
+    "ImageBlur": "blur_radius sigma",
 }
 
 
@@ -76,6 +79,10 @@ def pack_widget_names() -> dict[str, list[str]]:
                 groups = {k.value: v for k, v in zip(returned[0].keys, returned[0].values) if isinstance(k, ast.Constant)}
                 for group in ("required", "optional"):
                     inputs = groups.get(group)
+                    # A group wrapped in a call, such as LoRA Loader's open
+                    # optional inputs, lists its fixed inputs in the one dict.
+                    if isinstance(inputs, ast.Call) and len(inputs.args) == 1:
+                        inputs = inputs.args[0]
                     if not isinstance(inputs, ast.Dict):
                         continue
                     for name, spec in zip(inputs.keys, inputs.values):

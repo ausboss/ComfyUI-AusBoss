@@ -1135,7 +1135,64 @@
     60
    ]
   },
-  "frontendVersion": "1.53.6"
+  "frontendVersion": "1.53.6",
+  "reroutes": [
+   {
+    "id": 1,
+    "pos": [
+     1504,
+     205
+    ],
+    "linkIds": [
+     5
+    ]
+   },
+   {
+    "id": 2,
+    "parentId": 1,
+    "pos": [
+     1964,
+     205
+    ],
+    "linkIds": [
+     5
+    ]
+   },
+   {
+    "id": 3,
+    "pos": [
+     1508,
+     441
+    ],
+    "linkIds": [
+     2
+    ]
+   },
+   {
+    "id": 4,
+    "pos": [
+     1516,
+     451
+    ],
+    "linkIds": [
+     3
+    ]
+   }
+  ],
+  "linkExtensions": [
+   {
+    "id": 5,
+    "parentId": 2
+   },
+   {
+    "id": 2,
+    "parentId": 3
+   },
+   {
+    "id": 3,
+    "parentId": 4
+   }
+  ]
  },
  "version": 0.4
 }

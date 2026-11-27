@@ -11,13 +11,16 @@ import { chainCallback, notifyAusbossChange } from "../shared/index.mjs";
 import { formatWidgetVisibility } from "../shared/save_video_formats.mjs";
 import { hideInputsInDef } from "../shared/widget_visibility.mjs";
 import { castChips } from "../shared/h3_cast_chips.mjs";
-import { clipSetsDuration } from "../shared/h3_duration.mjs";
+import { FULL, fullPromptBox, isEdited, promptTab, promptTabs, simpleEditedNote } from "../shared/h3_full_prompt.mjs";
+import { cameraChoiceLabel, clipSetsDuration } from "../shared/h3_duration.mjs";
 import { loadImagePreview, loadImageStrip } from "../shared/load_image_strip.mjs";
 import { momentStrip } from "../shared/moment_strip.mjs";
 import { mountWidgetCard } from "../shared/widget_card.mjs";
+import { copiesGrain, grainFromLinked } from "../shared/grain_auto.mjs";
 import { FONT_UI, THEME } from "../shared/theme.mjs";
 import { SOCKETLESS_CHOICE, SOCKETLESS_TEXT, commitWidgetValue, markSocketless, resetUnknownValues } from "../shared/widget_card_math.mjs";
 import { mediaViewQuery } from "../shared/media_list.mjs";
+import { readsFill, readsFit } from "../shared/image_resize_rows.mjs";
 import { gearIconSvg, openSettingsMenu } from "../shared/settings_menu.mjs";
 import { SEAM_MENU, SEAM_MUTE_TITLES, isBlendIn, seamCornerReserve } from "../shared/stitch_seam.mjs";
 import { NUMBER_LOOK_MENU, TEXT_LOOK_MENU, setTextLook, textLook, textLookCornerReserve } from "../shared/text_look.mjs";
@@ -26,6 +29,21 @@ import { valueToTake, wiredLimits } from "../shared/wired_limits.mjs";
 
 // The Source lists preview the hovered file straight from ComfyUI's /view.
 const viewUrl = (value) => api.apiURL(`/view?${mediaViewQuery(value)}`);
+
+// Film Grain's Auto: what the multiplier comes to for the picture on hand.
+// The node's live stage (js/shared/live_stage.mjs) keeps Auto's own picks
+// on node.__ausbossAuto once it knows the picture; until then a plain dash.
+// Film Grain's Auto notes: the number each multiplier gives ("= 0.27"), from
+// Auto's pick, or from the match while a picture to copy grain from is wired
+// (js/shared/grain_auto.mjs keeps both).
+function autoNote(node, which) {
+  const picked = copiesGrain(node) ? node.__ausbossMatch : node.__ausbossAuto;
+  const widget = node.widgets?.find((item) => item.name === `auto_${which}`);
+  const times = Number(widget?.value);
+  if (!picked || !Number.isFinite(times)) return "= -";
+  if (which === "size") return `= ${Math.min(16, Math.max(0.5, picked.size * times)).toFixed(1)} px`;
+  return `= ${Math.min(1, Math.max(0, picked[which] * times)).toFixed(2)}`;
+}
 
 const isMode = (name, ...modes) => (values) => modes.includes(values[name]);
 // Load Image: the choices that read the width and height boxes.
@@ -76,6 +94,24 @@ function seamCorner(node, card) {
     },
   };
 }
+// Color Match: one line under Method that says what the picked method does,
+// so the short pill names need no trip to the tooltip.
+const COLOR_MATCH_METHOD_HINTS = {
+  lab: "Moves the colours to match. The safe default.",
+  rgb: "The same as lab, in plain red, green and blue.",
+  mkl: "For colours that are turned, not just shifted.",
+  histogram: "An exact match. The strongest, least subtle.",
+  kept: "For an edit: wire the picture from before the edit as reference.",
+};
+function colorMatchMethodHint() {
+  const element = document.createElement("div");
+  element.style.cssText = "display:flex;align-items:center;height:100%;padding:0 2px;box-sizing:border-box;"
+    + `color:${THEME.faint};font:11px/14px ${FONT_UI};`;
+  return {
+    element,
+    sync: (values) => { element.textContent = COLOR_MATCH_METHOD_HINTS[values.method] ?? ""; },
+  };
+}
 // Text, Integer and Float: the gear in the card's corner picks the node's
 // look, the usual box or big and centred (shared/text_look.mjs). The look is
 // kept on the node, not in a widget, so the node's inputs and saved values
@@ -119,10 +155,37 @@ const CARDS = {
       { widget: "edge_length", label: "Edge", suffix: "px", when: isMode("target_mode", "longest_edge", "shortest_edge") },
       { widget: "megapixels", label: "Budget", suffix: "MP", when: isMode("target_mode", "megapixels") },
       { widget: "scale_factor", label: "Scale", suffix: "×", when: isMode("target_mode", "scale_factor") },
-      { widget: "keep_proportion", label: "Fit", kind: "segment", labels: { cover_crop: "cover" } },
-      { widget: "fill_color", label: "Fill", kind: "color", when: isMode("keep_proportion", "pad") },
+      { widget: "keep_proportion", label: "Fit", kind: "segment", labels: { cover_crop: "cover" }, when: readsFit },
+      { widget: "fill_color", label: "Fill", kind: "color", when: readsFill },
       { widget: "divisible_by", label: "Multiple" },
       { widget: "interpolation", label: "Filter", kind: "select" },
+    ],
+  },
+  // One node, many small jobs: a new job is a new choice in the list, and
+  // its own rows show only while it is picked.
+  AUSBOSS_NODES_ImageToolbox: {
+    minWidth: 280,
+    resetUnknown: { width: 512, height: 512, position: "top left", move_right: 0, move_down: 0 },
+    rows: [
+      { widget: "job", label: "Job", kind: "select" },
+      { widget: "pieces", label: "Pieces", when: isMode("job", "split sheet at gaps") },
+      { widget: "width", label: "Width", suffix: "px", when: isMode("job", "cut a piece") },
+      { widget: "height", label: "Height", suffix: "px", when: isMode("job", "cut a piece") },
+      { widget: "position", label: "Position", kind: "select", when: isMode("job", "cut a piece") },
+      { widget: "move_right", label: "Move right", suffix: "px", when: isMode("job", "cut a piece") },
+      { widget: "move_down", label: "Move down", suffix: "px", when: isMode("job", "cut a piece") },
+    ],
+  },
+  AUSBOSS_NODES_PauseShot: { minWidth: 260, first: true, hide: ["view"], socketless: ["view"], rows: [
+    { widget: "pause", label: "Pause", onText: "wait for me", offText: "run through" },
+  ] },
+  AUSBOSS_NODES_PhotoCamera: {
+    minWidth: 260,
+    rows: [
+      { widget: "fov", label: "Lens", suffix: "°", step: 1, decimals: 1, title: "How wide the photo is, in degrees across. Wire Get FoV from MoGe here." },
+      { group: "advanced", label: "More" },
+      { widget: "pad_factor", label: "Crop margin", suffix: "×", step: 0.05, decimals: 2, group: "advanced" },
+      { widget: "canvas_width", label: "360 width", suffix: "px", step: 256, snap: true, group: "advanced" },
     ],
   },
   AUSBOSS_NODES_EditLock: {
@@ -145,6 +208,7 @@ const CARDS = {
     rows: [
       { widget: "strength", label: "Strength" },
       { widget: "method", label: "Method", kind: "segment", labels: { histogram: "hist" }, titles: { histogram: "histogram" } },
+      { panel: colorMatchMethodHint, height: 28 },
       { widget: "reference_mode", label: "Reference", kind: "segment", labels: { reference: "reference", first_frame: "first frame" } },
       { widget: "invert_mask", label: "Invert mask" },
     ],
@@ -169,7 +233,7 @@ const CARDS = {
     // A workflow saved before Seam existed holds the card's own empty value
     // in the slot Seam now takes; it loads as classic. One saved with Seam
     // holds it in Paste onto's slot, and loads as crop.
-    resetUnknown: { seam: "classic", paste_onto: "crop" },
+    resetUnknown: { seam: "classic", paste_onto: "crop", follow_changes: false },
     // Seam and Paste onto have no row and no socket: the gear menu sets them.
     hide: ["seam", "paste_onto"],
     socketless: ["seam", "paste_onto"],
@@ -177,6 +241,7 @@ const CARDS = {
     rows: [
       { widget: "color_match", label: "Tone match" },
       { widget: "fix_edge_halo", label: "Fix edge halo", mute: isBlendIn, muteTitle: SEAM_MUTE_TITLES.fix_edge_halo },
+      { widget: "follow_changes", label: "Follow changes", mute: isBlendIn, muteTitle: SEAM_MUTE_TITLES.follow_changes },
     ],
   },
   AUSBOSS_NODES_CropForInpaint: {
@@ -380,22 +445,29 @@ const CARDS = {
   // sockets, and each picture's job sits under the words.
   AUSBOSS_NODES_H3PromptWriter: {
     minWidth: 420,
-    hide: ["job_1", "job_2", "job_3", "job_4", "video_job"],
-    socketless: ["job_1", "job_2", "job_3", "job_4", "video_job"],
-    resetUnknown: { sound: "", music: "", clip_sound: false },
+    hide: ["job_1", "job_2", "job_3", "job_4", "video_job", "full_prompt"],
+    socketless: ["job_1", "job_2", "job_3", "job_4", "video_job", "full_prompt"],
+    resetUnknown: { sound: "", music: "", clip_sound: false, full_prompt: "" },
     rows: [
-      { section: "What happens" },
+      // Simple is the card as it always was; Full prompt shows the prompt the
+      // node wrote and sends an edit made there instead (js/shared/h3_full_prompt.mjs).
+      { panel: promptTabs, height: 30 },
+      { panel: simpleEditedNote, height: 30, when: (values, node) => promptTab(node) !== FULL && isEdited(values) },
+      { section: "What H3 gets", when: (values, node) => promptTab(node) === FULL },
+      { panel: fullPromptBox, height: 210, grow: true, when: (values, node) => promptTab(node) === FULL },
+      { section: "What happens", when: (values, node) => promptTab(node) !== FULL },
       {
+        when: (values, node) => promptTab(node) !== FULL,
         widget: "script", kind: "textarea", height: 118, grow: true,
         placeholder: "Type what happens, one line for each thing. Picture 1 is @1. A blank line cuts to a new place.\n\nSwap: leave empty, or name who goes. Optional new look on its own line: @1 looks like a woman with blonde hair and a black hoodie.",
       },
-      { panel: momentStrip, height: 76 },
-      { widget: "sound", label: "Sound", placeholder: "rain on a window" },
-      { widget: "music", label: "Music", placeholder: "slow piano: music makes it louder" },
+      { panel: momentStrip, height: 76, when: (values, node) => promptTab(node) !== FULL },
+      { widget: "sound", label: "Sound", placeholder: "rain on a window", when: (values, node) => promptTab(node) !== FULL },
+      { widget: "music", label: "Music", placeholder: "slow piano: music makes it louder", when: (values, node) => promptTab(node) !== FULL },
       { section: "Pictures and settings" },
       { panel: castChips, height: 30 },
       { widget: "seconds", label: "Length", suffix: "s", readOnlyText: (node, values) => clipSetsDuration(node, values) ? "From the clip" : "", readOnlyTitle: "This video job uses the incoming clip, so Length is not used." },
-      { widget: "camera", label: "Camera", kind: "select" },
+      { widget: "camera", label: "Camera", kind: "select", labels: cameraChoiceLabel },
       { widget: "look", label: "Look", kind: "select" },
       { group: "more", label: "More" },
       { widget: "song_start", label: "Song starts at", suffix: "s", decimals: 1, trimZeros: true, group: "more" },
@@ -504,6 +576,68 @@ const CARDS = {
       { widget: "fps", label: "FPS", top: true, when: (values) => !formatReads("crf")(values) },
       { widget: "pingpong", label: "Ping-pong", onText: "forward, back", offText: "off" },
       { widget: "save_metadata", label: PANEL_LABELS.embed, onText: PANEL_LABELS.on, offText: PANEL_LABELS.off, when: formatReads("save_metadata"), title: "On embeds the workflow in the video file, so dropping the file back on the canvas restores the graph that made it." },
+    ],
+  },
+  // The strengths at the top and the bottom of the curve box. The curve
+  // itself (js/strength_curve) sits above the card and owns the hidden
+  // `points` widget.
+  AUSBOSS_NODES_StrengthCurve: {
+    minWidth: 320, hide: ["points"], socketless: ["points"],
+    rows: [
+      { widget: "high", label: "Top", step: 0.05, decimals: 2, title: "The strength at the top of the curve box. 1 is full strength." },
+      { widget: "low", label: "Bottom", step: 0.05, decimals: 2, title: "The strength at the bottom of the curve box. 0 is off." },
+    ],
+  },
+  // Film Grain, Cut Out and Keep Detail show their result: the card sits
+  // above the preview panel (js/input_preview), which owns the hidden
+  // preview switch.
+  // Auto picks the amount and size from the picture (js/shared/live_stage.mjs
+  // measures it), or copies grain_from's grain (the node's run works out the
+  // match); Amount, Size and, while copying, Color then read as multipliers
+  // in their own boxes (auto_amount, auto_size, auto_color), so each mode
+  // keeps its own numbers.
+  AUSBOSS_NODES_FilmGrain: {
+    minWidth: 300, first: true,
+    resetUnknown: { auto: false, auto_amount: 1, auto_size: 1, auto_color: 1 },
+    rows: [
+      // With a picture on grain_from, Auto copies its grain: "on" reads
+      // "match", and Color counts from the match too.
+      { widget: "auto", label: "Auto", onText: (node) => (grainFromLinked(node) ? "match" : "on"), offText: "off" },
+      { section: "1 \u00d7 = Auto's pick", when: (v, node) => Boolean(v.auto) && !grainFromLinked(node) },
+      { section: "1 \u00d7 = the match", when: (v, node) => Boolean(v.auto) && grainFromLinked(node) },
+      { widget: "amount", label: "Amount", when: (v) => !v.auto },
+      { widget: "size", label: "Size", suffix: "px", when: (v) => !v.auto },
+      { widget: "auto_amount", label: "Amount", suffix: "\u00d7", when: (v) => Boolean(v.auto), note: (node) => autoNote(node, "amount") },
+      { widget: "auto_size", label: "Size", suffix: "\u00d7", when: (v) => Boolean(v.auto), note: (node) => autoNote(node, "size") },
+      { widget: "roughness", label: "Roughness" },
+      { widget: "color", label: "Color", when: (v, node) => !(v.auto && grainFromLinked(node)) },
+      { widget: "auto_color", label: "Color", suffix: "\u00d7", when: (v, node) => Boolean(v.auto) && grainFromLinked(node), note: (node) => autoNote(node, "color") },
+      { widget: "moving", label: "Video grain", onText: "moving", offText: "still" },
+      { group: "advanced", label: "More" },
+      { widget: "seed", label: "Seed", group: "advanced" },
+    ],
+  },
+  AUSBOSS_NODES_CutOut: {
+    minWidth: 300, first: true,
+    rows: [
+      { widget: "keep", label: "Keep", kind: "segment", labels: { white: "white part", black: "black part" } },
+      { widget: "grow", label: "Grow", suffix: "px" },
+      { widget: "feather", label: "Feather", suffix: "px" },
+      { widget: "clean_edges", label: "Clean edges" },
+      { group: "advanced", label: "More" },
+      { widget: "clear_haze", label: "Clear haze", group: "advanced" },
+      { widget: "solid_above", label: "Solid above", group: "advanced" },
+      { widget: "smooth_frames", label: "Smooth video", suffix: "fr", group: "advanced" },
+    ],
+  },
+  AUSBOSS_NODES_KeepDetail: {
+    minWidth: 300, first: true,
+    rows: [
+      { widget: "detail_size", label: "Detail size", suffix: "px" },
+      { widget: "strength", label: "Strength" },
+      { widget: "color_detail", label: "Detail", onText: "color + light", offText: "light only" },
+      { group: "advanced", label: "More" },
+      { widget: "edge_safe", label: "Edge safe", group: "advanced" },
     ],
   },
 };

@@ -1025,7 +1025,7 @@
    "type": "AUSBOSS_NODES_LoraLoader",
    "pos": [
     2288,
-    1040.0
+    1290
    ],
    "size": [
     440,
@@ -2005,9 +2005,9 @@
    "title": "3 · Models",
    "bounding": [
     1968,
-    960.0,
+    960,
     780,
-    500.0
+    540
    ],
    "color": "#1d5560",
    "flags": {
@@ -2550,7 +2550,7 @@
       "type": "Reroute",
       "pos": [
        560,
-       676.0
+       640
       ],
       "size": [
        75,
@@ -2587,8 +2587,8 @@
       "id": 25,
       "type": "Reroute",
       "pos": [
-       560,
-       772.0
+       580,
+       784
       ],
       "size": [
        75,
@@ -3094,7 +3094,8 @@
       "origin_slot": 0,
       "target_id": 26,
       "target_slot": 3,
-      "type": "LATENT"
+      "type": "LATENT",
+      "parentId": 1
      },
      {
       "id": 20,
@@ -3241,7 +3242,19 @@
       "type": "IMAGE"
      }
     ],
-    "extra": {}
+    "extra": {},
+    "reroutes": [
+     {
+      "id": 1,
+      "pos": [
+       1060,
+       640
+      ],
+      "linkIds": [
+       25
+      ]
+     }
+    ]
    },
    {
     "id": "f03669a3-61c2-44c8-ad63-bad928a695fa",
@@ -3828,7 +3841,8 @@
       "type": "MASK"
      }
     ],
-    "extra": {}
+    "extra": {},
+    "reroutes": []
    }
   ]
  },
@@ -3841,7 +3855,106 @@
     60
    ]
   },
-  "frontendVersion": "1.53.6"
+  "frontendVersion": "1.53.6",
+  "reroutes": [
+   {
+    "id": 1,
+    "pos": [
+     954,
+     36
+    ],
+    "linkIds": [
+     46,
+     31
+    ]
+   },
+   {
+    "id": 2,
+    "parentId": 1,
+    "pos": [
+     1945,
+     36
+    ],
+    "linkIds": [
+     46,
+     31
+    ]
+   },
+   {
+    "id": 3,
+    "parentId": 2,
+    "pos": [
+     2768,
+     36
+    ],
+    "linkIds": [
+     31
+    ]
+   },
+   {
+    "id": 4,
+    "pos": [
+     2768,
+     300
+    ],
+    "linkIds": [
+     45
+    ]
+   },
+   {
+    "id": 5,
+    "parentId": 4,
+    "pos": [
+     3208,
+     300
+    ],
+    "linkIds": [
+     45
+    ]
+   },
+   {
+    "id": 6,
+    "pos": [
+     956,
+     1030
+    ],
+    "linkIds": [
+     2
+    ]
+   },
+   {
+    "id": 7,
+    "pos": [
+     962,
+     980
+    ],
+    "linkIds": [
+     3
+    ]
+   }
+  ],
+  "linkExtensions": [
+   {
+    "id": 46,
+    "parentId": 2
+   },
+   {
+    "id": 31,
+    "parentId": 3
+   },
+   {
+    "id": 45,
+    "parentId": 5
+   },
+   {
+    "id": 2,
+    "parentId": 6
+   },
+   {
+    "id": 3,
+    "parentId": 7
+   }
+  ]
  },
  "version": 0.4
 }

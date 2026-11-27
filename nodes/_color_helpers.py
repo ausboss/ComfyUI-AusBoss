@@ -154,8 +154,9 @@ def lab_to_rgb(lab: torch.Tensor) -> torch.Tensor:
 # Method names are the node's combo values. All are textbook constructions
 # implemented here from the math: per-channel mean/std transfer in LAB or RGB,
 # the closed-form Monge-Kantorovich linear covariance mapping, and per-channel
-# histogram (quantile) matching.
-COLOR_MATCH_METHODS = ("lab", "rgb", "mkl", "histogram")
+# histogram (quantile) matching. "kept" is the pack's own: a robust fit on
+# the pixels an edit left alone (see _kept_matched).
+COLOR_MATCH_METHODS = ("lab", "rgb", "mkl", "histogram", "kept")
 
 
 def _weighted_lab_stats(
@@ -294,6 +295,94 @@ def _histogram_matched(
     return torch.stack(frames, dim=0).clamp(0.0, 1.0)
 
 
+# A kept-pixel fit never moves contrast or saturation further than this; a
+# larger number means the fit read new content as kept, not a real drift.
+_KEPT_GAIN = {"lightness": (0.7, 1.3), "chroma": (0.6, 1.3)}
+_KEPT_SAMPLES = 200_000
+
+
+def _kept_fit(source: torch.Tensor, target: torch.Tensor, keep: float = 0.6, rounds: int = 4):
+    """Robust tone fit, N x 3 LAB source onto N x 3 LAB target.
+
+    Fits lightness gain and offset, one chroma gain about the source's mean
+    colour, and an a/b offset. Each round keeps the best-fitting share
+    (``keep``) of the pixels and fits again, so content the edit changed
+    falls out as outliers and only the pixels it kept decide the fit.
+    """
+    chosen = torch.ones(source.shape[0], dtype=torch.bool, device=source.device)
+    params = (1.0, 0.0, 1.0, torch.zeros(2, dtype=source.dtype, device=source.device),
+              source[:, 1:].mean(0))
+    for _ in range(rounds):
+        s, t = source[chosen], target[chosen]
+        if s.shape[0] < 16:
+            break
+        sl, tl = s[:, 0], t[:, 0]
+        sl_mean, tl_mean = sl.mean(), tl.mean()
+        var = ((sl - sl_mean) ** 2).sum()
+        gain_l = float(((sl - sl_mean) * (tl - tl_mean)).sum() / var) if var > 1e-6 else 1.0
+        gain_l = min(max(gain_l, _KEPT_GAIN["lightness"][0]), _KEPT_GAIN["lightness"][1])
+        offset_l = float(tl_mean - gain_l * sl_mean)
+        centre = s[:, 1:].mean(0)
+        sc, tc = s[:, 1:] - centre, t[:, 1:] - t[:, 1:].mean(0)
+        cvar = (sc * sc).sum()
+        gain_c = float((sc * tc).sum() / cvar) if cvar > 1e-6 else 1.0
+        gain_c = min(max(gain_c, _KEPT_GAIN["chroma"][0]), _KEPT_GAIN["chroma"][1])
+        tint = (t[:, 1:] - s[:, 1:]).mean(0)
+        params = (gain_l, offset_l, gain_c, tint, centre)
+        residual = (_kept_apply(source, params) - target).norm(dim=-1)
+        limit = torch.quantile(residual[chosen], keep)
+        chosen = chosen & (residual <= limit)
+    return params
+
+
+def _kept_apply(lab: torch.Tensor, params) -> torch.Tensor:
+    gain_l, offset_l, gain_c, tint, centre = params
+    lightness = lab[..., :1] * gain_l + offset_l
+    colour = (lab[..., 1:] - centre) * gain_c + centre + tint
+    return torch.cat([lightness, colour], dim=-1)
+
+
+def _kept_matched(
+    rgb: torch.Tensor, reference: torch.Tensor, mask: torch.Tensor | None
+) -> torch.Tensor:
+    """Undo an edit's tone drift, learned from the pixels the edit kept.
+
+    The reference is the same picture before the edit, pixel for pixel. An
+    edit model often hands back the parts it was asked to keep a little
+    darker, with more contrast and colour. Measured on those kept parts
+    (inside the mask, if one is given), the drift is a lightness gain and
+    offset, a saturation gain and a tint; undoing it everywhere brings the
+    new content into the same tone without pulling its own colours toward
+    what used to be there.
+    """
+    if reference.shape[1:3] != rgb.shape[1:3]:
+        raise ValueError(
+            "Color Match kept needs the picture from before the edit, at the same "
+            f"size: the image is {rgb.shape[2]}x{rgb.shape[1]}, the reference "
+            f"{reference.shape[2]}x{reference.shape[1]}."
+        )
+    frames = []
+    for index in range(rgb.shape[0]):
+        lab = rgb_to_lab(rgb[index : index + 1])[0]
+        pick = index if reference.shape[0] > 1 else 0
+        ref = rgb_to_lab(reference[pick : pick + 1])[0]
+        source, target = lab.reshape(-1, 3), ref.reshape(-1, 3)
+        if mask is not None:
+            region = mask[index if mask.shape[0] > 1 else 0].reshape(-1) > 0.5
+            source, target = source[region], target[region]
+        if source.shape[0] < 64:
+            frames.append(rgb[index])
+            continue
+        if source.shape[0] > _KEPT_SAMPLES:
+            # An even spread of pixels: the same answer every run.
+            step = source.shape[0] // _KEPT_SAMPLES + 1
+            source, target = source[::step], target[::step]
+        params = _kept_fit(source.double(), target.double())
+        params = tuple(p.to(lab.dtype) if isinstance(p, torch.Tensor) else p for p in params)
+        frames.append(lab_to_rgb(_kept_apply(lab, params).unsqueeze(0))[0])
+    return torch.stack(frames, dim=0)
+
+
 def match_colors(
     image: torch.Tensor,
     reference: torch.Tensor,
@@ -307,8 +396,9 @@ def match_colors(
     ``method`` picks the construction: "lab" and "rgb" move per-channel
     mean/std in that space, "mkl" maps the full RGB covariance through the
     Monge-Kantorovich linear transform, "histogram" matches each channel's
-    quantiles exactly. With a mask, both the measured statistics and the
-    applied correction are restricted to the white region (``invert_mask``
+    quantiles exactly, "kept" undoes an edit's tone drift learned from the
+    pixels it kept (the reference is the picture before the edit). With a
+    mask, both the measured statistics and the applied correction are restricted to the white region (``invert_mask``
     flips which side that is); pixels where the mask is zero are returned
     bit-identical. ``strength`` lerps between the original (0) and the
     fully matched image (1). A batch-1 reference broadcasts across an
@@ -360,6 +450,8 @@ def match_colors(
         matched = _mkl_matched(rgb, ref_rgb, mask)
     elif method == "histogram":
         matched = _histogram_matched(rgb, ref_rgb, mask)
+    elif method == "kept":
+        matched = _kept_matched(rgb, ref_rgb, mask)
     else:
         matched = _stats_matched(rgb, ref_rgb, mask, in_lab=method == "lab")
 

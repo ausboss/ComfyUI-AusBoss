@@ -496,6 +496,59 @@ def prompt_elements(regions: list[dict], shape: tuple[float, float] | None = Non
     return elements
 
 
+def _percent_extent(region: dict, shape: tuple[float, float]) -> tuple[int, int, int, int]:
+    """(left, top, right, bottom) of a box as whole percents of the canvas,
+    cut to it. A turned box gives the straight box around it, as in
+    `elements`."""
+    if angle_of(region):
+        left, top, right, bottom = _turned_extent(region, shape)
+    else:
+        x, y = region.get("x", 0.0), region.get("y", 0.0)
+        w, h = region.get("w", 0.0), region.get("h", 0.0)
+        left, right = sorted((x, x + w))
+        top, bottom = sorted((y, y + h))
+    return tuple(round(min(1.0, max(0.0, value)) * 100) for value in (left, top, right, bottom))
+
+
+def placement_words(left: int, top: int, right: int, bottom: int) -> str:
+    """Where a box is, from whole percents of the canvas: "top left, from 6%
+    to 52% across and 6% to 25% down". Plain "center" for the middle."""
+    vertical = "top" if bottom < 40 else "bottom" if top > 60 else "middle"
+    horizontal = "left" if right < 55 else "right" if left > 45 else "center"
+    where = "center" if (vertical, horizontal) == ("middle", "center") else f"{vertical} {horizontal}"
+    return f"{where}, from {left}% to {right}% across and {top}% to {bottom}% down"
+
+
+def placement_prompt(regions: list[dict], shape: tuple[float, float] | None = None) -> str:
+    """The `placement` output: one sentence per box, in the boxes' order, that
+    says what goes there and where, for a model that reads only a prompt.
+    `shape` is the (width, height) of the canvas a turned box was turned on.
+    A text box with words: 'The words "FRESH" in bold letters, placed top
+    left, from ...'. Any other box: its description, placed where it is; a
+    box with no words and no description is left out. No boxes give ""."""
+    shape = shape or (1.0, 1.0)
+    sentences = []
+    for region in regions:
+        if not isinstance(region, dict):
+            continue
+        desc = element_desc(region)
+        desc = desc.strip().rstrip(".,;:").rstrip() if isinstance(desc, str) else ""
+        text = region.get("text", "") if region.get("type") == "text" else ""
+        text = text.strip() if isinstance(text, str) else ""
+        where = placement_words(*_percent_extent(region, shape))
+        if text:
+            sentence = f'The words "{text}" in {desc}, placed {where}.' if desc else f'The words "{text}", placed {where}.'
+        elif desc:
+            sentence = f"{desc[:1].upper()}{desc[1:]}, placed {where}."
+        else:
+            continue
+        colors = element_colors(region.get("palette", []))[:MAX_COLORS]
+        if colors:
+            sentence += f" Colors: {', '.join(colors)}."
+        sentences.append(sentence)
+    return " ".join(sentences)
+
+
 def canvas_boxes(regions: list[dict]) -> list[dict]:
     """Boxes in the form the canvas keeps them, for the node's face."""
     keys = ("x", "y", "w", "h", "type", "text", "desc", "palette")
@@ -745,6 +798,8 @@ __all__ = [
     "input_fingerprint",
     "mask_rects",
     "parse_layout",
+    "placement_prompt",
+    "placement_words",
     "prompt_elements",
     "read_angle",
     "regions_from_pixel_boxes",

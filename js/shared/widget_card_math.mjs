@@ -18,12 +18,14 @@ const SEGMENT_MAX_CHARS = 26;
 // Which rows the current values leave visible. `groups` maps a group name to
 // its open state; a row inside a closed group is out, a row whose `when`
 // says no is out, a group header stays as long as any row under it exists.
-export function visibleRows(rows, values, groups = {}) {
+// `when(values, node)` gets the node too, for a row that follows a display
+// choice kept on the node rather than a widget value (a tab).
+export function visibleRows(rows, values, groups = {}, node = null) {
   return rows.filter((row) => {
     if (row.group !== undefined && row.widget === undefined && row.pair === undefined && row.section === undefined) {
       return true; // the disclosure header itself
     }
-    if (row.when && row.when(values) === false) return false;
+    if (row.when && row.when(values, node) === false) return false;
     if (row.inGroup && !groups[row.inGroup]) return false;
     return true;
   });
@@ -196,8 +198,8 @@ export function markSocketless(nodeData, names) {
 // `labels` is a map from value to words, or a function of the value and of
 // all the values, for a list that is only known on the user's machine (the
 // model files they have).
-export function choiceLabel(row, value, values = []) {
-  const own = typeof row?.labels === "function" ? row.labels(value, values) : row?.labels?.[value];
+export function choiceLabel(row, value, values = [], node = null) {
+  const own = typeof row?.labels === "function" ? row.labels(value, values, node) : row?.labels?.[value];
   return own ?? String(value);
 }
 

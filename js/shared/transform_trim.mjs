@@ -33,6 +33,9 @@ import {
   keyboardStep,
   lastFrameFor,
   latestInFor,
+  lengthLimits,
+  limitClipSeconds,
+  limitFrames,
   railZone,
   setTrimFrame,
   slideRange,
@@ -189,9 +192,22 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
   };
   const countAtRunTime = () => COUNT_INPUTS.some((name) => driven(name) && number(name, null) == null);
   const outFps = () => (outputRate ? outputRate() : info().fps / everyNth());
+  // min_seconds / max_seconds: the clip's length stays inside them. A
+  // connected limit only the run knows counts as none here.
+  const limits = () => lengthLimits(
+    number("min_seconds", get("min_seconds", 0)) ?? 0,
+    number("max_seconds", get("max_seconds", 0)) ?? 0,
+  );
+  const limitWords = () => {
+    const { min, max } = limits();
+    if (min > 0 && max > 0) return min === max ? `${secondsText(min)} s long` : `between ${secondsText(min)} and ${secondsText(max)} s`;
+    return max > 0 ? `at most ${secondsText(max)} s` : `at least ${secondsText(min)} s`;
+  };
+  // A Duration in output frames, held inside the limits.
+  const holdFrames = (frames) => (limits().active && outFps() > 0 ? limitFrames(frames, limits(), outFps(), snapRule()) : frames);
   const planValues = () => {
     const wired = wiredBy();
-    return {
+    const values = {
       start: boundSeconds("start"),
       end: boundSeconds("end"),
       everyNth: everyNth(),
@@ -203,6 +219,17 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
       outputFps: outputRate ? outputRate() : info().fps,
       resampled: driven("force_rate"),
     };
+    // The window the run uses under the limits (the backend's
+    // limit_clip_length), so the rail shows what will come out. An exact
+    // Fixed frames count and a connected length are left as they are.
+    const clip = info();
+    const duration = clip.duration || (clip.fps > 0 ? clip.count / clip.fps : 0);
+    const rate = outFps();
+    if (limits().active && !wired && !(Math.trunc(Number(values.fixedFrames) || 0) > 0) && duration > 0) {
+      const limited = limitClipSeconds({ start: values.start, end: values.end, cap: values.maxFrames, duration, frameSeconds: rate > 0 ? 1 / rate : 0 }, limits());
+      if (limited.changed) Object.assign(values, { start: limited.start, end: limited.end, maxFrames: limited.cap });
+    }
+    return values;
   };
   const plan = () => (trim ? clipLengthPlan(info(), planValues()) : null);
   // Output frames that fit between IN and the end of the video: the most a
@@ -332,10 +359,14 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
       let frames = framesThrough(current.first, target, nth, snapRule());
       if (driven("force_rate") && outFps() > 0) {
         // Output frames at the linked rate from IN to the handle's boundary.
-        frames = snapToValid(Math.max(1, Math.round(((target + 1) / clip.fps - boundSeconds("start")) * outFps())), snapRule());
+        frames = snapToValid(Math.max(1, Math.round(((target + 1) / clip.fps - planValues().start) * outFps())), snapRule());
         const room = roomFrames();
         if (room != null) frames = Math.min(frames, Math.max(1, room));
       }
+      // The limits stop OUT where the clip would get too short or too long.
+      const held = holdFrames(frames);
+      if (held !== frames) stopNote = `The clip stays ${limitWords()}.`;
+      frames = held;
       if (current.mode === "length") {
         set("max_frames", frames);
         set("end_seconds", 0);
@@ -652,7 +683,7 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
       const current = adoptLength(plan());
       if (current.mode !== "length") return;
       const was = current.requested ?? get("max_frames", 1);
-      set("max_frames", snapToValid(Math.max(1, frames), snapRule(), Math.sign(frames - was)));
+      set("max_frames", holdFrames(snapToValid(Math.max(1, frames), snapRule(), Math.sign(frames - was))));
       set("end_seconds", 0);
       stopNote = "";
     };
@@ -851,7 +882,7 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
       select.addEventListener("change", () => {
         set("frame_snap", select.value);
         // A Length moves to the nearest count the new rule keeps.
-        if (plan()?.mode === "length") set("max_frames", snapToValid(get("max_frames", 1), select.value));
+        if (plan()?.mode === "length") set("max_frames", holdFrames(snapToValid(get("max_frames", 1), select.value)));
         sync(); onCommit?.();
       });
       controls.frame_snap = select;

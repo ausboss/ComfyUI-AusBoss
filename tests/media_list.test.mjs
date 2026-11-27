@@ -12,6 +12,20 @@ test("mediaViewQuery names the file, its subfolder and its folder type", () => {
   assert.equal(mediaViewQuery(null), "");
 });
 
+test("mediaViewQuery preserves leading spaces in the requested filename", () => {
+  const filename = " 00_25.083 frame=377.png";
+  for (const type of ["input", "output", "temp"]) {
+    const suffix = type === "input" ? "" : ` [${type}]`;
+    for (const subfolder of ["", "pasted"]) {
+      const prefix = subfolder ? `${subfolder}/` : "";
+      const query = new URLSearchParams(mediaViewQuery(`${prefix}${filename}${suffix}`));
+      assert.equal(query.get("filename"), filename);
+      assert.equal(query.get("subfolder"), subfolder);
+      assert.equal(query.get("type"), type);
+    }
+  }
+});
+
 test("filterMedia keeps values holding every term, ignoring case", () => {
   const values = ["pasted/ausboss_night_bridge.png", "ausboss_day_sky_square.mp4", "Night_Alley.PNG"];
   assert.deepEqual(filterMedia(values, ""), values);

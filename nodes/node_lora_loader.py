@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from ._curve_helpers import as_schedule
 from ._execution_helpers import ignore_extra_inputs
 from ._lora_helpers import (
     MISSING_MODES,
+    apply_linked_strengths,
     apply_lora_stack,
+    is_row_strength_input,
     collect_trigger_words,
     missing_lora_rows,
     parse_lora_stack,
@@ -14,6 +17,29 @@ from ._lora_helpers import (
     unreadable_lora_message,
     unreadable_lora_rows,
 )
+
+
+class _OptionalWithRowStrengths(dict):
+    """The node's optional inputs, plus strength_<row id> for any row.
+
+    ComfyUI passes a node only the inputs it declares. A row's strength input
+    exists only while something is linked to that row, so its name is not
+    known ahead: this dict answers for any such name.
+    """
+
+    def __contains__(self, key):
+        return super().__contains__(key) or is_row_strength_input(key)
+
+    def __getitem__(self, key):
+        if not super().__contains__(key) and is_row_strength_input(key):
+            return ("FLOAT", {
+                "forceInput": True,
+                "tooltip": "A linked strength for one row. The CLIP strength keeps its ratio.",
+            })
+        return super().__getitem__(key)
+
+    def get(self, key, default=None):
+        return self[key] if key in self else default
 
 
 class AusBossLoraLoader:
@@ -53,7 +79,7 @@ class AusBossLoraLoader:
                     },
                 ),
             },
-            "optional": {
+            "optional": _OptionalWithRowStrengths({
                 "clip": ("CLIP", {"tooltip": "Optional CLIP to patch; without it, CLIP strengths are ignored."}),
                 "trigger_separator": (
                     "STRING",
@@ -81,7 +107,18 @@ class AusBossLoraLoader:
                         ),
                     },
                 ),
-            },
+                # Appended last: saved workflows keep links by slot.
+                "curve": (
+                    "FLOATS",
+                    {
+                        "tooltip": (
+                            "A strength curve, from Strength Curve 🆎. Rows marked to "
+                            "follow it change strength step by step: the row's strength "
+                            "times the curve."
+                        ),
+                    },
+                ),
+            }),
         }
 
     RETURN_TYPES = ("MODEL", "CLIP", "STRING")
@@ -98,10 +135,16 @@ class AusBossLoraLoader:
     )
     FUNCTION = "load_loras"
 
-    def load_loras(self, model, loras: str, clip=None, trigger_separator=", ", on_missing="error"):
-        rows = parse_lora_stack(loras)
+    def load_loras(self, model, loras: str, clip=None, trigger_separator=", ", on_missing="error",
+                   curve=None, **linked):
+        rows = apply_linked_strengths(parse_lora_stack(loras), linked)
+        schedule = as_schedule(curve)
+        if schedule is not None and not any(row["curve"] and row["enabled"] for row in rows):
+            print("[AusBoss] LoRA Loader: a strength curve is wired, but no enabled row follows it. "
+                  "Click a row's curve mark to make it follow.")
         missing: list[dict] = []
-        model, clip = apply_lora_stack(model, clip, rows, on_missing=on_missing, missing=missing)
+        model, clip = apply_lora_stack(model, clip, rows, on_missing=on_missing, missing=missing,
+                                       curve=schedule)
         # A row skipped for a missing file loaded nothing, so its words stay
         # out of the prompt. A row parked at strength 0 keeps them on purpose
         # (see the node docs): comparing with and without it changes only
