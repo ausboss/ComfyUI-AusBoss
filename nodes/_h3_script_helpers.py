@@ -638,7 +638,8 @@ def script_warning(script, seconds, cast=None):
         takes = len(moment.speech.split()) / WORDS_A_SECOND
         if takes > end - start + 0.5 and index not in carried and index != cut_off:
             return f"A spoken line takes about {takes:.0f} seconds to say, and its moment has {end - start:.0f}. Give it more room."
-    return ""
+    # Said last, and only said: the run goes ahead with the script as typed.
+    return cast.style_as_a_thing("\n".join(moment.text for moment in script.moments)) if cast else ""
 
 
 def script_report(text, seconds, jobs=None, video=""):

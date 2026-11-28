@@ -26,6 +26,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
   row, where it was hard to click. The chips now share their row: on a
   narrow node the longest jobs are cut short first, and pointing at a chip
   shows its whole job.
+- **H3 Prompt Writer 🆎 says when a style picture is used like a thing.** A
+  line such as "@1 wears @3" with Picture 3 set to style now shows a note
+  under the timeline: a style is a look, so write "in the style of @3" or
+  give the picture another job. The run still goes ahead.
 - **H3 Prompt Writer 🆎: clearer timeline and messages.** A 4 s clip shows a
   4 s bar. The note under a clip that H3 shortens says how much is left
   out. `@5` says there are four pictures, and a line that names a missing

@@ -60,6 +60,11 @@ REVOICE_KEEPS_PERSON = (
     'Take the picture off, or pick the video job "swap the person".'
 )
 HE_SHE = re.compile(r"\b(?:he|she|they)\b", re.I)
+# Words that say a style picture is being used as a look, as in "drawn like @3".
+AS_A_LOOK = re.compile(r"\b(?:like|style[ds]?|looks? of|colou?rs?|palette|drawn|painted|shaded|rendered|art|grade[ds]?|lighting|tones?|mood|textures?|grain)\b", re.I)
+A_SENTENCE = re.compile(r"[^.!?\n]+")
+STYLE_IS_A_LOOK = ('Picture {slot} is a style: a look, not something in the shot. '
+                   'Write "in the style of @{slot}", or give Picture {slot} another job.')
 
 # (what the label is, how it is kept). {picture} is H3's number for the picture.
 JOB_WORDS = {
@@ -576,6 +581,15 @@ class Cast:
                     continue
                 hint = f' Type who wears it, like "He wears @{picture.slot}."' if picture.job == OUTFIT else ""
                 return f"Picture {picture.slot} is on, but no line names @{picture.slot}.{hint}"
+        return ""
+
+    def style_as_a_thing(self, text):
+        """A style picture named like something in the shot, as in "@1 wears @3"."""
+        styles = {picture.slot for picture in self.of(STYLE)}
+        for sentence in A_SENTENCE.findall(text):
+            for slot in TOKEN.findall(sentence):
+                if int(slot) in styles and not AS_A_LOOK.search(sentence):
+                    return STYLE_IS_A_LOOK.format(slot=slot)
         return ""
 
     def wearers(self, moments):

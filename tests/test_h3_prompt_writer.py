@@ -468,6 +468,15 @@ class PictureJobTests(unittest.TestCase):
         self.assertIn("no line names @2", script_report("@1 runs", 8, {1: "person", 2: "person"})["warning"])
         self.assertEqual(script_report("@1 runs", 8, {1: "person"})["warning"], "")
 
+    def test_a_style_picture_named_as_a_thing_gets_a_warning(self):
+        jobs = {1: "person", 3: "style"}
+        for line in ("@1 wears @3.", "@1 picks up @3.", "@1 walks in. Then @1 stands in @3."):
+            self.assertIn("Picture 3 is a style", script_report(line, 8, jobs)["warning"], line)
+        for line in ("@1 walks in. In the style of @3.", "@1 walks in, drawn like @3.", "@1 walks in. Use the look of @3.", "@1 walks in."):
+            self.assertEqual(script_report(line, 8, jobs)["warning"], "", line)
+        # It only warns: the run still goes ahead.
+        self.assertIn("visual style of <Picture 2>", write_prompt("@1 wears @3.", jobs=jobs))
+
     def test_lines_with_no_numbers_still_work_with_two_people(self):
         parts = parts_of("They sit down on a bench.", jobs={1: "person", 2: "person"})
         self.assertIn("<Subject 1> and <Subject 2> are in the shot. They sit down on a bench.", parts["detailed_description"])
