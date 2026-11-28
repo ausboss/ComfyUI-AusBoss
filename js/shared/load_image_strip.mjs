@@ -10,6 +10,7 @@
 // on the first picture picks the part to keep.
 import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
+import { notifyAusbossChange } from "./index.mjs";
 import { CROP_MODES, changeText, cropSideAt, keptPart, placeText, planLoadSize, shapeText, sizeText, stepFile, thumbSizes } from "./load_size.mjs";
 import { mediaViewQuery } from "./media_list.mjs";
 import { FONT_UI, RADIUS_CONTROL, THEME as T } from "./theme.mjs";
@@ -93,6 +94,7 @@ export function loadImagePreview(node) {
     const next = cropSideAt((event.clientX - box.left) / box.width, (event.clientY - box.top) / box.height);
     if (next === widget.value) return;
     commitWidgetValue(node, widget, next, app.canvas);
+    notifyAusbossChange();
     node.setDirtyCanvas?.(true, true);
   });
 
@@ -163,6 +165,7 @@ export function loadImageStrip(node) {
       const next = stepFile(comboValues(image), image.value, delta);
       if (next === null || next === image.value) return;
       commitWidgetValue(node, image, next, app.canvas);
+      notifyAusbossChange();
       node.setDirtyCanvas?.(true, true);
     });
     root.append(button);

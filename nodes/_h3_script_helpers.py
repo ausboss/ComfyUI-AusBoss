@@ -298,9 +298,23 @@ SINGLE_QUOTED = re.compile(
 )
 
 
+# The last quote on a line opens words: at the start, or after a space or ( [ : ,
+OPENS_LAST = re.compile(r'(?:^|[\s(\[:,])"[^"]*$')
+
+
+def close_quotes(text):
+    """A line whose words open with a quote that never closes: they run to the
+    end of the line, the way they are coloured. A closing quote is easy to miss
+    on a phone; a 12" record is a measure and stays as typed."""
+    return "\n".join(
+        line.rstrip() + '"' if line.count('"') % 2 and OPENS_LAST.search(line) else line for line in text.split("\n")
+    )
+
+
 def clean(text):
     for old, new in QUOTES.items():
         text = text.replace(old, new)
+    text = close_quotes(text)
     # Words already in double quotes stay as typed, so a quote inside them can't move their ends.
     kept = []
 

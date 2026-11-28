@@ -437,8 +437,31 @@ class PictureJobTests(unittest.TestCase):
         self.assertIn("<Subject 1> sits down in <Subject 2>.", parts["detailed_description"])
 
     def test_a_number_with_no_picture_says_what_to_do(self):
-        with self.assertRaisesRegex(ValueError, "@2 has no picture. Turn Picture 2 on"):
+        # Off and not connected look the same here, so the advice covers both.
+        with self.assertRaisesRegex(ValueError, "^@2 has no picture: connect or turn on Picture 2, or take @2 out of your script.$"):
             write_prompt("@2 runs", jobs={1: "person"})
+
+    def test_a_number_past_four_is_not_a_picture(self):
+        for typed in ("@5 jumps into the lake.", "@10 waves."):
+            with self.assertRaisesRegex(ValueError, r"^There are four pictures, @1 to @4\. Take @(5|10) out of your script\.$"):
+                write_prompt(typed, jobs={1: "person"})
+
+    def test_only_one_picture_starts_the_clip(self):
+        with self.assertRaisesRegex(ValueError, '^Pictures 1 and 2 are both "start on it". The clip starts on one picture, so pick another job for Picture 2.$'):
+            write_prompt("She walks.", jobs={1: "start on it", 2: "start on it"})
+
+    def test_only_one_picture_ends_the_clip(self):
+        with self.assertRaisesRegex(ValueError, '^Pictures 2 and 3 are both "end on it". The clip ends on one picture, so pick another job for Picture 3.$'):
+            write_prompt("She walks.", jobs={1: "person", 2: "end on it", 3: "end on it"})
+
+    def test_a_line_with_no_closing_quote_is_still_spoken(self):
+        # A closing quote is easy to miss on a phone; the words run to the end of the line.
+        self.assertIn("<d>[English] Wait for me", write_prompt('He says "Wait for me', jobs={1: "start on it"}))
+        both = write_prompt('He shouts "Stop!" and she says "Why', jobs={1: "start on it"})
+        self.assertIn("<d>[English] Stop!</d>", both)
+        self.assertIn("<d>[English] Why", both)
+        # A quote that only measures something is left alone.
+        self.assertNotIn("<d>", write_prompt('A 12" record spins on the turntable.', jobs={1: "start on it"}))
 
     def test_the_timeline_warns_before_the_run(self):
         self.assertIn("@2 has no picture", script_report("@2 runs", 8, {1: "person"})["warning"])

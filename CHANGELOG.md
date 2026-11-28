@@ -4,6 +4,27 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Undo takes back a drag on a node's face as its own step.** Moving a
+  moment on H3 Prompt Writer's timeline, picking a picture's job from its
+  chip, dragging Strength Curve's points, and picking the crop side or the
+  next file on Load Image's strip were never kept as steps of their own.
+  One Ctrl+Z took back the change before them too, and the drag could not
+  be brought back. Each one is its own step now.
+- **H3 Prompt Writer 🆎 shows the script's problems when the clip sets the
+  length.** With copy its moves, swap the person, new voice or change
+  something, a mistake such as `@5` now shows under the script, as it does
+  for the other jobs. Before, the node said nothing and the run stopped.
+- **H3 Prompt Writer 🆎 speaks a line whose closing quote is missing.**
+  `He says "Wait for me` is spoken to the end of the line, the way the
+  script box already colours it. Before, the words went in as plain action.
+- **H3 Prompt Writer 🆎 asks you to change a second start or end picture.**
+  Two pictures set to start on it, or two set to end on it, now say which
+  one to change. Before, the second one was left out of the prompt without
+  a word.
+- **H3 Prompt Writer 🆎: clearer timeline and messages.** A 4 s clip shows a
+  4 s bar. The note under a clip that H3 shortens says how much is left
+  out. `@5` says there are four pictures, and a line that names a missing
+  picture says to connect it or turn it on.
 - **Mask Refine 🆎's guided and matting edges follow the picture.** Both
   edge modes now look further from the mask's edge and snap to the real
   edge in the guide image, so hair and thin parts a rough mask missed come

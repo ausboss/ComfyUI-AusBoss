@@ -3,7 +3,7 @@
 // dashed chip, so it reads as optional. The widgets underneath stay the
 // source of truth: a chip only changes their value.
 import { app } from "../../../scripts/app.js";
-import { BRAND, chainCallback } from "./index.mjs";
+import { BRAND, chainCallback, notifyAusbossChange } from "./index.mjs";
 import { THEME as T, FONT_UI } from "./theme.mjs";
 import { liftSocket } from "./widget_card.mjs";
 import { commitWidgetValue, comboValues } from "./widget_card_math.mjs";
@@ -155,7 +155,10 @@ function choice(node, name, into) {
   show(widget?.value);
   const choose = (value) => {
     show(value);
-    if (widget && value !== widget.value) commitWidgetValue(node, widget, value, app.canvas);
+    if (widget && value !== widget.value) {
+      commitWidgetValue(node, widget, value, app.canvas);
+      notifyAusbossChange();
+    }
     node.setDirtyCanvas?.(true, true);
   };
   button.addEventListener("pointerdown", (event) => event.stopPropagation());
