@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   canScrollFurther, dragCarriesFiles, graphDragStarts, isAppShortcut, isWeightShortcut, keepKeyInField, panelKeepsWheel,
-  panelNeedsDropHelp, panelRoot,
+  panelNeedsDropHelp, panelRoot, vueBoxKeepsWheel,
 } from "../js/shared/canvas_passthrough.mjs";
 
 const box = (over = {}) => ({ scrollHeight: 300, clientHeight: 100, scrollTop: 0, ...over });
@@ -121,6 +121,39 @@ test("a pointer on the classic wrapper is over the panel inside it", () => {
   assert.equal(panelKeepsWheel(classic, { deltaY: 100 }, ctx), false);
 });
 
+test("in Nodes 2.0 a box of the pack's that can still scroll claims the wheel before the graph does", () => {
+  // Nodes 2.0 hands every wheel turn over a node to the graph on its way down
+  // to the node, before any part of the node sees it, so a long script box
+  // zoomed the graph instead of scrolling. The box claims the wheel first.
+  const inHost = (className, ...children) => {
+    const host = { className, parentElement: null };
+    const answers = (sel) => sel.split(",").some((part) => className.split(" ").includes(part.trim().slice(1)));
+    let parent = host;
+    return children.map((child) => (parent = { ...child, parentElement: parent, closest: (sel) => (answers(sel) ? host : null) }));
+  };
+  const styleOf = (el) => ({ overflowY: el.tagName === "TEXTAREA" ? "auto" : "visible" });
+  const [, vueScript] = inHost("lg-node-widgets grid", { className: "ausboss-card" }, { tagName: "TEXTAREA", className: "ausboss-card-area", ...box() });
+  assert.equal(vueBoxKeepsWheel(vueScript, { deltaY: 100 }, { styleOf }), true, "long script, room below");
+  assert.equal(vueBoxKeepsWheel(vueScript, { deltaY: -100 }, { styleOf }), false, "at its top, wheel up zooms");
+  assert.equal(vueBoxKeepsWheel(vueScript, { deltaY: 100, ctrlKey: true }, { styleOf }), false, "Ctrl + wheel zooms");
+  const [, shortScript] = inHost("lg-node-widgets grid", { className: "ausboss-card" }, { tagName: "TEXTAREA", className: "ausboss-card-area", ...box({ scrollHeight: 100 }) });
+  assert.equal(vueBoxKeepsWheel(shortScript, { deltaY: 100 }, { styleOf }), false, "nothing to scroll zooms");
+  const [, classicScript] = inHost("dom-widget", { className: "ausboss-card" }, { tagName: "TEXTAREA", className: "ausboss-card-area", ...box() });
+  assert.equal(vueBoxKeepsWheel(classicScript, { deltaY: 100 }, { styleOf }), false, "the classic renderer lets the box see the wheel itself");
+  const [coreBox] = inHost("lg-node-widgets grid", { tagName: "TEXTAREA", className: "comfy-multiline-input", ...box() });
+  assert.equal(vueBoxKeepsWheel(coreBox, { deltaY: 100 }, { styleOf }), false, "core's own boxes are core's");
+  assert.equal(vueBoxKeepsWheel(null, { deltaY: 100 }, { styleOf }), false);
+});
+
+test("the claim runs on the way down and only stops the event, so the browser still scrolls the box", () => {
+  const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "js", "canvas_passthrough", "index.js"), "utf-8");
+  assert.match(source, /window\.addEventListener\("wheel", onWheelFirst, \{ capture: true, passive: true \}\)/);
+  const first = source.slice(source.indexOf("function onWheelFirst"), source.indexOf("function onWheel("));
+  assert.match(first, /vueBoxKeepsWheel\(/);
+  assert.match(first, /event\.stopPropagation\(\)/);
+  assert.doesNotMatch(first, /preventDefault/);
+});
+
 // Each place under js/ that listens for the wheel, as "file target".
 function wheelListeners(js) {
   const files = readdirSync(js, { recursive: true }).map(String).filter((file) => /\.m?js$/.test(file)).map((file) => file.replaceAll("\\", "/"));
@@ -139,6 +172,7 @@ test("only the listed parts of the pack listen for the wheel", () => {
   const js = join(dirname(fileURLToPath(import.meta.url)), "..", "js");
   const listed = [
     "canvas_passthrough/index.js window", // hands the wheel to the graph
+    "canvas_passthrough/index.js window", // Nodes 2.0: a box that can still scroll keeps it
     "image_folder/index.js root", // the copy question, a window over the page
     "image_folder/index.js root", // the folder list, a window over the page
     "shared/discard_prompt.mjs backdrop", // the keep or discard question
