@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  DEFAULT_RAIL,
   DIM_MAX,
   DIM_MIN,
   MP_LADDER,
@@ -23,6 +24,7 @@ import {
   defaultSizeForRatio,
   pinLabel,
   quickSizes,
+  railLabel,
   ratioLabel,
   ratioSizeForAxis,
   ratioSizeNear,
@@ -203,10 +205,37 @@ test("the rail renders in the canvas orientation", () => {
   assert.deepEqual(orientRatio({ x: 1, y: 1 }, true), { x: 1, y: 1, label: "1:1" });
 });
 
+test("a rail chip keeps the typed numbers and only turns their order", () => {
+  // 21:9 reduces to 7:3 inside the rail, but the chip must read as typed.
+  const [cinema] = parseRail("21:9");
+  assert.deepEqual(cinema, { x: 7, y: 3, label: "21:9" });
+  assert.equal(railLabel(cinema, false), "21:9");
+  assert.equal(railLabel(cinema, true), "9:21");
+  // A ratio already in its simplest form is unchanged, just reordered.
+  const [wide] = parseRail("16:9");
+  assert.equal(railLabel(wide, false), "16:9");
+  assert.equal(railLabel(wide, true), "9:16");
+});
+
 test("parseRail survives junk and never empties", () => {
   const rail = parseRail("1:1, junk, 21x9, 4:3, 4:3");
   assert.deepEqual(rail.map((r) => r.label), ["1:1", "21:9", "4:3"]);
-  assert.equal(parseRail("").length, 6); // shipped defaults
+  assert.equal(parseRail("").length, 7); // shipped defaults
+});
+
+test("the shipped rail carries the cinema shape, and the flip makes it portrait", () => {
+  const rail = parseRail(DEFAULT_RAIL);
+  // The rail stores the reduced shape (21:9 -> 7:3) and keeps the typed
+  // label ("21:9") for the chip, per parseRail.
+  const cinema = rail.find((r) => r.x === 7 && r.y === 3);
+  assert.ok(cinema, "the default rail carries 21:9");
+  assert.equal(cinema.label, "21:9");
+  // One chip covers both orientations: the flip button reads the same shape
+  // as 9:21 and lands on the exact reverse size.
+  const landscape = defaultSizeForRatio({ x: cinema.x, y: cinema.y }, 32);
+  const portrait = defaultSizeForRatio({ x: cinema.y, y: cinema.x }, 32);
+  assert.equal(landscape.width * 3, landscape.height * 7);
+  assert.deepEqual(portrait, { width: landscape.height, height: landscape.width });
 });
 
 // ---------- quick sizes ----------
@@ -312,7 +341,7 @@ test("applyRatioAtBudget takes an explicit orientation for a square canvas", () 
 
 
 test("default ratio sizes preserve both orientations for every shape chip", () => {
-  for (const [x, y] of [[1, 1], [4, 3], [3, 2], [16, 9], [7, 4], [2, 1]]) {
+  for (const [x, y] of [[1, 1], [4, 3], [3, 2], [16, 9], [7, 4], [2, 1], [21, 9]]) {
     for (const step of [8, 16, 32, 64]) {
       const landscape = defaultSizeForRatio({ x, y }, step);
       const portrait = defaultSizeForRatio({ x: y, y: x }, step);

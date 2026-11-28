@@ -59,6 +59,7 @@ import {
   savedWorkflowPolicy,
   workflowRatios,
   quickSizes,
+  railLabel,
   ratioLabel,
   reduceRatio,
   scrubDim,
@@ -158,7 +159,7 @@ function installStyles() {
     border-radius: 6px; padding: 4px; }
   .ausboss-res-flipbox { flex: none; display: grid; place-items: center; }
   .ausboss-res-chipbox { flex: 1 1 auto; min-width: 0; display: grid;
-    align-content: start; max-height: 65px; overflow-y: auto; }
+    align-content: start; max-height: ${CHIP_H * 3 + 10 + 8}px; overflow-y: auto; }
   .ausboss-res-chipgrid { display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
   .ausboss-res-chip { display: flex; align-items: center; justify-content: center;
@@ -557,8 +558,11 @@ function repaint(state) {
     const fitted = fitRectInBox(oriented.x, oriented.y, 14, 14);
     glyph.style.width = `${fitted.w.toFixed(1)}px`;
     glyph.style.height = `${fitted.h.toFixed(1)}px`;
-    label.textContent = oriented.label;
-    button.title = state.strict ? `Show approved ${oriented.label} sizes` : `${oriented.label}: reshape to this ratio. The flip button on the left sets the orientation.`;
+    // The rail is typed loosely ("21:9"); the chip keeps those numbers and
+    // only reorders them, so a cinema chip never reads as the reduced 7:3.
+    const chipText = state.strict ? oriented.label : railLabel(chipRatio, portrait);
+    label.textContent = chipText;
+    button.title = state.strict ? `Show approved ${chipText} sizes` : `${chipText}: reshape to this ratio. The flip button on the left sets the orientation.`;
     const candidate = chipMatch(width, height, oriented);
     const match = state.strict
       ? (ratio.x === chipRatio.x && ratio.y === chipRatio.y ? { state: "exact" } : null)
@@ -975,7 +979,10 @@ function buildPanel(state) {
 
 function panelHeight(state) {
   const section = (content) => SECTION_PAD_Y + SECTION_HEAD + content + 2;
-  const shape = section(CHIP_H * 2 + 5 + 8); // 2 chip rows + gap inside the subbox
+  // The rail can hold any number of chips (the gear's Ratio rail); three fit
+  // a row, so the Shape block is as tall as its rows need.
+  const chipRows = Math.max(2, Math.ceil((state.railRatios?.length ?? 0) / 3));
+  const shape = section(CHIP_H * chipRows + 5 * (chipRows - 1) + 8);
   const size = section(CONTROL_H);            // one line: W, swap, H, gear
   const quick = section(QUICK_H * 2 + 5);     // 4x2 quick grid
   return PANEL_PADDING * 2 + shape + SECTION_GAP + STAGE_MIN + SECTION_GAP

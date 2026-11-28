@@ -248,7 +248,9 @@ export function chipMatch(width, height, ratio, tolerance = 0.015) {
 // Parse the gear menu's editable rail text ("1:1, 4:3, 7:4") into ratio
 // objects; junk entries drop, duplicates collapse, and an empty result
 // falls back to the shipped defaults so the rail can never vanish.
-export const DEFAULT_RAIL = "1:1, 4:3, 3:2, 16:9, 7:4, 2:1";
+// The rail stores shapes, not orientations: the flip button beside it turns
+// the cinema 21:9 chip into 9:21, so a portrait chip needs no rail entry.
+export const DEFAULT_RAIL = "1:1, 4:3, 3:2, 16:9, 7:4, 2:1, 21:9";
 
 export function parseRail(text) {
   const seen = new Set();
@@ -266,6 +268,17 @@ export function parseRail(text) {
     rail.push({ x: x / d, y: y / d, label: `${x}:${y}` });
   }
   return rail.length ? rail : parseRail(DEFAULT_RAIL);
+}
+
+// A chip's TEXT keeps the numbers as the rail typed them ("21:9", not the
+// reduced "7:3"), and only their order follows the canvas orientation, so
+// the label matches what the workflow author wrote and still reads the way
+// the click lands.
+export function railLabel(ratio, portrait) {
+  const [a, b] = String(ratio.label ?? `${ratio.x}:${ratio.y}`).split(":").map(Number);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || !a || !b) return String(ratio.label ?? `${ratio.x}:${ratio.y}`);
+  const long = Math.max(a, b), short = Math.min(a, b);
+  return portrait ? `${short}:${long}` : `${long}:${short}`;
 }
 
 // The rail shows every ratio in the CANVAS's current orientation - a
