@@ -4,6 +4,70 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Undo takes back a drag on a node's face as its own step.** Moving a
+  moment on H3 Prompt Writer's timeline, picking a picture's job from its
+  chip, dragging Strength Curve's points, and picking the crop side or the
+  next file on Load Image's strip were never kept as steps of their own.
+  One Ctrl+Z took back the change before them too, and the drag could not
+  be brought back. Each one is its own step now.
+- **H3 Prompt Writer 🆎 shows the script's problems when the clip sets the
+  length.** With copy its moves, swap the person, new voice or change
+  something, a mistake such as `@5` now shows under the script, as it does
+  for the other jobs. Before, the node said nothing and the run stopped.
+- **H3 Prompt Writer 🆎 speaks a line whose closing quote is missing.**
+  `He says "Wait for me` is spoken to the end of the line, the way the
+  script box already colours it. Before, the words went in as plain action.
+- **H3 Prompt Writer 🆎 asks you to change a second start or end picture.**
+  Two pictures set to start on it, or two set to end on it, now say which
+  one to change. Before, the second one was left out of the prompt without
+  a word.
+- **H3 Prompt Writer 🆎's picture chips stay on one line.** With four
+  pictures and a video plugged in, the video chip dropped onto the Length
+  row, where it was hard to click. The chips now share their row: on a
+  narrow node the longest jobs are cut short first, and pointing at a chip
+  shows its whole job.
+- **H3 Prompt Writer 🆎 says when a style picture is used like a thing.** A
+  line such as "@1 wears @3" with Picture 3 set to style now shows a note
+  under the timeline: a style is a look, so write "in the style of @3" or
+  give the picture another job. The run still goes ahead.
+- **H3 Prompt Writer 🆎 gives each person named in words their own line.**
+  With `A barista … says "…"` and `The customer … says "…"`, both lines
+  went to the person in the picture. Each one now says their own line.
+- **H3 Prompt Writer 🆎 says a shout typed without quotes.** `he yells wait`
+  is spoken now. Before, it was read as something that happens, and nothing
+  was said.
+- **H3 Prompt Writer 🆎 keeps how a line is said.** `@1 whispers "Stay
+  quiet."`, `shouts`, `sings`, `yells`, `mutters` and `asks` all reached
+  the model as "says". The word you typed is kept now, and so are words
+  between it and the line, as in `says quietly "Hello."`.
+- **H3 Prompt Writer 🆎 reads "Close-up of her boots" as a framing.** After
+  a blank line, a framing typed without "a" in front ("Close-up of...",
+  "Wide shot of...", "POV from...") was sent to H3 as a cut to a new place,
+  and the person could come back in other clothes. It is now a cut to that
+  framing in the same place, as "a close-up of..." already was.
+- **H3 Prompt Writer 🆎 ignores chat talk from its small model.** When the
+  model on clip answered "Sure! Here are the next moments:" or "I'm sorry,
+  but I can't help with that", those words became a moment in the clip or
+  its sound. They are left out now, and so are labels such as "Moment 2:"
+  in front of a line.
+- **H3 Prompt Writer 🆎 keeps what someone does after they speak.** A line
+  such as `@1 says "Hi" and waves.` went to H3 as "and waves." with nobody
+  doing it. The writer now puts the person back and keeps the order: the
+  line is said, then @1 waves. Words about how a line is said, like
+  "slowly" or "to the camera", stay with the speaker too. A sign's words
+  ("a sign reading "CLOSED"") end their sentence, and bold or italic marks
+  pasted with a script (`**@1**`) no longer reach the prompt.
+- **H3 Prompt Writer 🆎 hears a line in single quotes with an apostrophe.**
+  "She says 'I don't know.'" was written as plain text, so nobody spoke it.
+  The words are now a spoken line, as they are in double quotes.
+- **H3 Prompt Writer 🆎: "none" in Sound turns the sound off.** Typing none,
+  off, silent or no sound in Sound wrote the word "None." as the clip's
+  sound. It now means no sound of the place, and the music you typed stays.
+  The same words in Music mean no music.
+- **H3 Prompt Writer 🆎: clearer timeline and messages.** A 4 s clip shows a
+  4 s bar. The note under a clip that H3 shortens says how much is left
+  out. `@5` says there are four pictures, and a line that names a missing
+  picture says to connect it or turn it on.
 - **Mask Refine 🆎's guided and matting edges follow the picture.** Both
   edge modes now look further from the mask's edge and snap to the real
   edge in the guide image, so hair and thin parts a rough mask missed come

@@ -34,6 +34,7 @@ KEEPS_ITS_LENGTH = (MOVES, SWAP, REVOICE, EDIT)  # These follow a clip, so the n
 NEEDS_NO_WORDS = (SWAP, KEEP)
 
 TOKEN = re.compile(r"@(\d)\b")
+ANY_NUMBER = re.compile(r"@(\d+)\b")  # @10 too, which is no picture.
 # "@2 says", "@2 whispers": the person named right before what they say.
 SAYS_AFTER = re.compile(r"@(\d)\s+(?:says?|said|asks?|whispers?|shouts?|yells?|screams?|mutters?|sings?|raps?|chants?|announces?|calls?\s+out|cries|replies|answers?)\b", re.I)
 MAIN = "@0"  # The main person, for lines the node writes itself.
@@ -59,6 +60,11 @@ REVOICE_KEEPS_PERSON = (
     'Take the picture off, or pick the video job "swap the person".'
 )
 HE_SHE = re.compile(r"\b(?:he|she|they)\b", re.I)
+# Words that say a style picture is being used as a look, as in "drawn like @3".
+AS_A_LOOK = re.compile(r"\b(?:like|style[ds]?|looks? of|colou?rs?|palette|drawn|painted|shaded|rendered|art|grade[ds]?|lighting|tones?|mood|textures?|grain)\b", re.I)
+A_SENTENCE = re.compile(r"[^.!?\n]+")
+STYLE_IS_A_LOOK = ('Picture {slot} is a style: a look, not something in the shot. '
+                   'Write "in the style of @{slot}", or give Picture {slot} another job.')
 
 # (what the label is, how it is kept). {picture} is H3's number for the picture.
 JOB_WORDS = {
@@ -550,11 +556,20 @@ class Cast:
             return NEEDS_A_PERSON[self.video]
         if self.video == REVOICE and self.of(PERSON, SHEET):
             return REVOICE_KEEPS_PERSON
+        for job, verb in ((START, "starts"), (END, "ends")):
+            same = self.of(job)
+            if len(same) > 1:
+                return (f'Pictures {same[0].slot} and {same[1].slot} are both "{job}". '
+                        f"The clip {verb} on one picture, so pick another job for Picture {same[1].slot}.")
+        for number in sorted({int(number) for number in ANY_NUMBER.findall(text)} - {0}):
+            if number > 4:
+                return f"There are four pictures, @1 to @4. Take @{number} out of your script."
         typed = sorted({int(number) for number in TOKEN.findall(text)} - {0})
         slots = {picture.slot: picture for picture in self.pictures}
         for slot in typed:
             if slot not in slots:
-                return f"@{slot} has no picture. Turn Picture {slot} on, or take @{slot} out of your script."
+                # The picture is switched off or not connected: from here the two look the same.
+                return f"@{slot} has no picture: connect or turn on Picture {slot}, or take @{slot} out of your script."
             if slots[slot].job == END:
                 return f"Picture {slot} is where the clip ends, so @{slot} can't be in a line. Say what happens on the way there."
         if typed:
@@ -566,6 +581,15 @@ class Cast:
                     continue
                 hint = f' Type who wears it, like "He wears @{picture.slot}."' if picture.job == OUTFIT else ""
                 return f"Picture {picture.slot} is on, but no line names @{picture.slot}.{hint}"
+        return ""
+
+    def style_as_a_thing(self, text):
+        """A style picture named like something in the shot, as in "@1 wears @3"."""
+        styles = {picture.slot for picture in self.of(STYLE)}
+        for sentence in A_SENTENCE.findall(text):
+            for slot in TOKEN.findall(sentence):
+                if int(slot) in styles and not AS_A_LOOK.search(sentence):
+                    return STYLE_IS_A_LOOK.format(slot=slot)
         return ""
 
     def wearers(self, moments):

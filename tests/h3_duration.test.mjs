@@ -63,13 +63,13 @@ class Element {
  get textContent(){return this._text+this.children.map(c=>c.textContent??'').join('');}
  addEventListener(){}
 }
-test('timeline omits guessed duration/retiming and rejects an old async report; old timeline returns on Video OFF', async()=>{
+test('timeline omits guessed duration/retiming, still shows the script\'s problems for a clip, and returns on Video OFF', async()=>{
  const realDocument=globalThis.document;
  globalThis.document={getElementById:()=>true,createElement:()=>new Element()};
  const timers=[];const intervals=[];const requests=[];const pending=[];
  globalThis.__h3DurationTest={
    api:{fetchApi:async(_url,opts)=>{requests.push(JSON.parse(opts.body));return await new Promise(resolve=>pending.push(resolve));}},
-   app:{},chainCallback(){},
+   app:{},chainCallback(){},notifyAusbossChange(){},
    attachScriptColours:()=>({area:null,layer:null,sync(){},dispose(){}}),
    attachScriptAssist:()=>({dispose(){}}),
    setTimeout:fn=>{timers.push(fn);return fn;},clearTimeout:fn=>{const i=timers.indexOf(fn);if(i>=0)timers.splice(i,1);},
@@ -82,7 +82,7 @@ test('timeline omits guessed duration/retiming and rejects an old async report; 
        return line.replace(/"\.\/(.*?)"/,(_m,file)=>JSON.stringify(new URL('../js/shared/'+file,import.meta.url).href));
      if(line.includes('api.js'))return 'const {api}=globalThis.__h3DurationTest;';
      if(line.includes('app.js'))return 'const {app}=globalThis.__h3DurationTest;';
-     if(line.includes('index.mjs'))return 'const BRAND="#0ba", {chainCallback}=globalThis.__h3DurationTest;';
+     if(line.includes('index.mjs'))return 'const BRAND="#0ba", {chainCallback,notifyAusbossChange}=globalThis.__h3DurationTest;';
      if(line.includes('script_assist.mjs'))return 'const {attachScriptAssist}=globalThis.__h3DurationTest;';
      if(line.includes('script_colours.mjs'))return 'const {attachScriptColours}=globalThis.__h3DurationTest;';
      throw new Error('Unmocked host import '+line);
@@ -96,16 +96,28 @@ test('timeline omits guessed duration/retiming and rejects an old async report; 
    assert.equal(requests[0].seconds,12);
    panel.sync({...values,video_job:'swap the person'});
    assert.equal(ruler.children.length,0);assert.equal(track.textContent,'Length comes from the clip');
-   assert.doesNotMatch(panel.element.textContent,/12|one take/);assert.equal(timers.length,0);
+   assert.doesNotMatch(panel.element.textContent,/12|one take/);
+   // The clip sets the length, but the script is still read once for its
+   // problems: the run would stop on them.
+   assert.equal(timers.length,1);
    pending.shift()({ok:true,json:async()=>({seconds:12,moments:[{start:0,end:12,text:'She walks',line:0}]})});
    await new Promise(resolve=>setImmediate(resolve));
    assert.equal(track.textContent,'Length comes from the clip');assert.ok(refreshes>0);
+   timers.shift()();await Promise.resolve();
+   assert.equal(requests.at(-1).video,'swap the person');
+   pending.shift()({ok:true,json:async()=>({seconds:12,moments:[{start:0,end:12,text:'She walks',line:0}],warning:'@5 has no picture.'})});
+   await new Promise(resolve=>setImmediate(resolve));
+   assert.equal(note.textContent,'@5 has no picture.');assert.equal(track.textContent,'Length comes from the clip');
+   intervals[0]();assert.equal(timers.length,0);assert.equal(note.textContent,'@5 has no picture.');
    video.mode=4;intervals[0]();assert.equal(timers.length,1);
    timers.shift()();await Promise.resolve();assert.equal(requests.at(-1).seconds,12);
    assert.equal(requests.at(-1).video,'');
    pending.shift()({ok:true,json:async()=>({seconds:12,moments:[{start:0,end:12,text:'She walks',line:0}]})});
    await new Promise(resolve=>setImmediate(resolve));
    assert.match(note.textContent,/12 s/);assert.ok(ruler.children.length>0);
+   // 4 s is the shortest length the node takes, and the bar marks 4 s.
+   panel.sync({...values,seconds:4});timers.shift()();await Promise.resolve();
+   assert.equal(requests.at(-1).seconds,4);
  } finally {globalThis.document=realDocument;delete globalThis.__h3DurationTest;}
 });
 
@@ -142,7 +154,7 @@ test('H3 makes 5 + 17n frames, rounding a clip down (Python video_frames)', asyn
   assert.equal(h3VideoFrames(1000), 360 - ((360 - 5) % 17));
   const words = clipLengthWords({ frames: 48, startSeconds: 1, endSeconds: 3, roomFrames: 74 });
   assert.equal(words.title, "H3 makes 39 of the clip's 48 frames · 1.63 s");
-  assert.match(words.note, /Stops at 2\.63 s.*1\.63 s or 2\.33 s/);
+  assert.equal(words.note, "H3 leaves out the last 0.38 s, so it stops at 2.63 s in the video. To lose nothing, set the clip's Duration to 1.63 s or 2.33 s.");
   assert.equal(clipLengthWords({ frames: 39, startSeconds: 0, endSeconds: 1.625 }).warn, false);
   assert.equal(clipLengthWords(null), null);
 });

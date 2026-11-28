@@ -509,9 +509,6 @@ class SaveImageLocalModeTests(SaveImageNodeTests):
         self.assertIs(node.VALIDATE_INPUTS(filename_prefix="a/b"), True)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class SaveImageLightPreviewTests(unittest.TestCase):
     """The small copy the node shows on its face instead of the full file."""
@@ -588,3 +585,7 @@ class SaveImageLightPreviewTests(unittest.TestCase):
             result = self.run_node(out, blocked)
             self.assertEqual(result["ui"]["ausboss_preview"], [])
             self.assertTrue(Path(result["result"][0]).is_file())
+
+
+if __name__ == "__main__":
+    unittest.main()

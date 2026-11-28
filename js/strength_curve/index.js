@@ -8,7 +8,7 @@
 // draws the same curve as nodes/_curve_helpers.py.
 
 import { app } from "../../../scripts/app.js";
-import { chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
+import { chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { compactAction, CAPTION_TYPE, HINT_TYPE } from "../shared/panel_controls.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { makeScrubInput } from "../shared/scrub_input.mjs";
@@ -251,14 +251,17 @@ function build(node) {
     render();
   }
   let settledText = null;
-  // Kept: through the widget's own callback, so the workflow is marked
-  // changed and an undo takes the whole drag back.
+  // Kept through the widget's own callback, then recorded as one undo
+  // step, so Ctrl+Z takes the whole drag back.
   function save() {
     const widget = pointsWidget();
     const text = pointsText(face.points);
     if (widget) {
       widget.value = settledText ?? widget.value;
-      if (widget.value !== text) commitWidgetValue(node, widget, text, app.canvas);
+      if (widget.value !== text) {
+        commitWidgetValue(node, widget, text, app.canvas);
+        notifyAusbossChange();
+      }
     }
     settledText = text;
     node.setDirtyCanvas?.(true, true);

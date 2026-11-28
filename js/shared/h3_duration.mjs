@@ -40,7 +40,7 @@ export function clipLengthWords(timing) {
     const stops = timing.startSeconds + made / H3_FPS;
     return {
       title: `H3 makes ${made} of the clip's ${timing.frames} frames · ${seconds(made)} s`,
-      note: `Stops at ${String(Number(stops.toFixed(2)))} s in the video. To use all of it, set the clip's Duration to ${seconds(made)} s${up <= Math.min(room, 15 * H3_FPS) ? ` or ${seconds(up)} s` : ""}.`,
+      note: `H3 leaves out the last ${seconds(timing.frames - made)} s, so it stops at ${String(Number(stops.toFixed(2)))} s in the video. To lose nothing, set the clip's Duration to ${seconds(made)} s${up <= Math.min(room, 15 * H3_FPS) ? ` or ${seconds(up)} s` : ""}.`,
       warn: true,
     };
   }

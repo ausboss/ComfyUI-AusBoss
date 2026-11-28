@@ -2,10 +2,10 @@
 // bar as long as the clip, with the cuts as marks. The server reads the script with the same code a run uses,
 // so the bar shows what will happen. It also colours the script box, so the
 // words the node reads as instructions (@1, 3s:, a cut) stand out.
-import { clipLengthWords, clipSetsDuration, clipTimingFor, linkSource } from "./h3_duration.mjs";
+import { H3_FPS, clipLengthWords, clipSetsDuration, clipTimingFor, h3VideoFrames, linkSource } from "./h3_duration.mjs";
 import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
-import { BRAND, chainCallback } from "./index.mjs";
+import { BRAND, chainCallback, notifyAusbossChange } from "./index.mjs";
 import { dragRange, moveMoment, retime, rulerSeconds, stripCaption, stripRows, toggleCut, wiredJobs } from "./moment_strip_math.mjs";
 import { attachScriptAssist } from "./script_assist.mjs";
 import { attachScriptColours } from "./script_colours.mjs";
@@ -98,6 +98,7 @@ export function momentStrip(node) {
     const next = change(String(widget.value ?? ""));
     if (next === widget.value) return;
     commitWidgetValue(node, widget, next, app.canvas);
+    notifyAusbossChange();
     sync({ ...lastValues, script: widget.value });
   };
   // The left edge of a moment that opens a typed line: drag it to set when
@@ -264,6 +265,16 @@ export function momentStrip(node) {
   let shown = null;
   let timer = null;
   let asked = 0;
+  // A problem in the script while the clip sets the length: the run would
+  // stop on it, so it is shown in place of the clip's note.
+  let clipWarning = "";
+  const showClipWarning = (warning) => {
+    clipWarning = String(warning ?? "");
+    if (!clipWarning) return;
+    note.textContent = clipWarning;
+    note.title = clipWarning;
+    note.classList.toggle("warn", true);
+  };
   const ask = async (script, seconds, jobs, video) => {
     const turn = ++asked;
     try {
@@ -273,7 +284,9 @@ export function momentStrip(node) {
         body: JSON.stringify({ script, seconds, jobs, video }),
       });
       const report = response.ok ? await response.json() : null;
-      if (turn === asked && !clipSetsDuration(node, lastValues)) show(report);
+      if (turn !== asked) return;
+      if (clipSetsDuration(node, lastValues)) showClipWarning(report?.warning);
+      else show(report);
     } catch {
       if (turn === asked && !clipSetsDuration(node, lastValues)) show(null);
     }
@@ -292,20 +305,30 @@ export function momentStrip(node) {
     }
     colours.sync(values, [1, 2, 3, 4].filter((number) => wired(node, `picture_${number}`)));
     if (fromClip) {
-      shown = null;
-      clearTimeout(timer);
-      asked += 1;
       ruler.textContent = "";
       track.textContent = "";
       // Say what H3 will make of the clip's frames, when the clip node knows
       // its count; it rounds down to 5 + 17n, so a 48-frame clip gives 39.
-      const words = clipLengthWords(clipTimingFor(node));
+      const timing = clipTimingFor(node);
+      const words = clipLengthWords(timing);
       const message = el("ausboss-strip-words", words?.title ?? "Length comes from the clip");
       message.style.cssText = "display:flex;align-items:center;height:100%";
       track.append(message);
-      note.textContent = words?.note ?? "Set the clip's length on the clip node. H3 makes 5 + 17n frames (22, 39, 56 ...), rounding the clip down.";
+      // The typed script is still read once for its problems.
+      const script = wired(node, "script") ? null : String(values.script ?? "");
+      const jobs = wiredJobs(values, (name) => wired(node, name));
+      const key = script === null ? null : JSON.stringify(["clip", script, jobs, values.video_job]);
+      if (key !== shown) {
+        shown = key;
+        clipWarning = "";
+        clearTimeout(timer);
+        asked += 1;
+        const seconds = timing ? h3VideoFrames(timing.frames) / H3_FPS : lastSeconds;
+        if (key !== null) timer = setTimeout(() => ask(script, seconds, jobs, values.video_job), WAIT);
+      }
+      note.textContent = clipWarning || (words?.note ?? "Set the clip's length on the clip node. H3 makes 5 + 17n frames (22, 39, 56 ...), rounding the clip down.");
       note.title = note.textContent;
-      note.classList.toggle("warn", Boolean(words?.warn));
+      note.classList.toggle("warn", Boolean(clipWarning || words?.warn));
       return;
     }
     if (wired(node, "script")) {
@@ -320,7 +343,7 @@ export function momentStrip(node) {
     // A length wired from a number box shows that box's value.
     const source = linkSource(node, "seconds");
     const fromWire = Number(source?.widgets?.find?.((widget) => widget.name === "value")?.value);
-    const seconds = Math.min(15, Math.max(5, Math.round(fromWire || Number(values.seconds) || 8)));
+    const seconds = Math.min(15, Math.max(4, Math.round(fromWire || Number(values.seconds) || 8)));
     lastSeconds = seconds;
     const jobs = wiredJobs(values, (name) => wired(node, name));
     const video = wired(node, "video") ? values.video_job : "";
