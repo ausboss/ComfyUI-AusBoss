@@ -14,7 +14,7 @@
 // under the pointer.
 import { app } from "../../../scripts/app.js";
 import {
-  dragCarriesFiles, graphDragStarts, panelHost, panelKeepsWheel, panelNeedsDropHelp, panelRoot,
+  dragCarriesFiles, graphDragStarts, panelHost, panelKeepsWheel, panelNeedsDropHelp, panelRoot, vueBoxKeepsWheel,
 } from "../shared/canvas_passthrough.mjs";
 import { showToast } from "../shared/index.mjs";
 
@@ -24,6 +24,14 @@ let dropNode = null;
 
 function canvas() {
   return app.canvas ?? null;
+}
+
+// Nodes 2.0 hands every wheel turn over a node to the graph before the node
+// sees it. This runs first, on the way down: a box of the pack's that can
+// still scroll keeps the wheel, the event stops here, and the browser
+// scrolls the box.
+function onWheelFirst(event) {
+  if (vueBoxKeepsWheel(event.target, event, { styleOf: (el) => getComputedStyle(el) })) event.stopPropagation();
 }
 
 function onWheel(event) {
@@ -128,6 +136,7 @@ app.registerExtension({
     // The wheel listener sits in the bubble phase so a panel's own handler
     // (stopPropagation / preventDefault) always gets the first say.
     window.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("wheel", onWheelFirst, { capture: true, passive: true });
     window.addEventListener("pointerdown", onPointerDown, true);
     window.addEventListener("pointermove", onPointerMove, true);
     window.addEventListener("pointerup", onPointerEnd, true);

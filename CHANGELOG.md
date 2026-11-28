@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Long text boxes scroll with the mouse wheel in Nodes 2.0.** In the new
+  node view, turning the wheel over a text box with more lines than fit
+  zoomed the graph and the text stayed put, even while typing in it. The
+  box now scrolls first, and the graph zooms once the text is at its top or
+  bottom, as in the classic view. This covers Text 🆎, Text Lines 🆎,
+  Prompt Variations 🆎, Krea 2 Encode 🆎 and H3 Prompt Writer 🆎.
 - **Mask Refine 🆎's guided and matting edges follow the picture.** Both
   edge modes now look further from the mask's edge and snap to the real
   edge in the guide image, so hair and thin parts a rough mask missed come

@@ -41,6 +41,18 @@ export function panelKeepsWheel(target, event, { root, host, styleOf }) {
   return false;
 }
 
+// Nodes 2.0 hands every wheel turn over a node to the graph on its way down
+// to the node, before any part of the node sees it (only a focused core text
+// box is spared). A box of the pack's that can still scroll the way the wheel
+// turns has to claim the wheel before that. The classic renderer lets the box
+// see the wheel first, so there it needs no claim.
+export function vueBoxKeepsWheel(target, event, { styleOf }) {
+  if (!target?.closest?.(".lg-node-widgets")) return false;
+  const root = panelRoot(target);
+  if (!root) return false;
+  return panelKeepsWheel(target, event, { root, host: panelHost(target), styleOf });
+}
+
 // Gestures that start over a panel and still mean "move the graph": the
 // middle button (pan), and Ctrl + Shift + left button (drag-zoom) when the
 // user has that shortcut switched on.
