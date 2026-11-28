@@ -35,7 +35,10 @@ function ensureCss() {
 .ausboss-swapread{display:flex;flex-direction:column;gap:4px;height:100%;min-width:0;padding:5px 8px 4px;box-sizing:border-box;border-left:2px solid ${THEME.brand};border-radius:6px;background:rgba(0,180,170,.1);font:500 11px/1.35 ${FONT_UI};color:${THEME.inkSoft};user-select:none}
 .ausboss-swapread-head{flex:none;display:flex;align-items:center;gap:6px;height:16px}
 .ausboss-swapread-title{flex:none;cursor:pointer;color:${THEME.faint};font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.ausboss-swapread-title{display:flex;align-items:center;gap:5px}
 .ausboss-swapread-title:hover{color:${THEME.inkSoft}}
+.ausboss-swapread-chevron{flex:none;width:11px;height:7px;color:${THEME.label};transition:transform .12s}
+.ausboss-swapread.folded .ausboss-swapread-chevron{transform:rotate(-90deg)}
 .ausboss-swapread-sum{flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer}
 .ausboss-swapread-sum.warn{color:${THEME.warn}}
 .ausboss-swapread.folded{gap:2px;padding-top:4px}
@@ -74,7 +77,13 @@ function readingBox(node, folded) {
   ensureCss();
   const element = el(folded ? "ausboss-swapread folded" : "ausboss-swapread");
   const head = el("ausboss-swapread-head");
-  const title = el("ausboss-swapread-title", folded ? "\u25b8 Read as" : "\u25be Read as");
+  const title = el("ausboss-swapread-title");
+  // The same chevron the cast chips use: right when folded, down when open.
+  const chevron = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  chevron.setAttribute("viewBox", "0 0 10 6");
+  chevron.setAttribute("class", "ausboss-swapread-chevron");
+  chevron.innerHTML = '<path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>';
+  title.append(chevron, "Read as");
   const summary = el("ausboss-swapread-sum");
   const tabs = el("ausboss-swapread-tabs");
   const body = el("ausboss-swapread-body");
