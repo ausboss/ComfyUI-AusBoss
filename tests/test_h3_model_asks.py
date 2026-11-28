@@ -25,6 +25,9 @@ class ParseTests(unittest.TestCase):
         asks = parse_asks(json.dumps({"next": " Write {count} lines. ", "elsewhere": "x", "tidy": "Be brief."}))
         self.assertEqual(asks, {"next": "Write {count} lines.", "tidy": "Be brief."})
 
+    def test_json_nested_too_deep_means_the_built_in_wording(self):
+        self.assertEqual(parse_asks("[" * 100000 + "]" * 100000), {})
+
     def test_a_very_long_wording_is_cut(self):
         self.assertEqual(len(parse_asks(json.dumps({"heard": "a" * 50000}))["heard"]), 8000)
 
@@ -37,6 +40,10 @@ class ParseTests(unittest.TestCase):
 class FillTests(unittest.TestCase):
     def test_fill_matches_format_for_the_built_in_wording(self):
         self.assertEqual(fill(NEXT, seconds=8, first="she waves", count=3), NEXT.format(seconds=8, first="she waves", count=3))
+
+    def test_braces_in_the_filled_in_words_stay_as_typed(self):
+        line = "A worker pins a sign reading {count} to the wall."
+        self.assertIn(line, fill(NEXT, seconds=8, first=line, count=2))
 
     def test_other_braces_in_a_users_wording_stay_as_typed(self):
         self.assertEqual(fill("Make {count} lines {like this} {seconds}", count=2), "Make 2 lines {like this} {seconds}")

@@ -19,7 +19,7 @@ def parse_asks(value):
     """The node's own wordings that are set, by name. Anything else in the text is left out."""
     try:
         found = json.loads(value) if value else {}
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, RecursionError):
         return {}
     if not isinstance(found, dict):
         return {}

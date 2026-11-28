@@ -576,10 +576,10 @@ def usable_line(line, kept):
 
 
 def fill_words(template, **values):
-    """The wording with {name} replaced for each value; other braces stay, so a node's own wording never breaks a run."""
-    for name, value in values.items():
-        template = template.replace("{" + name + "}", str(value))
-    return template
+    """The wording with {name} replaced for each value; other braces stay, so a node's own wording never breaks a run.
+
+    One pass, so braces inside a filled-in value (a typed line) are never filled in themselves."""
+    return re.sub(r"\{(\w+)\}", lambda match: str(values[match.group(1)]) if match.group(1) in values else match.group(0), template)
 
 
 def plain_names(text, jobs):

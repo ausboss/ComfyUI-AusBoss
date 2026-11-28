@@ -3,6 +3,8 @@
 // built-in wording. Kept free of app imports so node:test covers it.
 
 const KEYS = ["describe", "next", "heard", "tidy"];
+// The longest wording the writer reads (LONGEST_ASK in nodes/_h3_model_asks.py).
+export const LONGEST_ASK = 8000;
 
 export function readAsks(value) {
   let found;

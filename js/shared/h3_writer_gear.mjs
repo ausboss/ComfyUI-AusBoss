@@ -10,9 +10,8 @@
 import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
 import { SHOW_ALL } from "./h3_sockets.mjs";
-import { editedAsks, readAsks, writeAsks } from "./h3_writer_gear_math.mjs";
+import { LONGEST_ASK, editedAsks, readAsks, writeAsks } from "./h3_writer_gear_math.mjs";
 import { gearIconSvg, openSettingsMenu, closeSettingsMenu } from "./settings_menu.mjs";
-import { keepKeyInField } from "./canvas_passthrough.mjs";
 import { FONT_UI, THEME } from "./theme.mjs";
 
 const CSS_ID = "ausboss-h3-gear-css";
@@ -41,7 +40,7 @@ function ensureCss() {
   const style = document.createElement("style");
   style.id = CSS_ID;
   style.textContent = `
-.ausboss-card.has-corner .ausboss-prompt-tabs{margin-right:${CORNER_RESERVE}px}
+.ausboss-card.has-corner .ausboss-prompt-tabs{width:calc(100% - ${CORNER_RESERVE}px)}
 .ausboss-ask-back{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:rgba(0,0,0,.45)}
 .ausboss-ask{width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 48px);display:flex;flex-direction:column;gap:8px;padding:12px;box-sizing:border-box;border:1px solid ${THEME.rule};border-radius:10px;background:#1f2326;color:${THEME.inkSoft};font:13px/1.4 ${FONT_UI};box-shadow:0 12px 36px rgba(0,0,0,.55)}
 .ausboss-ask h3{margin:0;font-size:14px;color:${THEME.ink}}
@@ -71,16 +70,35 @@ function openEditor(node, card, ask, built) {
   hint.textContent = `${ask.hint} Only used when a text model is plugged into clip. Saved in this node.`;
   const area = document.createElement("textarea");
   const own = readAsks(card.values().model_asks)[ask.key];
-  area.value = own ?? built;
+  area.maxLength = LONGEST_ASK;
+  area.value = (own ?? built).slice(0, LONGEST_ASK);
   area.spellcheck = false;
   const state = document.createElement("span");
   state.className = "state";
-  const showState = () => { state.textContent = area.value.trim() === built.trim() || !area.value.trim() ? "Built-in wording" : "Your wording"; };
+  const showState = () => {
+    const words = area.value.trim() === built.trim() || !area.value.trim() ? "Built-in wording" : "Your wording";
+    state.textContent = area.value.length >= LONGEST_ASK ? `${words}, at the ${LONGEST_ASK.toLocaleString()} letter limit` : words;
+  };
   showState();
   area.addEventListener("input", showState);
-  area.addEventListener("keydown", (event) => {
-    keepKeyInField(event);
-    if (event.key === "Escape") close();
+  // The editor is a window of its own: no key reaches ComfyUI while it is
+  // open (Ctrl+Enter would queue the old wording; here it saves), Tab stays
+  // inside it, and Escape closes it from any of its controls.
+  back.addEventListener("keydown", (event) => {
+    event.stopPropagation();
+    if (event.key === "Escape") {
+      event.preventDefault();
+      close();
+    } else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      save(area.value);
+    } else if (event.key === "Tab") {
+      const stops = [...box.querySelectorAll("textarea, button")];
+      const at = stops.indexOf(document.activeElement);
+      const next = (at + (event.shiftKey ? -1 : 1) + stops.length) % stops.length;
+      event.preventDefault();
+      stops[next].focus();
+    }
   });
   const button = (label, className, run) => {
     const element = document.createElement("button");
