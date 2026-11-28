@@ -4,6 +4,18 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **H3 Prompt Writer 🆎 shows how it read a swap.** A small "Read as" line
+  under the script says who each new person replaces, as you type. Click it
+  to open the full reading: the Ref2VA tab lists the cast lines the writer
+  sends to H3, and the Plain tab says the same in everyday words. Words a
+  swap can't use, such as "make the camera spin", show in amber as not
+  used, and a line the writer would refuse says why before you run it. The
+  writer also reads more ways of saying it: a description right after the
+  picture ("replaced by @1, a game character with orange hair"), names
+  ("Elon is @1"), clothes after "and wears", and one line per person when
+  two people swap. Before, some of those words were dropped or the wrong
+  person was replaced.
+
 - **Mask Refine 🆎's guided and matting edges follow the picture.** Both
   edge modes now look further from the mask's edge and snap to the real
   edge in the guide image, so hair and thin parts a rough mask missed come

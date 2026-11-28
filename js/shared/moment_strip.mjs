@@ -330,7 +330,9 @@ export function momentStrip(node) {
     clearTimeout(timer);
     timer = setTimeout(() => ask(script, seconds, jobs, video), WAIT);
   };
-  const watch = setInterval(() => latest && sync(latest), WATCH);
+  // Only while the strip is on screen: a hidden row is not handed new values,
+  // and syncing old ones would put old words back in the script box.
+  const watch = setInterval(() => latest && element.offsetParent !== null && sync(latest), WATCH);
   chainCallback(node, "onRemoved", () => { clearInterval(watch); colours.dispose(); assist.dispose(); });
   return { element, sync };
 }
