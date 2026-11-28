@@ -132,6 +132,24 @@ A_NAME = re.compile(r"^[A-Z][\w'.-]*(?:\s+[A-Z][\w'.-]*)?$")
 UNSEEN = re.compile(r"\b(?:feels?|thinks?|remembers?|reali[sz]es?|decides?|wants?|hopes?|wonders?|knows?|understands?|believes?|imagines?)\b", re.I)
 MOVING = re.compile(r"\b(?:pov|walks?|walking|runs?|running|forward|follows?|tracks?)\b", re.I)
 FRAME_WORDS = re.compile(r"^(?:(?:an?|the)\s+(?:[\w-]+\s+){0,2}?(?:close-?up|wide|medium|shot|view|angle|overhead|profile|insert|aerial)\b|black\b)", re.I)
+# The same typed with no "a" in front, as most people do: "Close-up of her boots", "Wide shot of the valley".
+# Narrower than the form above, so "Wide awake, she sits up" stays something that happens.
+BARE_FRAME = re.compile(
+    r"^(?:(?:extreme|tight|big|medium|wide|long|full|low|high)[\s-]+)*(?:close-?up|(?:wide|medium|long|full|two|macro|establishing"
+    r"|tracking|drone|aerial|overhead|profile|insert|pov|reaction|over-the-shoulder)[\s-]+(?:shot|view|angle)|(?:low|high)[\s-]+angle"
+    r"|pov|(?:shot|view|insert)\s+of|wide\s+(?:of|on)|tight\s+on|close\s+on)\b",
+    re.I,
+)
+
+
+def framing(words):
+    """A line that only says how the camera frames what we see, with "a" or
+    "an" in front when it was typed without one. Empty for any other line."""
+    if FRAME_WORDS.match(words):
+        return words
+    if not BARE_FRAME.match(words):
+        return ""
+    return ("an " if words[:1].lower() in "aeio" else "a ") + lower_first(words)
 
 # What a small model is asked. It adds to a script; it never holds what was typed.
 NEXT = (
@@ -906,8 +924,8 @@ def cut_to(words, text, cast, back=False):
     """How a later shot opens, and what is left of its first moment to say."""
     if back:
         return f"the camera cuts back to {lower_first(words)}", ""
-    if FRAME_WORDS.match(words):
-        return f"the camera cuts to {lower_first(words)}", ""
+    if framing(words):
+        return f"the camera cuts to {lower_first(framing(words))}", ""
     places = [subject_label(picture.subject) for picture in cast.of(PLACE)]
     named = next((place for place in places if place in text), None)
     if named:
@@ -1050,7 +1068,7 @@ def script_parts(script, seconds, camera="", look="", sound="", say=None, cast=N
     lines = shot_lines(script, seconds, say, cast, wearers, move, hold)
     last = len(lines)
     cuts = [script.moments[shot[0]] for shot in shots_of(script)[1:]]
-    new_view = [not moment.back and not FRAME_WORDS.match(without_speech(moment)) for moment in cuts]
+    new_view = [not moment.back and not framing(without_speech(moment)) for moment in cuts]
     new_places = last > 1 and not cast.of(PLACE) and any(new_view) and all(new_view)
     # Only a place, a start frame or a person sets the look; an outfit, a thing or a style never does.
     first = next(iter(cast.of(PLACE) or cast.of(START_JOB) or cast.of(PERSON, SHEET, PERFORMER, END_JOB)), None)

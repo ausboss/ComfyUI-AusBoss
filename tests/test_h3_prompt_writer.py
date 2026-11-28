@@ -301,6 +301,21 @@ class ScriptPartsTests(unittest.TestCase):
         self.assertEqual(lines[1], "[Shot 2] At 00:03.000, the camera cuts to a close-up of her hand.")
         self.assertEqual(lines[2], "[Shot 3] At 00:06.000, the camera cuts to a new place. The door opens.")
 
+    def test_a_framing_typed_without_a_or_the_is_still_a_framing(self):
+        for typed, cut in (
+            ("Close-up of her muddy boots on the rocks.", "a close-up of her muddy boots on the rocks."),
+            ("Extreme close-up on her eyes.", "an extreme close-up on her eyes."),
+            ("Wide shot of the whole valley.", "a wide shot of the whole valley."),
+            ("Overhead view of the table.", "an overhead view of the table."),
+            ("POV from the driver's seat.", "a POV from the driver's seat."),
+        ):
+            lines = shots("she walks\n\n" + typed, seconds=8)
+            self.assertEqual(lines[1], "[Shot 2] At 00:04.000, the camera cuts to " + cut, typed)
+            self.assertNotIn("new place", write_prompt("she walks\n\n" + typed, seconds=8), typed)
+        # A line that only starts like one is still something that happens.
+        for typed in ("Wide awake, she sits up.", "Shot glasses line the bar.", "Medium rare steaks sizzle."):
+            self.assertIn("the camera cuts to a new place.", shots("she walks\n\n" + typed, seconds=8)[1], typed)
+
     def test_one_take_overrides_a_blank_line(self):
         self.assertNotIn("cuts to", " ".join(shots("one take\nshe walks\n\nshe stops")))
 

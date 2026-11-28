@@ -30,6 +30,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
   line such as "@1 wears @3" with Picture 3 set to style now shows a note
   under the timeline: a style is a look, so write "in the style of @3" or
   give the picture another job. The run still goes ahead.
+- **H3 Prompt Writer 🆎 reads "Close-up of her boots" as a framing.** After
+  a blank line, a framing typed without "a" in front ("Close-up of...",
+  "Wide shot of...", "POV from...") was sent to H3 as a cut to a new place,
+  and the person could come back in other clothes. It is now a cut to that
+  framing in the same place, as "a close-up of..." already was.
 - **H3 Prompt Writer 🆎 ignores chat talk from its small model.** When the
   model on clip answered "Sure! Here are the next moments:" or "I'm sorry,
   but I can't help with that", those words became a moment in the clip or
