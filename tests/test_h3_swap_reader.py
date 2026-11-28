@@ -148,8 +148,6 @@ class SwapReaderTests(unittest.TestCase):
         self.assertEqual(read.goes, {1: "the barista"})
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 class ReportTests(unittest.TestCase):
@@ -198,3 +196,32 @@ class ReportTests(unittest.TestCase):
     def test_other_jobs_have_no_reading(self):
         from nodes._h3_script_helpers import script_report
         self.assertNotIn("read", script_report("@1 waves", 6.0, ONE, ""))
+
+    def test_the_cast_shows_every_subject_the_prompt_defines(self):
+        import re
+        from nodes._h3_prompt_helpers import split_sections, write_prompt
+        for jobs, text in (
+            ({1: "person", 2: "place", 3: "outfit", 4: "thing"}, "Replace the man with @1.\n@1 wears @3.\n@1 holds @4."),
+            ({1: "person", 2: "style"}, "Replace the man with @1."),
+        ):
+            parts = split_sections(write_prompt(text, jobs=jobs, video="swap the person"))
+            defined = re.findall(r"^(<Subject \d+>) is ", parts["subject_definitions"], re.M)
+            shown = [re.match(r"<Subject \d+>", line).group(0) for line in self.report(text, jobs)["cast"] if "<d>" not in line]
+            self.assertEqual(shown, defined, jobs)
+
+    def test_the_cast_says_who_wears_an_outfit(self):
+        cast = self.report("Replace the man with @1. @1 wears @2.", {1: "person", 2: "outfit"})["cast"]
+        self.assertIn("<Subject 3> = the outfit in <Picture 2>, worn by <Subject 2>", cast)
+
+    def test_a_line_the_prompt_uses_is_never_called_unused(self):
+        read = self.report("Replace the man with @1.\n@1 wears @3.\n@1 holds @4.", {1: "person", 2: "place", 3: "outfit", 4: "thing"})
+        self.assertEqual(read["unused"], ["@1 holds"])
+
+    def test_the_reading_names_the_other_pictures_and_who_speaks(self):
+        read = self.report('Replace the man with @1. @1 wears @3. @1 says "Hello there."', {1: "person", 2: "place", 3: "outfit"})
+        self.assertEqual(read["pictures"], [{"slot": 2, "job": "place", "worn_by": None}, {"slot": 3, "job": "outfit", "worn_by": 1}])
+        self.assertEqual(read["says"], [{"slot": 1, "words": "Hello there."}])
+
+
+if __name__ == "__main__":
+    unittest.main()

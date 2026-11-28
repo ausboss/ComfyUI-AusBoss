@@ -72,8 +72,17 @@ export function stripCaption(report) {
   return { text: `${even ? `${count}, ${each[0]} s each` : count}, one take. Click between two moments to cut there.`, warn: false };
 }
 
+// What each other picture does in a swap, in plain words.
+const PICTURE_WORDS = {
+  place: (slot) => `@${slot} is the place.`,
+  outfit: (slot, wearer) => `@${slot} is the outfit${wearer ? ` @${wearer} wears` : ""}.`,
+  thing: (slot) => `@${slot} is a thing in the shot.`,
+  style: (slot) => `@${slot} sets the style.`,
+};
+
 // What a swap's lines were read as, in plain words: who each new person
-// replaces and how they look, then any words a swap leaves out.
+// replaces and how they look, the other pictures, who says what, then any
+// words a swap leaves out.
 export function readLines(read) {
   if (!read) return [];
   if (read.problem) return [{ text: read.problem, warn: true }];
@@ -83,6 +92,13 @@ export function readLines(read) {
     else if (read.keeps_clip_clothes) text += " Keeps the clip's clothes.";
     return { text, warn: false };
   });
+  for (const picture of read.pictures ?? []) {
+    const words = PICTURE_WORDS[picture.job];
+    lines.push({ text: words ? words(picture.slot, picture.worn_by) : `@${picture.slot} is used as ${picture.job}.`, warn: false });
+  }
+  for (const line of read.says ?? []) {
+    lines.push({ text: `${line.slot ? `@${line.slot}` : "Someone in the clip"} says \u201c${line.words}\u201d`, warn: false });
+  }
   const words = unusedWords(read);
   if (words) lines.push({ text: `Not used: ${words}. A swap keeps the clip's camera and moves; only spoken lines in quotes change.`, warn: true });
   return lines;

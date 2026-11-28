@@ -90,3 +90,23 @@ test("a cast line splits into coloured tags and plain words", () => {
   assert.deepEqual(castPieces("<Subject 1> the man in <Video 1> → removed").map((piece) => piece.kind), ["subject", "", "video", "", "removed"]);
   assert.deepEqual(castPieces("<Subject 4> says <d>Hi.</d>").map((piece) => piece.kind), ["subject", "", "speech", "", "speech"]);
 });
+
+test("plain words name every other picture and who speaks", () => {
+  const lines = readLines({
+    people: [{ slot: 1, goes: "the man", looks: "", named: true }], unused: [], keeps_clip_clothes: false,
+    pictures: [
+      { slot: 2, job: "place", worn_by: null }, { slot: 3, job: "outfit", worn_by: 1 },
+      { slot: 4, job: "thing", worn_by: null }, { slot: 2, job: "style", worn_by: null },
+    ],
+    says: [{ slot: 1, words: "Hello there." }, { slot: null, words: "Hi." }],
+  });
+  assert.deepEqual(lines.map((line) => line.text), [
+    "@1 replaces the man.",
+    "@2 is the place.",
+    "@3 is the outfit @1 wears.",
+    "@4 is a thing in the shot.",
+    "@2 sets the style.",
+    "@1 says \u201cHello there.\u201d",
+    "Someone in the clip says \u201cHi.\u201d",
+  ]);
+});

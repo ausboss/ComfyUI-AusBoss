@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import re
 
-from ._h3_swap_reader import read_swap
+from ._h3_swap_reader import SWAPPERS, read_swap
 from ._h3_cast_helpers import (
     SAYS_AFTER,
     EDIT,
@@ -628,9 +628,10 @@ def script_warning(script, seconds, cast=None):
     return ""
 
 
-def swap_reading(text, jobs):
+def swap_reading(text, jobs, parts=None):
     """What a swap's lines were read as, for the node: who each new person replaces and how they look, from the
-    same reading the prompt uses, and the words a swap does not use."""
+    same reading the prompt uses, and the words a swap does not use. With the written prompt's parts, also the
+    other pictures it names and who says what, by picture."""
     jobs = things_that_perform(text, jobs, SWAP)
     read = read_swap(text, jobs)
     cast = Cast(number_pictures(jobs, SWAP), SWAP)
@@ -640,22 +641,46 @@ def swap_reading(text, jobs):
         {"slot": picture.slot, "goes": who, "looks": descriptions.get(picture.slot, ""), "named": picture.slot in read.goes}
         for picture, who in zip(cast.swappers, cast.whos)
     ]
-    return {"people": people, "unused": read.unused, "keeps_clip_clothes": cast.clip_clothes}
+    reading = {"people": people, "unused": read.unused, "keeps_clip_clothes": cast.clip_clothes}
+    if parts is not None:
+        slot_of = {label: slot for slot, label in cast.subjects.items()}
+        wearers = {slot_of.get(outfit): slot_of.get(wearer) for outfit, wearer in WORN.findall(parts.get("retention_analysis", ""))}
+        reading["pictures"] = [
+            {"slot": slot, "job": job, "worn_by": wearers.get(slot)} for slot, job in sorted(jobs.items()) if job not in SWAPPERS
+        ]
+        reading["says"] = [{"slot": slot_of.get(who), "words": words} for who, words in SAYS.findall(parts.get("detailed_description", ""))]
+    return reading
 
 
 GOES = re.compile(r"^(<Subject \d+>) is (.+) in <Video 1>, selected for replacement\.$")
 COMES = re.compile(r"^(<Subject \d+>) is (.*?<Picture \d>)(?:, (.+?))?\.(?: The background .*)?$")
 TAKES = re.compile(r"^(<Subject \d+>): removed - replace .+ with (<Subject \d+>) throughout\.$", re.M)
+WORN = re.compile(r"^(<Subject \d+>) \([^)]*\): attribute_transfer - put only this outfit on (<Subject \d+>)\.$", re.M)
 SAYS = re.compile(r"(<Subject \d+>)(?:(?!<Subject \d+>).)*?<d>(?:\[[^\]]*\]\s*)?(.*?)</d>")
 
 
-def swap_cast(text, jobs):
-    """A swap's cast as the Ref2VA prompt names it, one short line each, taken from the prompt the writer writes:
-    who leaves the clip, who takes their place and how they look, and who says what."""
+def swap_parts(text, jobs):
+    """The sections of the prompt the writer writes for this swap."""
     from ._h3_prompt_helpers import split_sections, write_prompt
 
-    parts = split_sections(write_prompt(text, jobs=jobs, video=SWAP))
+    return split_sections(write_prompt(text, jobs=jobs, video=SWAP))
+
+
+def sent(words, description):
+    """Whether words a swap's reading set aside reached the prompt after all, with each @N as the subject the
+    prompt names in its place: "@1 wears" is sent as "<Subject 2> wears <Subject 4>"."""
+    pieces = [piece.strip(".,;:!?") for piece in str(words).split()]
+    pattern = r"\s+".join(r"<Subject \d+>" if re.fullmatch(r"@\d", piece) else re.escape(piece) for piece in pieces if piece)
+    return bool(pattern) and re.search(pattern, description, re.I) is not None
+
+
+def swap_cast(text, jobs, parts=None):
+    """A swap's cast as the Ref2VA prompt names it, one short line each, taken from the prompt the writer writes:
+    who leaves the clip, who takes their place and how they look, every other picture it names, and who says
+    what."""
+    parts = swap_parts(text, jobs) if parts is None else parts
     replaced = {new: old for old, new in TAKES.findall(parts.get("retention_analysis", ""))}
+    worn = dict(WORN.findall(parts.get("retention_analysis", "")))
     lines = []
     for line in parts.get("subject_definitions", "").splitlines():
         goes = GOES.match(line)
@@ -667,6 +692,11 @@ def swap_cast(text, jobs):
             rest = (rest or "").removeprefix("with the same face and this appearance: ").removeprefix("with ")
             place = f", takes {replaced[subject]}'s place" if subject in replaced else ""
             lines.append(f"{subject} = {who}{place}{': ' + rest if rest else ''}")
+        elif line.startswith("<Subject ") and " is " in line:
+            # Every other picture the prompt names, in its first sentence: an outfit, a style.
+            subject, _, words = line.partition(" is ")
+            wearer = f", worn by {worn[subject]}" if subject in worn else ""
+            lines.append(f"{subject} = {words.split('. ')[0].rstrip('.')}{wearer}")
     for subject, words in SAYS.findall(parts.get("detailed_description", "")):
         lines.append(f"{subject} says <d>{words}</d>")
     return lines
@@ -677,8 +707,11 @@ def script_report(text, seconds, jobs=None, video=""):
     reading = None
     if video == SWAP and jobs is not None:
         try:
-            reading = swap_reading(text, jobs)
-            reading["cast"] = swap_cast(text, jobs)
+            parts = swap_parts(text, jobs)
+            reading = swap_reading(text, jobs, parts)
+            reading["cast"] = swap_cast(text, jobs, parts)
+            # Only words the written prompt really leaves out are called unused.
+            reading["unused"] = [words for words in reading["unused"] if not sent(words, parts.get("detailed_description", ""))]
         except ValueError as error:
             # The writer refuses these lines when it runs; say why now, on the node.
             reading = {"people": [], "unused": [], "keeps_clip_clothes": False, "problem": str(error)}
