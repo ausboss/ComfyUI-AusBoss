@@ -25,7 +25,9 @@ The node shows only the sockets you are using, so its face stays small.
 
 Nothing changes in a workflow you already saved: every wire stays where it
 was and the node sends the same things. To see every socket and chip all the
-time, turn on **Settings → 🆎 AusBoss → H3 Prompt Writer → Show every socket**.
+time, pick **all** under **Sockets** in the gear menu (the gear at the top
+right of the node), or turn on **Settings → 🆎 AusBoss → H3 Prompt Writer →
+Show every socket**. Both are the same setting.
 
 ## How to write it
 
@@ -274,6 +276,20 @@ as not plugged in.
   **clip** it does nothing, so a workflow can leave it on. Starts off.
 - **Full prompt** (`full_prompt`, on the Full prompt tab): your own edit of the
   finished prompt. Empty means the node's own prompt is sent.
+- **What the model is asked** (`model_asks`, in the gear menu): the four things
+  the model on **clip** is asked, each with an **Edit** button. **Describe a new
+  person** writes how a new person in a swap looks from their picture. **Fill in
+  the next moments** writes what happens after a single typed line. **Hear the
+  place** writes the steady sound of the place. **Tidy up my lines** holds the
+  instructions for Tidy up. Change the words to steer the model; `{seconds}`,
+  `{first}`, `{count}` and `{lines}` are filled in by the node. Your wording is
+  saved in this node, so a shared workflow asks the same. **Back to built-in**
+  puts the node's own wording back. They only matter with a text model plugged
+  into **clip**. If your wording loses `{lines}` or another filled-in name,
+  **Save** first says what the model will miss; press it again to keep it.
+  **Esc** over typing you have not saved asks once before it closes.
+  **Reset** at the bottom of the menu puts the sockets and all four wordings
+  back at once; Ctrl+Z brings yours back.
 
 ## Tips
 

@@ -575,12 +575,19 @@ def usable_line(line, kept):
     return 1 < len(words) <= LINE_WORDS and not set(line) & set('"<>[]{}') and all(bare(line) != bare(other) for other in kept)
 
 
+def fill_words(template, **values):
+    """The wording with {name} replaced for each value; other braces stay, so a node's own wording never breaks a run.
+
+    One pass, so braces inside a filled-in value (a typed line) are never filled in themselves."""
+    return re.sub(r"\{(\w+)\}", lambda match: str(values[match.group(1)]) if match.group(1) in values else match.group(0), template)
+
+
 def plain_names(text, jobs):
     """The line with each @ swapped for what that picture is."""
     return TOKEN.sub(lambda match: NAMED.get((jobs or {}).get(int(match.group(1))), "the person"), text)
 
 
-def add_moments(script, seconds, ask, jobs=None):
+def add_moments(script, seconds, ask, jobs=None, wording=None):
     """One typed line in a clip with time to spare: a small model adds what
     happens next. The typed line stays first, and a line that fails the check
     is left out, so a bad answer costs nothing."""
@@ -589,18 +596,18 @@ def add_moments(script, seconds, ask, jobs=None):
     wanted = moments_for(seconds) - 1
     first = plain_names(script.moments[0].text, jobs)
     kept = [first]
-    for line in answer_lines(ask(NEXT.format(seconds=seconds, first=first, count=wanted), 256)):
+    for line in answer_lines(ask(fill_words(wording or NEXT, seconds=seconds, first=first, count=wanted), 256)):
         if len(kept) <= wanted and usable_line(line, kept):
             kept.append(line)
             script.moments.append(Moment(line.strip(" ,.")))
 
 
-def add_sound(script, ask, jobs=None):
+def add_sound(script, ask, jobs=None, wording=None):
     """What this place sounds like, unless someone said."""
     if script.sound or script.silent:
         return
     lines = "\n".join(plain_names(moment.text, jobs) for moment in script.moments)
-    answer = " ".join(answer_lines(ask(HEARD.format(lines=lines), 64)))
+    answer = " ".join(answer_lines(ask(fill_words(wording or HEARD, lines=lines), 64)))
     if 1 < len(answer.split()) <= SOUND_WORDS and not set(answer) & set('"<>[]{}'):
         script.sound = answer
 

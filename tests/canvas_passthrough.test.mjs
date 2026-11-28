@@ -317,6 +317,7 @@ test("no keydown handler stops every key, outside dialogs that own the keyboard"
   const ownTheKeyboard = [
     "callout/index.js dialog", // the tile editor: Ctrl + Enter saves the text
     "shared/discard_prompt.mjs backdrop", // the keep or discard question
+    "shared/h3_writer_gear.mjs back", // the wording editor: Ctrl + Enter saves the wording
     "workflow_note/index.js overlay", // the note editor: Ctrl + Enter saves the note
   ];
   const files = readdirSync(js, { recursive: true }).map(String).filter((file) => /\.m?js$/.test(file)).map((file) => file.replaceAll("\\", "/"));

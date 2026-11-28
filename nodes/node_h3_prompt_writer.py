@@ -8,7 +8,8 @@ import sys
 from ._h3_cast_helpers import DESCRIBE_PERSON, add_looks, EDIT, JOBS, KEEP, KEEPS_ITS_LENGTH, PERSON, PLACE, START, SWAP, THING, VIDEO_JOBS
 from ._h3_prompt_helpers import find_beats, find_speech, split_sections, write_prompt
 from ._h3_script_helpers import CAMERAS, LOOKS, script_report
-from ._h3_tidy_helpers import tidy_script
+from ._h3_model_asks import BUILT_IN as BUILT_IN_ASKS, parse_asks
+from ._h3_tidy_helpers import TIDY_SYSTEM, tidy_script
 from ._route_errors import safe_route_error
 
 
@@ -90,7 +91,7 @@ def model_tidier(clip):
     return ask
 
 
-def tidied(script, clip):
+def tidied(script, clip, system=None):
     """The typed script in plain, ordered sentences, from the model on clip.
 
     H3's own six parts go through as they are, and so does everything when nothing is on clip:
@@ -98,7 +99,7 @@ def tidied(script, clip):
     if clip is None or not str(script or "").strip() or split_sections(script) is not None:
         return script
     ask = model_tidier(clip)
-    return script if ask is None else tidy_script(script, ask)[0]
+    return script if ask is None else tidy_script(script, ask, system or TIDY_SYSTEM)[0]
 
 
 def fill_picture(pictures, jobs):
@@ -342,6 +343,18 @@ class AusBossH3PromptWriter:
                         ),
                     },
                 ),
+                "model_asks": (
+                    "STRING",
+                    {
+                        "default": "",
+                        "multiline": True,
+                        "dynamicPrompts": False,
+                        "tooltip": (
+                            "Your own wording for what the model on clip is asked, set in the gear menu. Empty "
+                            "means the built-in wording."
+                        ),
+                    },
+                ),
             },
         }
 
@@ -383,11 +396,12 @@ class AusBossH3PromptWriter:
     def write(self, script, seconds, clip=None, picture_1=None, picture_2=None, picture_3=None, picture_4=None, video=None,
               video_sound=None, voice=None, song=None, camera=AS_TYPED, look=FROM_PICTURE, song_start=0.0, cut_on_beat=True,
               language="English", job_1=PERSON, job_2=PERSON, job_3=PERSON, job_4=THING, video_job=VIDEO_JOBS[0],
-              sound="", music="", clip_sound=False, tidy=False):
+              sound="", music="", clip_sound=False, tidy=False, model_asks=""):
         inputs = dict(locals())
-        del inputs["self"], inputs["script"], inputs["tidy"]
+        del inputs["self"], inputs["script"], inputs["tidy"], inputs["model_asks"]
+        inputs["asks"] = asks = parse_asks(model_asks)
         if tidy:
-            tidy_text = tidied(script, clip)
+            tidy_text = tidied(script, clip, asks.get("tidy"))
             if tidy_text != script:
                 try:
                     return self._write(tidy_text, **inputs)
@@ -398,7 +412,8 @@ class AusBossH3PromptWriter:
     def _write(self, script, seconds, clip=None, picture_1=None, picture_2=None, picture_3=None, picture_4=None, video=None,
                video_sound=None, voice=None, song=None, camera=AS_TYPED, look=FROM_PICTURE, song_start=0.0, cut_on_beat=True,
                language="English", job_1=PERSON, job_2=PERSON, job_3=PERSON, job_4=THING, video_job=VIDEO_JOBS[0],
-               sound="", music="", clip_sound=False):
+               sound="", music="", clip_sound=False, asks=None):
+        asks = asks or {}
         # A clip that keeps its own sound has no room for a score: the finished clip plays the video's sound.
         if video is not None and (video_job == EDIT or (video_job == SWAP and clip_sound)):
             music = ""
@@ -410,7 +425,7 @@ class AusBossH3PromptWriter:
         video_job = "" if video is None else video_job
         if clip is not None and video_job == SWAP:
             # The model on clip writes each new person's @N looks like line from their picture, when none is typed.
-            script = add_looks(script, jobs, lambda slot: model_asker(clip, given[slot])(DESCRIBE_PERSON, 60))
+            script = add_looks(script, jobs, lambda slot: model_asker(clip, given[slot])(asks.get("describe", DESCRIBE_PERSON), 60))
         frames = clip_frames(seconds)
         if video_job in KEEPS_ITS_LENGTH:
             frames = video_frames(video.shape[0])
@@ -446,6 +461,7 @@ class AusBossH3PromptWriter:
             soundtrack=video_sound is not None,
             clip_sound=clip_sound,
             speech=speech,
+            asks=asks,
         )
         ordered = [*given.values(), None, None, None, None][: len(PICTURES)]
         return (text, *ordered, video, video_sound, voice, song, song_under, frames, *clip_shape(video, ordered[0]), keeps_clip_sound)
@@ -471,6 +487,11 @@ def _register_routes():
     if getattr(PromptServer.instance, "_ausboss_h3_writer_routes", False):
         return
     PromptServer.instance._ausboss_h3_writer_routes = True
+
+    @PromptServer.instance.routes.get("/ausboss/h3_writer/asks")
+    async def asks(request):
+        """The built-in wording of each thing the small model is asked, for the gear menu's editor."""
+        return web.json_response(BUILT_IN_ASKS)
 
     @PromptServer.instance.routes.post("/ausboss/h3_writer/read")
     async def read(request):

@@ -305,7 +305,8 @@
       "music",
       "clip_sound",
       "full_prompt",
-      "tidy"
+      "tidy",
+      "model_asks"
     ],
     "outputs": [
       [
