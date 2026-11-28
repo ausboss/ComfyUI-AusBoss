@@ -26,7 +26,6 @@ from ._h3_script_helpers import (
     script_parts,
     speakers,
     voice_of,
-    without_speech,
 )
 
 SECTIONS = (
