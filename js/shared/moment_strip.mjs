@@ -46,7 +46,7 @@ function ensureCss() {
 .ausboss-strip-drop{position:absolute;top:-3px;bottom:-3px;z-index:4;width:3px;margin-left:-2px;border-radius:2px;background:#f5b53d;pointer-events:none}
 .ausboss-strip-note{flex:none;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:#6f8886;font-size:10px;font-weight:500;line-height:12px}
 .ausboss-strip-note.warn{color:#d9a441}
-.ausboss-strip-read{display:flex;flex-direction:column;justify-content:center;gap:2px;height:100%;min-width:0;overflow:hidden;color:#cfe8e5;font-weight:500}
+.ausboss-strip-read{display:flex;flex-direction:column;justify-content:center;gap:2px;height:100%;min-width:0;padding:2px 7px;box-sizing:border-box;overflow:hidden;border-left:2px solid ${BRAND};border-radius:4px;background:rgba(0,180,170,.12);color:#d6eeeb;font-weight:500}
 .ausboss-strip-read div{flex:none;overflow:hidden;line-height:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
 .ausboss-strip-read.tight div{display:block;white-space:nowrap;text-overflow:ellipsis}
 .ausboss-strip-read .warn{color:#d9a441}
