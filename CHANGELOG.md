@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **H3 Prompt Writer 🆎 has a gear menu.** The gear at the top right of the
+  node holds two things. Sockets picks whether the node shows only the
+  sockets in use or all of them. Under it are the four things the model on
+  clip is asked: describe a new person, fill in the next moments, hear the
+  place, and tidy up my lines. Each can be edited, and the edit is saved in
+  the node, so a shared workflow asks the same. Back to built-in undoes it.
 - **Mask Refine 🆎's guided and matting edges follow the picture.** Both
   edge modes now look further from the mask's edge and snap to the real
   edge in the guide image, so hair and thin parts a rough mask missed come

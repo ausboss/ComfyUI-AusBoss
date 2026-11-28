@@ -15,6 +15,7 @@ import { FULL, fullPromptBox, isEdited, promptTab, promptTabs, simpleEditedNote 
 import { cameraChoiceLabel, clipSetsDuration } from "../shared/h3_duration.mjs";
 import { loadImagePreview, loadImageStrip } from "../shared/load_image_strip.mjs";
 import { momentStrip } from "../shared/moment_strip.mjs";
+import { writerGear } from "../shared/h3_writer_gear.mjs";
 import { mountWidgetCard } from "../shared/widget_card.mjs";
 import { copiesGrain, grainFromLinked } from "../shared/grain_auto.mjs";
 import { FONT_UI, THEME } from "../shared/theme.mjs";
@@ -450,9 +451,11 @@ const CARDS = {
   // sockets, and each picture's job sits under the words.
   AUSBOSS_NODES_H3PromptWriter: {
     minWidth: 420,
-    hide: ["job_1", "job_2", "job_3", "job_4", "video_job", "full_prompt"],
-    socketless: ["job_1", "job_2", "job_3", "job_4", "video_job", "full_prompt"],
-    resetUnknown: { sound: "", music: "", clip_sound: false, full_prompt: "", tidy: false },
+    hide: ["job_1", "job_2", "job_3", "job_4", "video_job", "full_prompt", "model_asks"],
+    socketless: ["job_1", "job_2", "job_3", "job_4", "video_job", "full_prompt", "model_asks"],
+    resetUnknown: { sound: "", music: "", clip_sound: false, full_prompt: "", tidy: false, model_asks: "" },
+    // The gear: which sockets show, and what the model on clip is asked.
+    corner: writerGear,
     rows: [
       // Simple is the card as it always was; Full prompt shows the prompt the
       // node wrote and sends an edit made there instead (js/shared/h3_full_prompt.mjs).

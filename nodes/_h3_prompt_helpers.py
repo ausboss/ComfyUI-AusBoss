@@ -298,7 +298,7 @@ def put_on_from_pictures(script, jobs):
 
 
 def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="English", voice=False, song_beats=None,
-                 ask=None, jobs=None, video="", soundtrack=False, clip_sound=False, speech=None):
+                 ask=None, jobs=None, video="", soundtrack=False, clip_sound=False, speech=None, asks=None):
     """The finished prompt.
 
     A typed scene is read and laid out over seconds; H3's own six parts go
@@ -358,8 +358,8 @@ def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="E
         if voice and not any(moment.speech for moment in scene.moments):
             raise ValueError(VOICE_NO_WORDS)
         if ask is not None and video != SWAP:  # A swap keeps the clip's own action; its model only writes the looks.
-            add_moments(scene, seconds, ask, jobs)
-            add_sound(scene, ask, jobs)
+            add_moments(scene, seconds, ask, jobs, (asks or {}).get("next"))
+            add_sound(scene, ask, jobs, (asks or {}).get("heard"))
         audio += soundtrack and video == KEEP
         speaker = next(iter(speakers(scene.moments, cast)), None)
 

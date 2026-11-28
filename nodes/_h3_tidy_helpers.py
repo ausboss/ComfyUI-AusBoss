@@ -181,17 +181,17 @@ def same_reading(typed, tidied):
     return not any(words in [line[2] for line in now] for words in shown) and (cuts, times) == (now_cuts, now_times)
 
 
-def tidy_line(line, ask):
+def tidy_line(line, ask, system=TIDY_SYSTEM):
     """One typed line tidied by the model, or as typed when its answer breaks a rule."""
     held, marks, quotes = hold(line)
     longest = min(800, 64 + 3 * len(held.split()))
-    answer = LABEL.sub("", str(ask(TIDY_SYSTEM, f"Line: {held}\nCleaned:", longest) or "").strip()).strip()
+    answer = LABEL.sub("", str(ask(system, f"Line: {held}\nCleaned:", longest) or "").strip()).strip()
     if "\n" in answer or not answer_ok(held, answer, marks) or not same_roles(held, answer):
         return line
     return put_back(answer, marks, quotes)
 
 
-def tidy_script(script, ask):
+def tidy_script(script, ask, system=TIDY_SYSTEM):
     """The script tidied by ask(system, user, longest) one line at a time. Returns (script, tidied). Each
     line's answer is kept only when the whole script still reads the same with it."""
     if not clean(script):
@@ -204,7 +204,7 @@ def tidy_script(script, ask):
     for index, line in enumerate(lines):
         if not line.strip() or SETTING_LINE.match(clean(line)):
             continue
-        tidy = tidy_line(line, ask)
+        tidy = tidy_line(line, ask, system)
         trial = out[:index] + [tidy] + out[index + 1 :]
         if tidy != line and same_reading(script, "\n".join(trial)):
             out = trial
