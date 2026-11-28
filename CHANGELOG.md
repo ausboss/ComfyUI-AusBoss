@@ -9,7 +9,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
   sockets in use or all of them. Under it are the four things the model on
   clip is asked: describe a new person, fill in the next moments, hear the
   place, and tidy up my lines. Each can be edited, and the edit is saved in
-  the node, so a shared workflow asks the same. Back to built-in undoes it.
+  the node, so a shared workflow asks the same. Back to built-in undoes it,
+  and Reset puts the sockets and all four back. The editor checks with you
+  before Esc throws away your typing, and before Save keeps a wording that
+  lost a name the node fills in, such as {lines}.
 - **Mask Refine 🆎's guided and matting edges follow the picture.** Both
   edge modes now look further from the mask's edge and snap to the real
   edge in the guide image, so hair and thin parts a rough mask missed come

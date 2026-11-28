@@ -10,7 +10,8 @@
 import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
 import { SHOW_ALL } from "./h3_sockets.mjs";
-import { LONGEST_ASK, editedAsks, readAsks, writeAsks } from "./h3_writer_gear_math.mjs";
+import { LONGEST_ASK, editedAsks, readAsks, wordingWarning, writeAsks } from "./h3_writer_gear_math.mjs";
+import { showToast } from "./index.mjs";
 import { gearIconSvg, openSettingsMenu, closeSettingsMenu } from "./settings_menu.mjs";
 import { FONT_UI, THEME } from "./theme.mjs";
 
@@ -48,10 +49,11 @@ function ensureCss() {
 .ausboss-ask textarea{min-height:240px;flex:1 1 auto;resize:vertical;padding:8px;box-sizing:border-box;border:1px solid ${THEME.brand};border-radius:6px;outline:none;background:#0b0f10;color:${THEME.ink};font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 .ausboss-ask-row{display:flex;gap:6px;align-items:center}
 .ausboss-ask-row .gap{flex:1}
-.ausboss-ask button{all:unset;padding:5px 11px;border-radius:6px;background:${THEME.fill};color:${THEME.inkSoft};font-weight:600;font-size:12px;cursor:pointer}
+.ausboss-ask button{all:unset;flex:none;white-space:nowrap;padding:5px 11px;border-radius:6px;background:${THEME.fill};color:${THEME.inkSoft};font-weight:600;font-size:12px;cursor:pointer}
 .ausboss-ask button:hover{background:${THEME.fillHover}}
 .ausboss-ask button.save{background:${THEME.brand};color:${THEME.onBrand}}
 .ausboss-ask .state{font-size:11px;color:${THEME.faint}}
+.ausboss-ask .state.warn{color:${THEME.warn}}
 `;
   document.head.append(style);
 }
@@ -73,14 +75,60 @@ function openEditor(node, card, ask, built) {
   area.maxLength = LONGEST_ASK;
   area.value = (own ?? built).slice(0, LONGEST_ASK);
   area.spellcheck = false;
+  const opened = area.value;
   const state = document.createElement("span");
   state.className = "state";
+  const button = (label, className, run) => {
+    const element = document.createElement("button");
+    element.type = "button";
+    element.textContent = label;
+    if (className) element.className = className;
+    element.addEventListener("click", run);
+    return element;
+  };
+  const saveButton = button("Save", "save", () => save(area.value));
+  // Escape or a click outside over typing that is not saved, and Save over a
+  // wording that drops a name the writer fills in, each say so once; the
+  // second press goes ahead.
+  let leaving = false;
+  let saving = false;
+  const warn = (words) => {
+    state.textContent = words;
+    state.classList.toggle("warn", true);
+  };
   const showState = () => {
+    leaving = false;
+    saving = false;
+    saveButton.textContent = "Save";
+    state.classList.toggle("warn", false);
     const words = area.value.trim() === built.trim() || !area.value.trim() ? "Built-in wording" : "Your wording";
     state.textContent = area.value.length >= LONGEST_ASK ? `${words}, at the ${LONGEST_ASK.toLocaleString()} letter limit` : words;
   };
   showState();
   area.addEventListener("input", showState);
+  const close = () => back.remove();
+  const leave = () => {
+    if (leaving || area.value === opened) return close();
+    showState();
+    leaving = true;
+    warn("Not saved yet. Press Esc again to close without saving.");
+  };
+  const save = (words) => {
+    // The built-in wording, or nothing, is stored as nothing, so a later
+    // release's better wording reaches this node.
+    const kept = words.trim() && words.trim() !== built.trim() ? words : "";
+    const problem = kept ? wordingWarning(ask.key, kept, built) : "";
+    if (problem && !saving) {
+      showState();
+      saving = true;
+      saveButton.textContent = "Save anyway";
+      warn(problem);
+      return;
+    }
+    card.setWidget("model_asks", writeAsks(card.values().model_asks, ask.key, kept));
+    card.refresh();
+    close();
+  };
   // The editor is a window of its own: no key reaches ComfyUI while it is
   // open (Ctrl+Enter would queue the old wording; here it saves), Tab stays
   // inside it, and Escape closes it from any of its controls.
@@ -88,7 +136,7 @@ function openEditor(node, card, ask, built) {
     event.stopPropagation();
     if (event.key === "Escape") {
       event.preventDefault();
-      close();
+      leave();
     } else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
       event.preventDefault();
       save(area.value);
@@ -100,23 +148,6 @@ function openEditor(node, card, ask, built) {
       stops[next].focus();
     }
   });
-  const button = (label, className, run) => {
-    const element = document.createElement("button");
-    element.type = "button";
-    element.textContent = label;
-    if (className) element.className = className;
-    element.addEventListener("click", run);
-    return element;
-  };
-  const close = () => back.remove();
-  const save = (words) => {
-    // The built-in wording, or nothing, is stored as nothing, so a later
-    // release's better wording reaches this node.
-    const kept = words.trim() && words.trim() !== built.trim() ? words : "";
-    card.setWidget("model_asks", writeAsks(card.values().model_asks, ask.key, kept));
-    card.refresh();
-    close();
-  };
   const row = document.createElement("div");
   row.className = "ausboss-ask-row";
   const gap = document.createElement("span");
@@ -125,11 +156,11 @@ function openEditor(node, card, ask, built) {
     button("Back to built-in", "", () => { area.value = built; showState(); }),
     state, gap,
     button("Cancel", "", close),
-    button("Save", "save", () => save(area.value)),
+    saveButton,
   );
   box.append(title, hint, area, row);
   back.append(box);
-  back.addEventListener("pointerdown", (event) => { if (event.target === back) close(); });
+  back.addEventListener("pointerdown", (event) => { if (event.target === back) leave(); });
   document.body.append(back);
   area.focus();
 }
@@ -142,7 +173,7 @@ export function writerGear(node, card) {
   gear.className = "ausboss-card-gear";
   gear.title = TITLE;
   gear.innerHTML = gearIconSvg();
-  gear.addEventListener("click", async () => {
+  const open = async () => {
     let built;
     try {
       built = await builtInAsks();
@@ -175,9 +206,27 @@ export function writerGear(node, card) {
       initial: { sockets: app.extensionManager?.setting?.get?.(SHOW_ALL) ? "all" : "in use" },
       onChange: (values, key) => {
         if (key === "sockets") app.extensionManager?.setting?.set?.(SHOW_ALL, values.sockets === "all");
+        else if (key === null) reset();
       },
     });
-  });
+  };
+  // The menu's Reset: the sockets back to "in use" and every wording back
+  // to built-in, as one undo step, then the menu again to show it.
+  const reset = async () => {
+    try {
+      await app.extensionManager?.setting?.set?.(SHOW_ALL, false);
+    } catch {
+      // The menu shows what the setting holds.
+    }
+    if (editedAsks(card.values().model_asks).size) {
+      card.setWidget("model_asks", "");
+      card.refresh();
+      showToast({ summary: "H3 Prompt Writer", detail: "The model's wordings are back to built-in. Ctrl+Z brings yours back." });
+    }
+    closeSettingsMenu();
+    await open();
+  };
+  gear.addEventListener("click", open);
   // Only the tabs make room for the gear (the style above); the rows under
   // them keep the card's full width.
   return { element: gear, sync: () => 0 };

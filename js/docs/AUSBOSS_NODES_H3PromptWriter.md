@@ -285,7 +285,11 @@ as not plugged in.
   `{first}`, `{count}` and `{lines}` are filled in by the node. Your wording is
   saved in this node, so a shared workflow asks the same. **Back to built-in**
   puts the node's own wording back. They only matter with a text model plugged
-  into **clip**.
+  into **clip**. If your wording loses `{lines}` or another filled-in name,
+  **Save** first says what the model will miss; press it again to keep it.
+  **Esc** over typing you have not saved asks once before it closes.
+  **Reset** at the bottom of the menu puts the sockets and all four wordings
+  back at once; Ctrl+Z brings yours back.
 
 ## Tips
 
