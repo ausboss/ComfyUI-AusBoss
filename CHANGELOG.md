@@ -30,6 +30,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
   line such as "@1 wears @3" with Picture 3 set to style now shows a note
   under the timeline: a style is a look, so write "in the style of @3" or
   give the picture another job. The run still goes ahead.
+- **H3 Prompt Writer 🆎 keeps what someone does after they speak.** A line
+  such as `@1 says "Hi" and waves.` went to H3 as "and waves." with nobody
+  doing it. The writer now puts the person back and keeps the order: the
+  line is said, then @1 waves. Words about how a line is said, like
+  "slowly" or "to the camera", stay with the speaker too. A sign's words
+  ("a sign reading "CLOSED"") end their sentence, and bold or italic marks
+  pasted with a script (`**@1**`) no longer reach the prompt.
 - **H3 Prompt Writer 🆎 hears a line in single quotes with an apostrophe.**
   "She says 'I don't know.'" was written as plain text, so nobody spoke it.
   The words are now a spoken line, as they are in double quotes.

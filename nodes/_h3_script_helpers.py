@@ -313,9 +313,14 @@ def close_quotes(text):
     )
 
 
+# Bold and italic marks pasted from a chat or a notes app: **word**, *word*, __word__, _word_.
+MARKED = re.compile(r"(?<![\w*_])(\*\*|__|\*|_)(?=\S)([^\n*_]+?)(?<=\S)\1(?![\w*_])")
+
+
 def clean(text):
     for old, new in QUOTES.items():
         text = text.replace(old, new)
+    text = MARKED.sub(r"\2", text)
     text = close_quotes(text)
     # Words already in double quotes stay as typed, so a quote inside them can't move their ends.
     kept = []
@@ -688,29 +693,54 @@ def after_comma(text):
 
 def sentence(text):
     text = text.strip()
-    return text if text[-1:] in '.!?"' else text + "."
+    # Words shown on screen end in a quote: 'a sign reading "CLOSED"' still needs its full stop.
+    return text if text[-1:] in ".!?" or text[-2:] in ('."', '!"', '?"') else text + "."
 
 
 def capital(text):
     return sentence(text[:1].upper() + text[1:])
 
 
-def without_speech(moment):
-    """A moment's words with what is said taken out, and what says it."""
+# '"Hi" and waves' is what they do next. Anything else, like '"Hi" slowly', is how they say it.
+DOES_NEXT = re.compile(r"^(?:and\s+then|and|then)\s+", re.I)
+
+
+def around_speech(moment):
+    """(before, after): a moment's words with what is said taken out. Before
+    is what happens up to the line, after is what the speaker does once it is
+    said."""
     if not moment.speech:
-        return moment.text
+        return moment.text, ""
     before, _, after = moment.text.partition(f'"{moment.speech}"')
     spoken = SPEECH_CUE.search(before)
+    name = ""
     if spoken:
         # "She looks up and says" keeps "She looks up". In "She says" the words
         # in front only name who speaks.
         action = before[: spoken.start()].rstrip()
         linked = re.search(r",?\s*\band(?:\s+\w+ly)?$", action, re.I)
         before = action[: linked.start()] if linked else action.rpartition(",")[0]
+        if not linked:
+            # Who speaks, when it is a short name. Longer words in front are a
+            # sentence of their own ("@1 hears a voice say"), so the main person does what follows.
+            name = action.rpartition(",")[2].strip()
+            name = name if 0 < len(name.split()) <= 4 and not VOICEOVER.search(name) else MAIN
     if VOICEOVER.search(before):
         before = ""
-    after = AFTER_VOICEOVER.sub("", after)
-    return " ".join(part.strip(" ,:") for part in (before, after) if part.strip(" ,:."))
+    before = before.strip(" ,:") if before.strip(" ,:.") else ""
+    after = AFTER_VOICEOVER.sub("", after).strip(" ,:") if AFTER_VOICEOVER.sub("", after).strip(" ,:.") else ""
+    if before or not after or not name:
+        return " ".join(part for part in (before, after) if part), ""
+    # The words in front only named the speaker, so what follows needs them back.
+    next_thing = DOES_NEXT.sub("", after)
+    if next_thing != after:
+        return "", f"{name} {next_thing}"
+    return f"{name} speaks {after}", ""
+
+
+def without_speech(moment):
+    """A moment's words with what is said taken out, and what says it."""
+    return " ".join(part for part in around_speech(moment) if part)
 
 
 def moment_words(moment, say, cast):
@@ -724,14 +754,17 @@ def moment_words(moment, say, cast):
         typed = typed.strip()
         typed = typed if typed.endswith("\x02") else sentence(typed)
         return typed.replace("\x02", say(moment.speech, not moment.voiceover, bare=True))
-    words = with_labels(without_speech(moment), cast)
-    if moment.start:
+    before, after = around_speech(moment)
+    words = with_labels(before, cast)
+    if moment.start and words:
         words = "The shot opens on " + lower_first(words)
-    elif moment.end:
+    elif moment.end and words:
         words = "The shot ends on " + lower_first(words)
     line = sentence(words) if words else ""
     if moment.speech:
         line = f"{line} {say(moment.speech, not moment.voiceover)}".strip()
+    if after:
+        line = f"{line} {sentence(with_labels(after, cast))}".strip()
     return line
 
 

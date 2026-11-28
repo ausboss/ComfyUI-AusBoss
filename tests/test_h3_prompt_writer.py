@@ -722,6 +722,38 @@ class EverydayLineTests(unittest.TestCase):
         self.assertEqual([moment.cut for moment in script.moments], [False, True])
         self.assertEqual(read_script("camera: handheld").camera, "handheld")
 
+    def test_words_shown_on_screen_end_their_sentence(self):
+        shot = parts_of('@1 holds a sign reading "CLOSED" and says "Sorry, folks."', seconds=5, jobs={1: "person"})["detailed_description"]
+        self.assertIn('holds a sign reading "CLOSED". <Subject 1> stays silent', shot)
+        self.assertTrue(parts_of('@1 holds a sign reading "OPEN!"', seconds=5, jobs={1: "person"})["detailed_description"].endswith('reading "OPEN!"'))
+
+    def test_bold_and_italic_marks_are_not_part_of_the_words(self):
+        for typed in ("**@1** walks in.", "*@1 walks in.*", "_@1_ walks in.", "__@1 walks in__."):
+            shot = parts_of(typed, seconds=5, jobs={1: "person"})["detailed_description"]
+            self.assertTrue(shot.endswith("[Shot 1] <Subject 1> walks in."), (typed, shot))
+        # A name with an underscore in it, and a star rating, stay as typed.
+        self.assertIn("my_new_file", moments("She opens my_new_file on the laptop.")[0])
+        self.assertIn("5*", moments("He gives it 5* and nods.")[0])
+
+    def test_what_follows_a_spoken_line_keeps_who_does_it(self):
+        def shot(line, jobs={1: "person"}):
+            return parts_of(line, seconds=5, jobs=jobs)["detailed_description"]
+
+        # What they do next comes after the line, with who does it.
+        waves = shot('@1 says "Hi" and waves.')
+        self.assertIn("closes the lips. <Subject 1> waves.", waves)
+        self.assertNotIn("and waves", waves)
+        self.assertIn("closes the lips. <Subject 1> sprints away.", shot('She shouts "Run!" and sprints away.'))
+        # How they say it comes before the line.
+        self.assertIn("[Shot 1] <Subject 1> speaks slowly. <Subject 1> (S1) says,", shot('@1 says "Hi" slowly.'))
+        self.assertIn("<Subject 1> speaks to the camera. <Subject 1> (S1) says,", shot('She says "Hi" to the camera.'))
+        # A voice nobody sees: the person on screen still does what follows.
+        self.assertTrue(shot('@1 hears a voice off screen say "Dinner!" and looks up.').endswith("<Subject 1> looks up."))
+        # Something that speaks and is in no picture keeps its own name.
+        self.assertIn("The card reader beeps.", shot('The card reader says "Declined" and beeps.', {1: "start on it"}))
+        # Words in front of the line stay as they were.
+        self.assertIn("[Shot 1] <Subject 1> looks up and waves.", shot('@1 looks up and says "Hi" and waves.'))
+
     def test_every_quote_is_said_by_who_says_it(self):
         script = read_script('Maya says "Hi" while Ben replies "Bye".')
         self.assertEqual([moment.speech for moment in script.moments], ["Hi", "Bye"])
