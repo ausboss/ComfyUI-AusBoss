@@ -30,6 +30,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
   line such as "@1 wears @3" with Picture 3 set to style now shows a note
   under the timeline: a style is a look, so write "in the style of @3" or
   give the picture another job. The run still goes ahead.
+- **H3 Prompt Writer 🆎 ignores chat talk from its small model.** When the
+  model on clip answered "Sure! Here are the next moments:" or "I'm sorry,
+  but I can't help with that", those words became a moment in the clip or
+  its sound. They are left out now, and so are labels such as "Moment 2:"
+  in front of a line.
 - **H3 Prompt Writer 🆎 keeps what someone does after they speak.** A line
   such as `@1 says "Hi" and waves.` went to H3 as "and waves." with nobody
   doing it. The writer now puts the person back and keeps the order: the

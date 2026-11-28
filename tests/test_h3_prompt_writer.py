@@ -1273,6 +1273,23 @@ class AskTests(unittest.TestCase):
         lines = shots("she flies away", seconds=10, ask=self.ask(moments='She rises.\nShe says "bye."\nShe vanishes from sight.'))
         self.assertEqual(count_moments(lines[0]), 3)
 
+    def test_what_a_chat_model_says_around_its_answer_is_left_out(self):
+        chatty = "Sure! Here are the next moments:\n**Moment 2:** She looks at the cup.\n0:04 She lifts it.\nLet me know if you want more!"
+        line = shots("she sits at a cafe table", seconds=10, ask=self.ask(chatty))[0]
+        self.assertIn("<Subject 1> looks at the cup. At 00:06.667, <Subject 1> lifts it.", line)
+        for word in ("Sure", "Moment", "0:04", "Let me know", "*"):
+            self.assertNotIn(word, line)
+
+    def test_a_refusal_is_not_a_moment_or_a_sound(self):
+        sorry = "I'm sorry, but I can't help with that request."
+        parts = parts_of("she sits at a cafe table", seconds=10, ask=self.ask(sorry, sorry), jobs={1: "start on it"})
+        self.assertNotIn("sorry", parts["detailed_description"])
+        self.assertEqual(parts["overall_soundscape"], "The steady sound of the place continues throughout.")
+        # An answer that names a picture is the model echoing the question.
+        echoed = parts_of("she sits at a cafe table", seconds=10, ask=self.ask("@1 looks at @7.", "@1 hums, @2 enters."), jobs={1: "start on it"})
+        self.assertNotIn("looks at", echoed["detailed_description"])
+        self.assertNotIn("@", echoed["overall_soundscape"])
+
     def test_the_small_model_reads_each_picture_by_its_job(self):
         asked = []
 

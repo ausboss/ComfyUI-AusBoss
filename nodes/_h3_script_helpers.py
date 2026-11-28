@@ -588,10 +588,22 @@ def moments_for(seconds):
     return max(2, round(seconds / 2.5))
 
 
+# "Moment 2: She looks up" and "0:04 She lifts it": the label is not part of the line.
+LABELLED = re.compile(r"^(?:(?:moment|line|shot|scene|beat)\s*\d+\s*[:.)-]\s*|\d{1,2}:\d{2}(?:\.\d+)?\s*[-:]?\s*)", re.I)
+# What a chat model says around its answer, or in place of one.
+CHATTER = re.compile(
+    r"^(?:sure\b|certainly\b|of course\b|okay\b|ok\b|here(?:'s|\s+is|\s+are)\b|i'?m\s+sorry|i\s+am\s+sorry|sorry\b|i\s+can(?:'t|not)\b"
+    r"|i\s+cannot\b|as\s+an\s+ai\b|let\s+me\s+know\b|i\s+hope\b|note\s*:)|:\s*$",
+    re.I,
+)
+
+
 def answer_lines(answer):
-    """The lines of a model's answer, without numbers or bullets."""
-    lines = (NUMBER.sub("", line).strip() for line in str(answer).split("\n"))
-    return [line for line in lines if line]
+    """The lines of a model's answer, without numbers, bullets, labels or the
+    talk a chat model puts around them. A line that names a picture is the
+    model echoing its question, so it goes too."""
+    lines = (LABELLED.sub("", NUMBER.sub("", MARKED.sub(r"\2", line))).strip() for line in str(answer or "").split("\n"))
+    return [line for line in lines if line and not CHATTER.search(line) and "@" not in line]
 
 
 def bare(line):
