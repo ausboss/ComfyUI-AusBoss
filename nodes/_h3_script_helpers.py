@@ -296,6 +296,7 @@ class Moment:
     delivery: str = ""  # How a swap line is said: "in a flat robot voice".
     other: bool = False  # Said by someone who is in no picture, like the man at the counter.
     back: bool = False  # "cut back to": a place already seen.
+    named: str = ""  # Who says it, named in words when two people are: "\x04the customer".
 
 
 @dataclass
@@ -461,6 +462,31 @@ def one_or_more(text, match):
     return len(rest.split()) > 1 or (bool(rest) and (match.group(0).rstrip().endswith(":") or rest.lower() in ("black", "white")))
 
 
+# "he yells wait": words said with no quotes, at the end of a line. Where or how
+# they are said ("yells at the dog", "says nothing", "shouts back") is not words.
+BARE_SPEECH = re.compile(
+    r"\b((?:says?|yells?|shouts?|screams?|whispers?|mutters?|asks?|cries|calls\s+out)\s+)([A-Za-z'][\w' ,!?-]{0,40}?)[.!?]*$",
+    re.I,
+)
+NOT_SAID = re.compile(
+    r"^(?:at|to|for|from|with|into|in|on|back|out|up|down|over|across|again|nothing|something|anything|it|this|that"
+    r"|the|a|an|his|her|their|its|my|our|your|him|them|me|us|so|too|and|but|while|as|\w+ly)$",
+    re.I,
+)
+
+
+def quote_bare_speech(text):
+    """'he yells wait' as 'he yells "Wait"', so the words are said."""
+    match = None if '"' in text else BARE_SPEECH.search(text)
+    if not match:
+        return text
+    words = match.group(2).strip(" ,")
+    if not 0 < len(words.split()) <= 4 or any(NOT_SAID.match(word.strip(",!?")) for word in words.split()):
+        return text
+    words = words.capitalize() if words.isupper() else words[:1].upper() + words[1:]
+    return f'{text[: match.start(2)]}"{words}"'
+
+
 def read_moment(moment):
     text = moment.text
     timed = TIMED.match(text)
@@ -487,6 +513,7 @@ def read_moment(moment):
         moment.end = True
         text = text[end.end() :]
     text = re.sub(r"\s+", " ", text).strip(" ,.")
+    text = quote_bare_speech(text)
     moment.text = text[:1].upper() + text[1:] if text else ""
     quoted_words(moment)
 
@@ -813,6 +840,35 @@ def moment_words(moment, say, cast):
     return line
 
 
+# "A barista slides", "The old fisherman casts": who does it, named in words.
+DESCRIBED = re.compile(r"^(?:the|a|an)\s+((?:[\w-]+\s+){0,2}?[\w-]+?)\s+(?=[a-z]+s\b)", re.I)
+IN_WORDS = "\x04"  # In front of a speaker named in words, who is on screen.
+
+
+def described_speaker(moment):
+    """Who says a line when the words in front name them without an @ or a he
+    or she: "The customer laughs and says" is the customer."""
+    if not moment.speech or moment.voice or moment.voiceover:
+        return ""
+    before = moment.text.partition(f'"{moment.speech}"')[0]
+    if TOKEN.search(before) or PRONOUN.search(before):
+        return ""
+    match = DESCRIBED.match(before)
+    return f"the {match.group(1).lower()}" if match else ""
+
+
+def name_speakers(moments, cast):
+    """Two or more people named in words each say their own lines. One is the
+    person in the picture, and keeps the picture's label."""
+    if cast.as_typed:
+        return
+    found = [described_speaker(moment) for moment in moments]
+    if len({who for who in found if who}) < 2:
+        return
+    for moment, who in zip(moments, found):
+        moment.named = IN_WORDS + who if who else ""
+
+
 def speaker_of(moment, cast):
     """Who says a moment's words: an off-screen voice, the person named right
     before them ("@2 says"), the first person the moment names, or the main
@@ -820,6 +876,8 @@ def speaker_of(moment, cast):
     picked at all."""
     if moment.voice:
         return moment.voice
+    if moment.named:
+        return moment.named
     people = {picture.slot for picture in cast.people}
     quote = moment.text.find('"')
     before = moment.text[:quote] if quote >= 0 else moment.text
@@ -1069,6 +1127,7 @@ def script_parts(script, seconds, camera="", look="", sound="", say=None, cast=N
     video's own sound is connected."""
     say = say or (lambda words, on_screen=True, speaker="", number=1: words)
     cast = cast or Cast(number_pictures({1: PERSON}))
+    name_speakers(script.moments, cast)
     style, redraw, hold = LOOKS.get(look, ("", "", ""))
     if script.look:
         style, redraw, hold = LOOKS.get(script.look.lower().strip(), (sentence(script.look), "", ""))

@@ -104,6 +104,12 @@ def spoken_line(speaker, words, language, voice_label, on_screen, number=1, lips
     if speaker is None:  # The typed line around it already says who speaks.
         return line
     said = f"{verb} {delivery}" if delivery else verb  # "whispers", "says quietly"
+    if speaker.startswith("\x04"):  # Someone on screen named in words: "the customer".
+        name = speaker[1:]
+        return (
+            f"{name[:1].upper()}{name[1:]} ({f'S{number}'}) {said}, {line} The jaw and lips of {name} move clearly "
+            f"through every word. {name[:1].upper()}{name[1:]} closes the lips."
+        )
     if not speaker.startswith("<"):  # A thing off screen, like a card reader.
         return f"{speaker} (S{number}) {said} from off screen, {line} Nobody on screen moves their lips to these words."
     if on_screen:

@@ -769,6 +769,33 @@ class EverydayLineTests(unittest.TestCase):
         # Words in front of the line stay as they were.
         self.assertIn("[Shot 1] <Subject 1> looks up and waves.", shot('@1 looks up and says "Hi" and waves.'))
 
+    def test_a_shout_typed_without_quotes_is_still_said(self):
+        def said(line):
+            return [moment.speech for moment in read_script(line).moments]
+
+        self.assertEqual(said("he yells wait"), ["Wait"])
+        self.assertEqual(said("He yells WAIT."), ["Wait"])
+        self.assertEqual(said("she whispers come here"), ["Come here"])
+        self.assertEqual(said("@1 says hi"), ["Hi"])
+        # Where or how they shout is not something said.
+        for line in ("he yells at the dog", "she shouts for help", "he says nothing", "she whispers to @2",
+                     "he yells loudly", "she says it again", "the crowd shouts back"):
+            self.assertEqual(said(line), [""], line)
+        shot = parts_of("guy runs to bus misses it\nhe yells wait", seconds=5, jobs={1: "start on it"})["detailed_description"]
+        self.assertIn("<d>[English] Wait.</d>", shot)
+        self.assertNotIn("WAIT", shot)
+
+    def test_two_people_named_in_words_each_say_their_own_line(self):
+        typed = 'A barista slides a cup across the counter and says "One oat latte, extra hot."\nThe customer laughs and says "You remembered!"'
+        shot = parts_of(typed, seconds=8, jobs={1: "start on it"})["detailed_description"]
+        self.assertIn('The barista (S1) says, <d>[English] One oat latte, extra hot.</d>', shot)
+        self.assertIn('The customer (S2) says, <d>[English] You remembered!</d>', shot)
+        self.assertIn("The jaw and lips of the customer move", shot)
+        self.assertNotIn("<Subject 1> (S1)", shot)
+        # One person named in words is still the person in the picture.
+        one = parts_of('A street vendor holds up an orange and says "Fresh!"', seconds=5, jobs={1: "start on it"})["detailed_description"]
+        self.assertIn("<Subject 1> (S1) says, <d>[English] Fresh!</d>", one)
+
     def test_how_a_line_is_said_stays_in_the_prompt(self):
         def shot(line, **more):
             return parts_of(line, seconds=5, jobs={1: "person"}, **more)["detailed_description"]

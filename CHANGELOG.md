@@ -30,6 +30,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   line such as "@1 wears @3" with Picture 3 set to style now shows a note
   under the timeline: a style is a look, so write "in the style of @3" or
   give the picture another job. The run still goes ahead.
+- **H3 Prompt Writer 🆎 gives each person named in words their own line.**
+  With `A barista … says "…"` and `The customer … says "…"`, both lines
+  went to the person in the picture. Each one now says their own line.
+- **H3 Prompt Writer 🆎 says a shout typed without quotes.** `he yells wait`
+  is spoken now. Before, it was read as something that happens, and nothing
+  was said.
 - **H3 Prompt Writer 🆎 keeps how a line is said.** `@1 whispers "Stay
   quiet."`, `shouts`, `sings`, `yells`, `mutters` and `asks` all reached
   the model as "says". The word you typed is kept now, and so are words
