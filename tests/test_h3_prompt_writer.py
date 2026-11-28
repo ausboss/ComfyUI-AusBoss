@@ -125,6 +125,14 @@ class ReadingTests(unittest.TestCase):
         self.assertEqual((script.camera, script.look, script.sound, script.music), ("handheld", "anime", "rain", "N/A"))
         self.assertEqual(len(script.moments), 1)
 
+    def test_none_in_sound_is_no_sound_and_keeps_the_music(self):
+        for typed in ("none", "None.", "no sound", "silent", "n/a", "off"):
+            parts = parts_of(f"sound: {typed}\nmusic: a slow piano\n" + LINES, jobs={1: "start on it"})
+            self.assertEqual((parts["overall_soundscape"], parts["non_diegetic_music"]), ("N/A", "A slow piano."), typed)
+        for typed in ("none", "No music.", "silent"):
+            parts = parts_of(f"sound: rain\nmusic: {typed}\n" + LINES, jobs={1: "start on it"})
+            self.assertEqual((parts["overall_soundscape"], parts["non_diegetic_music"]), ("Rain.", "N/A"), typed)
+
     def test_camera_and_sound_lines_belong_to_their_shot(self):
         script = read_script("she runs\ncamera: orbit\n\nshe stops\nsound: rain on glass\n\nmusic: a slow piano")
         self.assertEqual((script.moments[0].camera, script.moments[1].sound), ("orbit", "rain on glass"))
@@ -719,6 +727,10 @@ class EverydayLineTests(unittest.TestCase):
         self.assertEqual([moment.speech for moment in script.moments], ["Hi", "Bye"])
         self.assertEqual(read_script("She says 'come here' and waves.").moments[0].speech, "come here")
         self.assertEqual(read_script("She can't wait, it's 'late'.").moments[0].speech, "")
+        # An apostrophe inside the words does not end them.
+        self.assertEqual(read_script("She says 'I don't know.'").moments[0].speech, "I don't know.")
+        self.assertEqual(read_script("She says ‘It’s fine, don’t worry.’ and leaves.").moments[0].speech, "It's fine, don't worry.")
+        self.assertIn("<d>[English] I don't know.</d>", write_prompt("She says 'I don't know.'", jobs={1: "start on it"}))
         for line in ('She says "Wait" in voiceover.', 'VO: "Come back."'):
             moment = read_script(line).moments[0]
             self.assertTrue(moment.voiceover, line)

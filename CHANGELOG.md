@@ -30,6 +30,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
   line such as "@1 wears @3" with Picture 3 set to style now shows a note
   under the timeline: a style is a look, so write "in the style of @3" or
   give the picture another job. The run still goes ahead.
+- **H3 Prompt Writer 🆎 hears a line in single quotes with an apostrophe.**
+  "She says 'I don't know.'" was written as plain text, so nobody spoke it.
+  The words are now a spoken line, as they are in double quotes.
+- **H3 Prompt Writer 🆎: "none" in Sound turns the sound off.** Typing none,
+  off, silent or no sound in Sound wrote the word "None." as the clip's
+  sound. It now means no sound of the place, and the music you typed stays.
+  The same words in Music mean no music.
 - **H3 Prompt Writer 🆎: clearer timeline and messages.** A 4 s clip shows a
   4 s bar. The note under a clip that H3 shortens says how much is left
   out. `@5` says there are four pictures, and a line that names a missing

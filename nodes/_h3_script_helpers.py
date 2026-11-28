@@ -288,12 +288,14 @@ class Script:
     sound: str = ""
     music: str = ""  # "N/A" is no music.
     silent: bool = False
+    quiet: bool = False  # "sound: none": no sound of the place. The music stays.
     one_take: bool = False
 
 
 SINGLE_QUOTED = re.compile(
     r"\b((?:says?|said|asks?|asked|whispers?|whispered|shouts?|shouted|yells?|yelled|screams?|mutters?|sings?|replies|replied"
-    r"|answers?|calls?\s+out|cries)\s*[:,]?\s*)'([^'\n\x01]+?)'(?!\w)",
+    # An apostrophe inside a word, as in don't, is part of the words.
+    r"|answers?|calls?\s+out|cries)\s*[:,]?\s*)'((?:[^'\n\x01]|(?<=\w)'(?=\w))+?)'(?!\w)",
     re.I,
 )
 
@@ -356,6 +358,10 @@ def split_line(line):
     return pieces
 
 
+# What people type in Sound or Music to turn it off.
+NOTHING = re.compile(r"^(?:none|no(?:\s+(?:sounds?|audio|music|score))?|n/?a|off|silent|silence|nothing)$", re.I)
+
+
 def take_label(line, script):
     """camera: look: sound: music: lines go to their own part."""
     match = LABEL.match(line)
@@ -367,9 +373,12 @@ def take_label(line, script):
     elif name in ("style", "look"):
         script.look = value
     elif name in ("sound", "sounds", "audio"):
-        script.sound = value
+        if NOTHING.match(value.rstrip(".")):
+            script.quiet = True
+        else:
+            script.sound = value
     else:
-        script.music = "N/A" if value.lower().rstrip(".") in ("none", "no", "n/a", "off") else value
+        script.music = "N/A" if NOTHING.match(value.rstrip(".")) else value
     return True
 
 
@@ -611,7 +620,7 @@ def add_moments(script, seconds, ask, jobs=None):
 
 def add_sound(script, ask, jobs=None):
     """What this place sounds like, unless someone said."""
-    if script.sound or script.silent:
+    if script.sound or script.silent or script.quiet:
         return
     lines = "\n".join(plain_names(moment.text, jobs) for moment in script.moments)
     answer = " ".join(answer_lines(ask(HEARD.format(lines=lines), 64)))
@@ -929,7 +938,7 @@ def script_sound(script, sound, places=False):
     if script.silent or sound == "none":
         return "N/A", "N/A"
     typed = capital(script.sound) if script.sound else (EACH_PLACE if places else PLACE_SOUND)
-    return typed, capital(script.music) if script.music not in ("", "N/A") else "N/A"
+    return "N/A" if script.quiet else typed, capital(script.music) if script.music not in ("", "N/A") else "N/A"
 
 
 def task_of(cast):
