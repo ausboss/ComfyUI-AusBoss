@@ -643,12 +643,42 @@ def swap_reading(text, jobs):
     return {"people": people, "unused": read.unused, "keeps_clip_clothes": cast.clip_clothes}
 
 
+GOES = re.compile(r"^(<Subject \d+>) is (.+) in <Video 1>, selected for replacement\.$")
+COMES = re.compile(r"^(<Subject \d+>) is (.*?<Picture \d>)(?:, (.+?))?\.(?: The background .*)?$")
+TAKES = re.compile(r"^(<Subject \d+>): removed - replace .+ with (<Subject \d+>) throughout\.$", re.M)
+SAYS = re.compile(r"(<Subject \d+>)(?:(?!<Subject \d+>).)*?<d>(?:\[[^\]]*\]\s*)?(.*?)</d>")
+
+
+def swap_cast(text, jobs):
+    """A swap's cast as the Ref2VA prompt names it, one short line each, taken from the prompt the writer writes:
+    who leaves the clip, who takes their place and how they look, and who says what."""
+    from ._h3_prompt_helpers import split_sections, write_prompt
+
+    parts = split_sections(write_prompt(text, jobs=jobs, video=SWAP))
+    replaced = {new: old for old, new in TAKES.findall(parts.get("retention_analysis", ""))}
+    lines = []
+    for line in parts.get("subject_definitions", "").splitlines():
+        goes = GOES.match(line)
+        comes = COMES.match(line)
+        if goes:
+            lines.append(f"{goes.group(1)} {goes.group(2)} in <Video 1> \u2192 removed")
+        elif comes:
+            subject, who, rest = comes.groups()
+            rest = (rest or "").removeprefix("with the same face and this appearance: ").removeprefix("with ")
+            place = f", takes {replaced[subject]}'s place" if subject in replaced else ""
+            lines.append(f"{subject} = {who}{place}{': ' + rest if rest else ''}")
+    for subject, words in SAYS.findall(parts.get("detailed_description", "")):
+        lines.append(f"{subject} says <d>{words}</d>")
+    return lines
+
+
 def script_report(text, seconds, jobs=None, video=""):
     """What a script will do, for the timeline on the node."""
     reading = None
     if video == SWAP and jobs is not None:
         try:
             reading = swap_reading(text, jobs)
+            reading["cast"] = swap_cast(text, jobs)
         except ValueError as error:
             # The writer refuses these lines when it runs; say why now, on the node.
             reading = {"people": [], "unused": [], "keeps_clip_clothes": False, "problem": str(error)}

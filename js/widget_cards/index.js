@@ -15,6 +15,7 @@ import { FULL, fullPromptBox, isEdited, promptTab, promptTabs, simpleEditedNote 
 import { cameraChoiceLabel, clipSetsDuration } from "../shared/h3_duration.mjs";
 import { loadImagePreview, loadImageStrip } from "../shared/load_image_strip.mjs";
 import { momentStrip } from "../shared/moment_strip.mjs";
+import { swapReading, swapReadingFolded, swapReadingOpen, swapReadingShows } from "../shared/swap_reading.mjs";
 import { mountWidgetCard } from "../shared/widget_card.mjs";
 import { copiesGrain, grainFromLinked } from "../shared/grain_auto.mjs";
 import { FONT_UI, THEME } from "../shared/theme.mjs";
@@ -466,7 +467,10 @@ const CARDS = {
         widget: "script", kind: "textarea", height: 118, grow: true,
         placeholder: "Type what happens, one line for each thing. Picture 1 is @1. A blank line cuts to a new place.\n\nSwap: leave empty, or name who goes. Optional new look on its own line: @1 looks like a woman with blonde hair and a black hoodie.",
       },
-      { panel: momentStrip, height: 76, when: (values, node) => promptTab(node) !== FULL },
+      { panel: momentStrip, height: 76, when: (values, node) => promptTab(node) !== FULL && !swapReadingShows(values, node) },
+      // A swap shows how its lines were read instead: the cast H3 gets, or plain words.
+      { panel: swapReadingFolded, height: 44, when: (values, node) => promptTab(node) !== FULL && swapReadingShows(values, node) && !swapReadingOpen(node) },
+      { panel: swapReading, height: 150, when: (values, node) => promptTab(node) !== FULL && swapReadingShows(values, node) && swapReadingOpen(node) },
       { widget: "sound", label: "Sound", placeholder: "rain on a window", when: (values, node) => promptTab(node) !== FULL },
       { widget: "music", label: "Music", placeholder: "slow piano: music makes it louder", when: (values, node) => promptTab(node) !== FULL },
       { section: "Pictures and settings" },

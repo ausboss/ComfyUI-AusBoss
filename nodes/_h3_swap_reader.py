@@ -53,12 +53,12 @@ COMMA_LOOKS = re.compile(
     r"^\s*,\s*(?P<looks>(?:a|an)\s+.+?)\s*(?=,\s*(?:and\s+)?(?:he|she|they|who|replaces|replacing|takes)\b|,\s*and\b|;|$)", re.I
 )
 WEARS = re.compile(
-    r"^\s*,?\s*(?:who\s+(?:is\s+)?(?:wears|wearing)|wearing|wears|is\s+wearing|dressed\s+in|in)\s+"
+    r"^\s*,?\s*(?:and\s+(?=(?:is\s+)?(?:wears|wearing|dressed)\b))?(?:who\s+(?:is\s+)?(?:wears|wearing)|wearing|wears|is\s+wearing|dressed\s+in|in)\s+"
     r"(?P<wear>(?:a|an|some)\s+.+?)\s*(?=,|\s+and\s+|;|$)",
     re.I,
 )
-HAS = re.compile(r"^\s*,?\s*(?:who\s+has|who\s+is|with)\s+(?P<looks>.+?)\s*(?=,\s*and\b|\s+and\s+(?:he|she|says|replaces)\b|;|$)", re.I)
-LOOKS_LIKE = re.compile(r"^\s+(?:looks\s+like|is|has)\s+(?P<looks>(?:a|an|long|short|\w+\s+hair).+?)\s*(?=,\s*and\b|;|$)", re.I)
+HAS = re.compile(r"^\s*,?\s*(?:who\s+has|who\s+is|with)\s+(?P<looks>.+?)\s*(?=,\s*and\b|\s+and\s+(?:is\s+)?(?:wears|wearing|dressed)\b|\s+and\s+(?:he|she|says|replaces)\b|;|$)", re.I)
+LOOKS_LIKE = re.compile(r"^\s+(?:looks\s+like|is|has)\s+(?P<looks>(?:a|an|long|short|\w+\s+hair).+?)\s*(?=,\s*and\b|\s+and\s+(?:is\s+)?(?:wears|wearing|dressed)\b|;|$)", re.I)
 IS_WHO = re.compile(r"^\s*(?:,|\s+is)\s+(?P<x>the\s+.+?)\s*(?=,\s*(?:and|then|while|but)\b|\s+and\s+|;|$)", re.I)
 IS_NAME = re.compile(rf"^\s+is\s+{NAME}\s*(?=,|$|\s+and\b)")
 IS_NEW = re.compile(r"^\s+is\s+the\s+new\s+\w+", re.I)
@@ -117,7 +117,8 @@ class SwapRead:
 
 
 def sentences(text):
-    """The text cut into sentences: at each line end, and at . ! ? outside quotes that are not part of "Mr."."""
+    """The text cut into sentences: at each line end, at . ! ? outside quotes that are not part of "Mr.", and after a
+    quote that ends with one."""
     out = []
     for line in str(text or "").splitlines():
         start, quoted, index = 0, False, 0
@@ -125,6 +126,11 @@ def sentences(text):
             char = line[index]
             if char in QUOTE_MARKS:
                 quoted = not quoted
+                # A quote that ends its own sentence ("Hi." Then ...) ends the sentence with it.
+                at_end = index + 1 == len(line) or line[index + 1].isspace()
+                if not quoted and index and line[index - 1] in ".!?" and at_end:
+                    out.append(line[start : index + 1])
+                    start = index + 1
             elif char in ".!?" and not quoted:
                 while index + 1 < len(line) and line[index + 1] in ".!?":
                     index += 1

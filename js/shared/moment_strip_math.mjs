@@ -72,23 +72,51 @@ export function stripCaption(report) {
   return { text: `${even ? `${count}, ${each[0]} s each` : count}, one take. Click between two moments to cut there.`, warn: false };
 }
 
-// A swap's lines as the writer read them: who each new person replaces and how
-// they look, then any words a swap leaves out, so nothing is dropped unseen.
+// What a swap's lines were read as, in plain words: who each new person
+// replaces and how they look, then any words a swap leaves out.
 export function readLines(read) {
   if (!read) return [];
   if (read.problem) return [{ text: read.problem, warn: true }];
   const lines = (read.people ?? []).map((person) => {
-    let text = `@${person.slot} replaces ${person.goes}${person.named ? "" : " (no one named)"}`;
-    if (person.looks) text += ` \u00b7 looks like ${person.looks}`;
-    else if (read.keeps_clip_clothes) text += " \u00b7 keeps the clip's clothes";
+    let text = `@${person.slot} replaces ${person.goes}${person.named ? "" : " (no one named)"}.`;
+    if (person.looks) text += ` Looks like ${person.looks}.`;
+    else if (read.keeps_clip_clothes) text += " Keeps the clip's clothes.";
     return { text, warn: false };
   });
-  const unused = read.unused ?? [];
-  if (unused.length) {
-    const words = unused.map((clause) => `\u201c${clause}\u201d`).join(", ");
-    lines.push({ text: `Not used: ${words}. A swap keeps the clip's camera and moves; only spoken lines in quotes change.`, warn: true });
-  }
+  const words = unusedWords(read);
+  if (words) lines.push({ text: `Not used: ${words}. A swap keeps the clip's camera and moves; only spoken lines in quotes change.`, warn: true });
   return lines;
+}
+
+// The same reading as the Ref2VA prompt names it: the cast lines the writer
+// sends to H3, then any words it leaves out.
+export function castLines(read) {
+  if (!read) return [];
+  if (read.problem) return [{ text: read.problem, warn: true }];
+  const lines = (read.cast ?? []).map((text) => ({ text, warn: false }));
+  const words = unusedWords(read);
+  if (words) lines.push({ text: `Not sent: ${words} (a swap keeps the clip's camera and moves)`, warn: true });
+  return lines;
+}
+
+function unusedWords(read) {
+  return (read.unused ?? []).map((clause) => `\u201c${clause}\u201d`).join(", ");
+}
+
+// A cast line in pieces, so the tags can be coloured: subject, video,
+// picture, removed, speech marks, and plain words.
+export function castPieces(text) {
+  const pieces = [];
+  const pattern = /(<Subject \d+>)|(<Video \d+>)|(<Picture \d+>)|(\u2192 removed)|(<\/?d>)/g;
+  let at = 0;
+  for (const match of text.matchAll(pattern)) {
+    if (match.index > at) pieces.push({ kind: "", text: text.slice(at, match.index) });
+    const kind = match[1] ? "subject" : match[2] ? "video" : match[3] ? "picture" : match[4] ? "removed" : "speech";
+    pieces.push({ kind, text: match[0] });
+    at = match.index + match[0].length;
+  }
+  if (at < text.length) pieces.push({ kind: "", text: text.slice(at) });
+  return pieces;
 }
 
 // The seconds the bar under the script marks: every second up to 10 s,

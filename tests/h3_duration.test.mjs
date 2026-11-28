@@ -96,16 +96,10 @@ test('timeline omits guessed duration/retiming and rejects an old async report; 
    assert.equal(requests[0].seconds,12);
    panel.sync({...values,video_job:'swap the person'});
    assert.equal(ruler.children.length,0);assert.equal(track.textContent,'Length comes from the clip');
-   assert.doesNotMatch(panel.element.textContent,/12|one take/);
-   // The one request a swap makes is for how its lines were read, never for a timeline.
-   assert.equal(timers.length,1);timers.shift()();await Promise.resolve();
-   assert.equal(requests.at(-1).video,'swap the person');assert.equal(requests.at(-1).seconds,8);
+   assert.doesNotMatch(panel.element.textContent,/12|one take/);assert.equal(timers.length,0);
    pending.shift()({ok:true,json:async()=>({seconds:12,moments:[{start:0,end:12,text:'She walks',line:0}]})});
    await new Promise(resolve=>setImmediate(resolve));
    assert.equal(track.textContent,'Length comes from the clip');assert.ok(refreshes>0);
-   pending.shift()({ok:true,json:async()=>({seconds:8,moments:[],read:{people:[{slot:1,goes:'the man',looks:'',named:true}],unused:[],keeps_clip_clothes:false}})});
-   await new Promise(resolve=>setImmediate(resolve));
-   assert.equal(track.textContent,'@1 replaces the man');
    video.mode=4;intervals[0]();assert.equal(timers.length,1);
    timers.shift()();await Promise.resolve();assert.equal(requests.at(-1).seconds,12);
    assert.equal(requests.at(-1).video,'');

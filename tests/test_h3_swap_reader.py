@@ -11,7 +11,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from nodes._h3_swap_reader import read_swap
+from nodes._h3_swap_reader import read_swap, sentences
 
 ONE = {1: "person"}
 TWO = {1: "person", 2: "person"}
@@ -121,6 +121,19 @@ class SwapReaderTests(unittest.TestCase):
                 if not unused:
                     self.assertEqual(read.unused, [], "words left over")
 
+    def test_clothes_after_and_are_worn_not_part_of_the_look(self):
+        for typed in ("@1 has short red hair and wears a leather jacket.", "@1 is a man with short red hair and is wearing a leather jacket."):
+            with self.subTest(typed=typed):
+                read = read_swap("Replace the man with @1. " + typed, ONE)
+                self.assertEqual(read.wears.get(1), ["a leather jacket"])
+                self.assertNotIn("wear", " ".join(read.looks.get(1, [])))
+                self.assertEqual(read.unused, [])
+
+    def test_an_ask_after_a_quoted_line_is_its_own_sentence(self):
+        read = read_swap('Replace the man with @1. @1 says "Thank you, Mario!" Make the camera spin around her.', ONE)
+        self.assertEqual(read.unused, ["Make the camera spin around her"])
+        self.assertEqual(sentences('@1 says "Hi." Then she waves.'), ['@1 says "Hi."', "Then she waves."])
+
     def test_a_looks_line_for_a_picture_that_is_not_connected_is_an_error(self):
         with self.assertRaisesRegex(ValueError, "Picture 2 is not connected"):
             read_swap("@2 looks like a pilot", ONE)
@@ -165,6 +178,22 @@ class ReportTests(unittest.TestCase):
         read = self.report("@3 looks like a man in red.", ONE)
         self.assertEqual(read["people"], [])
         self.assertIn("Picture 3 is not connected", read["problem"])
+
+    def test_the_report_gives_the_ref2va_cast_from_the_written_prompt(self):
+        read = self.report(
+            'Swap the woman on the left for @1 and the man on the right for @2. @1 is a knight in silver armor, '
+            'and @2 has short red hair and wears a leather jacket. @2 says "We made it."', TWO)
+        self.assertEqual(read["cast"], [
+            "<Subject 1> the woman on the left in <Video 1> \u2192 removed",
+            "<Subject 2> the man on the right in <Video 1> \u2192 removed",
+            "<Subject 3> = the person in <Picture 1>, takes <Subject 1>'s place: a knight in silver armor",
+            "<Subject 4> = the person in <Picture 2>, takes <Subject 2>'s place: short red hair, wearing a leather jacket",
+            "<Subject 4> says <d>We made it.</d>",
+        ])
+
+    def test_the_cast_says_what_is_kept_when_nothing_is_described(self):
+        read = self.report("", ONE)
+        self.assertEqual(read["cast"][1], "<Subject 2> = the person in <Picture 1>, takes <Subject 1>'s place: the same face, hair and clothes")
 
     def test_other_jobs_have_no_reading(self):
         from nodes._h3_script_helpers import script_report
