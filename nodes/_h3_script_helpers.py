@@ -765,7 +765,22 @@ def around_speech(moment):
     next_thing = DOES_NEXT.sub("", after)
     if next_thing != after:
         return "", f"{name} {next_thing}"
-    return f"{name} speaks {after}", ""
+    verb = how_said(moment)[0]
+    return f"{name} {'speaks' if verb == 'says' else verb} {after}", ""
+
+
+def how_said(moment):
+    """(word, how): the word a line is said with, "whispers" or "shouts", and
+    anything typed between it and the line, "quietly". A plain line is "says"."""
+    before = moment.text.partition(f'"{moment.speech}"')[0]
+    cue = SPEECH_CUE.search(before)
+    verb = SPEECH_VERB.match(before, cue.start()) if cue else None
+    if not verb:
+        return "says", ""
+    first, _, rest = verb.group().lower().partition(" ")
+    first = "says" if first in ("say", "said") else first if first.endswith("s") else first + "s"
+    how = before[verb.end() :].strip(" ,:")
+    return " ".join(f"{first} {rest}".split()), "" if "@" in how or VOICEOVER.search(how) else how
 
 
 def without_speech(moment):
@@ -953,9 +968,8 @@ def shot_lines(script, seconds, say, cast, wearers, move="", hold=""):
                 if bare:  # Only the speech tag: the typed line around it says who.
                     return say(words, on_screen, None)
                 who = speaker_of(moment, cast)
-                if moment.delivery:
-                    return say(words, on_screen, who, talking.index(who) + 1, delivery=moment.delivery)
-                return say(words, on_screen, who, talking.index(who) + 1)
+                verb, how = how_said(moment)
+                return say(words, on_screen, who, talking.index(who) + 1, delivery=moment.delivery or how, verb=verb)
 
             words = " ".join(
                 [

@@ -30,6 +30,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
   line such as "@1 wears @3" with Picture 3 set to style now shows a note
   under the timeline: a style is a look, so write "in the style of @3" or
   give the picture another job. The run still goes ahead.
+- **H3 Prompt Writer 🆎 keeps how a line is said.** `@1 whispers "Stay
+  quiet."`, `shouts`, `sings`, `yells`, `mutters` and `asks` all reached
+  the model as "says". The word you typed is kept now, and so are words
+  between it and the line, as in `says quietly "Hello."`.
 - **H3 Prompt Writer 🆎 reads "Close-up of her boots" as a framing.** After
   a blank line, a framing typed without "a" in front ("Close-up of...",
   "Wide shot of...", "POV from...") was sent to H3 as a cut to a new place,

@@ -96,14 +96,14 @@ def add_task(summary, task):
     return "[" + " + ".join(tasks) + "]" + summary[match.end() :]
 
 
-def spoken_line(speaker, words, language, voice_label, on_screen, number=1, lips="", delivery=""):
+def spoken_line(speaker, words, language, voice_label, on_screen, number=1, lips="", delivery="", verb="says"):
     """The sentence that carries the words, with the speaker's mouth stated
     the way H3 needs it: moving and then closed on screen, closed in a
     voiceover. lips names a video whose lip movement the words land on."""
     line = f"<d>[{language}] {words}</d>"
     if speaker is None:  # The typed line around it already says who speaks.
         return line
-    said = f"says {delivery}" if delivery else "says"
+    said = f"{verb} {delivery}" if delivery else verb  # "whispers", "says quietly"
     if not speaker.startswith("<"):  # A thing off screen, like a card reader.
         return f"{speaker} (S{number}) {said} from off screen, {line} Nobody on screen moves their lips to these words."
     if on_screen:
@@ -368,10 +368,10 @@ def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="E
 
     if parts is None:
 
-        def say(words, on_screen=True, who="<Subject 1>", number=1, delivery=""):
+        def say(words, on_screen=True, who="<Subject 1>", number=1, delivery="", verb="says"):
             lips = "<Video 1>" if video in (REVOICE, SWAP, EDIT) else ""
             voiced = voice_label if number == 1 else None
-            return spoken_line(who, clean_words(words), language, voiced, on_screen, number, lips, delivery)
+            return spoken_line(who, clean_words(words), language, voiced, on_screen, number, lips, delivery, verb)
 
         parts = script_parts(scene, seconds, camera=camera, look=look, sound=sound, say=say, cast=cast, soundtrack=soundtrack)
 

@@ -769,6 +769,26 @@ class EverydayLineTests(unittest.TestCase):
         # Words in front of the line stay as they were.
         self.assertIn("[Shot 1] <Subject 1> looks up and waves.", shot('@1 looks up and says "Hi" and waves.'))
 
+    def test_how_a_line_is_said_stays_in_the_prompt(self):
+        def shot(line, **more):
+            return parts_of(line, seconds=5, jobs={1: "person"}, **more)["detailed_description"]
+
+        # Whispered, shouted and sung lines keep their word.
+        self.assertIn("<Subject 1> (S1) whispers, <d>[English] Stay quiet.</d>", shot('@1 whispers "Stay quiet."'))
+        self.assertIn("<Subject 1> leans in. <Subject 1> (S1) shouts, <d>[English] Run!</d>", shot('@1 leans in and shouts "Run!"'))
+        self.assertIn("(S1) sings, <d>", shot('She sings "La la la"'))
+        self.assertIn("(S1) calls out, <d>", shot('He call out "Over here!"'))
+        self.assertIn("<Subject 1> sings softly. <Subject 1> (S1) sings, <d>", shot('She sings "La la la" softly.'))
+        # So do the words typed between "says" and the line.
+        self.assertIn("(S1) says quietly, <d>[English] Hello.</d>", shot('@1 says quietly "Hello."'))
+        self.assertIn("(S1) mutters under his breath, <d>", shot('@1 mutters under his breath "Not again."'))
+        # A plain line is still "says", and so is one with no such word.
+        self.assertIn("(S1) says, <d>", shot('@1 says "Hello."'))
+        self.assertIn("(S1) says, <d>", shot('@1 tells him "Hello."'))
+        self.assertIn("(S1) says, <d>", shot('@1: "Hello."'))
+        # A voiceover keeps the one phrase H3 knows it by.
+        self.assertIn("(S1) says in an off-screen voiceover, <d>", shot('@1 whispers in voiceover "Stay quiet."'))
+
     def test_every_quote_is_said_by_who_says_it(self):
         script = read_script('Maya says "Hi" while Ben replies "Bye".')
         self.assertEqual([moment.speech for moment in script.moments], ["Hi", "Bye"])
