@@ -21,6 +21,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
   Two pictures set to start on it, or two set to end on it, now say which
   one to change. Before, the second one was left out of the prompt without
   a word.
+- **H3 Prompt Writer 🆎's picture chips stay on one line.** With four
+  pictures and a video plugged in, the video chip dropped onto the Length
+  row, where it was hard to click. The chips now share their row: on a
+  narrow node the longest jobs are cut short first, and pointing at a chip
+  shows its whole job.
 - **H3 Prompt Writer 🆎: clearer timeline and messages.** A 4 s clip shows a
   4 s bar. The note under a clip that H3 shortens says how much is left
   out. `@5` says there are four pictures, and a line that names a missing

@@ -1,7 +1,9 @@
 // The row of chips on H3 Prompt Writer: each picture plugged in, with its @
 // name, a small copy of it and its job, then the video and its job. A slot with nothing plugged in is a faint
 // dashed chip, so it reads as optional. The widgets underneath stay the
-// source of truth: a chip only changes their value.
+// source of truth: a chip only changes their value. The chips share one
+// line. On a narrow node the widest chips give way first, their job cut
+// short, so a short job such as "place" stays whole for as long as it can.
 import { app } from "../../../scripts/app.js";
 import { BRAND, chainCallback, notifyAusbossChange } from "./index.mjs";
 import { THEME as T, FONT_UI } from "./theme.mjs";
@@ -16,13 +18,13 @@ function ensureCss() {
   const style = document.createElement("style");
   style.id = CSS_ID;
   style.textContent = `
-.ausboss-chips{display:flex;flex-wrap:wrap;align-content:flex-start;gap:5px;height:100%;min-width:0;font:600 10.5px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-.ausboss-chip{position:relative;display:flex;align-items:center;gap:4px;height:24px;max-width:100%;padding:0 8px;box-sizing:border-box;border:1px solid #2a3437;border-radius:12px;background:#0b0f10;color:#d8ecea;white-space:nowrap}
+.ausboss-chips{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,max-content);justify-content:start;align-items:start;gap:5px;height:100%;min-width:0;font:600 10.5px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.ausboss-chip{position:relative;display:flex;align-items:center;gap:4px;height:24px;min-width:0;max-width:100%;padding:0 8px;box-sizing:border-box;border:1px solid #2a3437;border-radius:12px;background:#0b0f10;color:#d8ecea;white-space:nowrap}
 .ausboss-chip:hover{border-color:${BRAND}}
 .ausboss-chip img{flex:none;width:18px;height:18px;margin-left:-5px;border-radius:9px;object-fit:cover}
 .ausboss-chip b{flex:none;color:${BRAND};font:700 10px ui-monospace,SFMono-Regular,Menlo,monospace}
 .ausboss-chip em{flex:none;color:#6f8886;font-style:normal;font-weight:500}
-.ausboss-chip-pick{min-width:0;max-width:120px;height:22px;padding:0 12px 0 0;border:none;background:transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' fill='none' stroke='%236f8886' stroke-width='1.4'/%3E%3C/svg%3E") no-repeat right 1px center;color:#d8ecea;font:inherit;cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:left}
+.ausboss-chip-pick{flex:0 1 auto;min-width:0;max-width:120px;height:22px;padding:0 12px 0 0;border:none;background:transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' fill='none' stroke='%236f8886' stroke-width='1.4'/%3E%3C/svg%3E") no-repeat right 1px center;color:#d8ecea;font:inherit;cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:left}
 .ausboss-chip-pick:focus-visible{outline:2px solid ${BRAND};outline-offset:2px;border-radius:3px}
 .ausboss-chip.open{border-color:${BRAND}}
 .ausboss-chip-menu{position:fixed;z-index:10000;box-sizing:border-box;padding:.33em;border:1px solid ${T.rule};border-radius:.66em;background:${T.card};box-shadow:0 10px 32px rgba(0,0,0,.55);font:500 12px/1.25 ${FONT_UI};color:${T.inkSoft}}
@@ -31,6 +33,7 @@ function ensureCss() {
 .ausboss-chip-item.current::before{content:"\\2713"}
 .ausboss-chip-item.current{color:${T.brandInk}}
 .ausboss-chip-item.hot{background:${T.fill};color:${T.ink}}
+.ausboss-chip span{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .ausboss-chip.off{border-style:dashed;background:transparent;color:#56706d}
 .ausboss-chip.off:hover{border-color:#2a3437}
 .ausboss-chip.wired{color:#8ba3a1}
@@ -150,8 +153,12 @@ function choice(node, name, into) {
   const button = add(into, "button", undefined, "ausboss-chip-pick");
   button.type = "button";
   button.setAttribute("aria-haspopup", "listbox");
-  button.title = widget?.options?.tooltip ?? "";
-  const show = (value) => { button.textContent = String(value ?? ""); };
+  // The job can be cut short on a narrow node, so the hint starts with it.
+  const hint = widget?.options?.tooltip ?? "";
+  const show = (value) => {
+    button.textContent = String(value ?? "");
+    button.title = [String(value ?? ""), hint].filter(Boolean).join("\n");
+  };
   show(widget?.value);
   const choose = (value) => {
     show(value);
